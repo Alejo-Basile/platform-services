@@ -1,0 +1,24 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: yamllint
+        run: |
+          pip install yamllint
+          yamllint -d relaxed .
+
+      # Se activa solo cuando existan scripts shell
+      - name: shellcheck
+        if: hashFiles('**/*.sh') != ''
+        run: |
+          sudo apt-get install -y shellcheck
+          git ls-files '*.sh' -z | xargs -0 shellcheck

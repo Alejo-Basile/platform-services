@@ -1,0 +1,5 @@
+# Co-owners del repo: P4 (duenio) + P1 (plataforma)
+* @MaJuVer @Alejo-Basile
+
+# Camino critico de seguridad: el rate-limiter lo revisa P4
+/rate-limiter/ @MaJuVer

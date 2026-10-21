@@ -1,0 +1,426 @@
+openapi: 3.1.0
+info:
+  title: Document Management Service API
+  version: 2.0.0
+  description: |
+    Contrato del camino nuevo (v2) del Document Management Service. Es la fuente de verdad
+    para P2 (implementación), P4 (pruebas de contrato) y el replay de paridad.
+
+    El flujo es asíncrono: `POST /api/v2/documents` devuelve una URL prefirmada para subir el
+    PDF **directo a MinIO**; el cliente sube el binario, espera el webhook y consulta el estado.
+    El PDF nunca atraviesa esta API ni el gateway.
+  contact:
+    name: Equipo de migración
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: https://api.localhost
+    description: Entorno local (puerto configurable por TRAEFIK_HTTPS_PORT; ver infra/.env)
+  - url: https://api.example.com
+    description: Producción (placeholder, sin despliegue remoto en el proyecto académico)
+
+tags:
+  - name: Documents
+    description: Ciclo de vida de documentos y URL prefirmada de subida/descarga
+
+# En S0 el contrato v2 todavía no define autenticación de cliente.
+# Se declara explícitamente para que el linter no lo confunda con un olvido.
+security: []
+
+paths:
+  /api/v2/documents:
+    post:
+      tags: [Documents]
+      operationId: createDocument
+      summary: Crear un documento y emitir una URL prefirmada de subida
+      description: |
+        Crea el documento en estado `PENDING_UPLOAD` y devuelve una URL prefirmada `POST` de
+        MinIO con la política de tamaño del PDF. Es idempotente si el cliente envía
+        `idempotency_key`: el mismo valor devuelve el documento existente con `200`.
+      parameters:
+        - name: X-Correlation-Id
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Identificador de correlación; si falta, el servicio genera uno.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDocumentRequest'
+            examples:
+              nuevo:
+                value:
+                  idempotency_key: idempotency-demo
+                  size_bytes: 12345
+      responses:
+        '201':
+          description: Documento creado y URL prefirmada emitida.
+          headers:
+            X-Correlation-Id:
+              schema:
+                type: string
+              description: Correlation id de la request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateDocumentResponse'
+        '200':
+          description: Documento existente devuelto por idempotencia.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateDocumentResponse'
+        '400':
+          description: JSON inválido, `size_bytes` fuera del límite o validación fallida.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Error interno al persistir o al firmar la URL.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+    get:
+      tags: [Documents]
+      operationId: listDocuments
+      summary: Listar documentos con paginación por cursor
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Filtro por estado de la SAGA.
+          schema:
+            $ref: '#/components/schemas/DocumentStatus'
+        - name: cursor
+          in: query
+          required: false
+          description: Cursor devuelto por la página anterior.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: X-Correlation-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Página de documentos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentListResponse'
+        '400':
+          description: Cursor inválido o `status` no reconocido.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Error interno listando documentos.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /api/v2/documents/{id}:
+    get:
+      tags: [Documents]
+      operationId: getDocument
+      summary: Consultar el estado de un documento
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ULID del documento.
+          schema:
+            type: string
+        - name: X-Correlation-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Documento encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '404':
+          description: El documento no existe.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Error interno consultando el documento.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /api/v2/documents/{id}/download:
+    get:
+      tags: [Documents]
+      operationId: downloadDocument
+      summary: Obtener una URL prefirmada de descarga del .txt
+      description: |
+        Solo devuelve la URL si el documento está en `COMPLETED`. La API nunca hace proxy del
+        binario: entrega una URL prefirmada `GET` de MinIO con expiración corta.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ULID del documento.
+          schema:
+            type: string
+        - name: X-Correlation-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: URL prefirmada de descarga emitida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadResponse'
+        '404':
+          description: El documento no existe.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: El documento aún no está `COMPLETED` o no tiene `txt_ref`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Error interno firmando la URL de descarga.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+components:
+  securitySchemes: {}
+
+  schemas:
+    DocumentStatus:
+      type: string
+      description: Estados de la máquina de estados de la SAGA.
+      enum:
+        - PENDING_UPLOAD
+        - UPLOADED
+        - QUEUED
+        - PROCESSING
+        - RETRYING
+        - EXTRACTION_FAILED
+        - COMPENSATING
+        - COMPLETED
+        - FAILED
+        - REJECTED
+        - UPLOAD_EXPIRED
+
+    CreateDocumentRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        idempotency_key:
+          type: string
+          description: |
+            Clave de idempotencia elegida por el cliente. Si se envía, se usa como `_id` del
+            documento. Repetir la misma clave devuelve el documento existente con `200`.
+          minLength: 1
+          maxLength: 128
+        size_bytes:
+          type: integer
+          format: int64
+          minimum: 1
+          description: |
+            Tamaño declarado del PDF. Si supera `MAX_PDF_BYTES`, la request falla con `400`.
+            El límite real se refuerza en la política `content-length-range` de la URL prefirmada.
+
+    CreateDocumentResponse:
+      type: object
+      required:
+        - document_id
+        - status
+        - upload_url
+        - method
+        - form_fields
+        - required_headers
+        - expires_in
+        - expires_at
+      properties:
+        document_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/DocumentStatus'
+        upload_url:
+          type: string
+          format: uri
+          description: URL de MinIO firmada contra el host público de S3.
+        method:
+          type: string
+          const: POST
+        form_fields:
+          type: object
+          additionalProperties:
+            type: string
+          description: Campos multipart que el cliente debe enviar junto con el archivo.
+        required_headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: Cabeceras de firma que el cliente debe enviar como headers HTTP.
+        expires_in:
+          type: integer
+          description: Segundos de validez de la URL prefirmada.
+        expires_at:
+          type: string
+          format: date-time
+          description: Fin de la ventana de subida más la gracia (RFC3339).
+
+    Document:
+      type: object
+      required:
+        - document_id
+        - status
+        - correlation_id
+        - schema_version
+        - created_at
+        - updated_at
+      properties:
+        document_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/DocumentStatus'
+        object_key:
+          type: string
+          description: Clave del PDF en `raw-pdfs` (derivada del `document_id`).
+        txt_ref:
+          type: string
+          description: Clave del `.txt` en `extracted-txt`; vacía hasta `COMPLETED`.
+        correlation_id:
+          type: string
+        schema_version:
+          type: integer
+        failure_reason:
+          type: string
+          description: Código normalizado de fallo cuando el estado es terminal de error.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+
+    DocumentSummary:
+      type: object
+      required:
+        - document_id
+        - status
+        - correlation_id
+        - created_at
+        - updated_at
+      properties:
+        document_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/DocumentStatus'
+        correlation_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+
+    DocumentListResponse:
+      type: object
+      required:
+        - documents
+        - has_more
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentSummary'
+        next_cursor:
+          type: string
+        has_more:
+          type: boolean
+
+    DownloadResponse:
+      type: object
+      required:
+        - document_id
+        - status
+        - download_url
+        - method
+        - expires_in
+        - correlation_id
+      properties:
+        document_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/DocumentStatus'
+        download_url:
+          type: string
+          format: uri
+        method:
+          type: string
+          const: GET
+        expires_in:
+          type: integer
+        correlation_id:
+          type: string
+
+    Problem:
+      type: object
+      description: Error en formato RFC 9457 (`application/problem+json`).
+      required:
+        - type
+        - title
+        - status
+        - instance
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        correlation_id:
+          type: string

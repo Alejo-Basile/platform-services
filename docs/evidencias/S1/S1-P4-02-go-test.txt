@@ -1,0 +1,21 @@
+# S1-P4-02 — Tests Go (cálculo GCRA + integración contra Redis real)
+# Fecha: 2026-10-21T12:36:49Z
+# Comando: go test ./...; integración en la red Docker `infra_data` con
+# REDIS_ADDR=redis-ratelimit:6379 y REDIS_PASSWORD desde infra/.env (sin exponerla).
+# Nota: el test de integración se omite si REDIS_ADDR no está definido.
+
+?   	github.com/Alejo-Basile/platform-services/rate-limiter/cmd/ratelimitd	[no test files]
+=== RUN   TestGCRAAgainstRedis
+--- PASS: TestGCRAAgainstRedis (0.01s)
+=== RUN   TestBurstOneAllowsExactlyOne
+--- PASS: TestBurstOneAllowsExactlyOne (0.00s)
+=== RUN   TestBurstAllowsExactlyN
+--- PASS: TestBurstAllowsExactlyN (0.00s)
+=== RUN   TestAllowsAgainAfterInterval
+--- PASS: TestAllowsAgainAfterInterval (0.00s)
+=== RUN   TestTTLCoversState
+--- PASS: TestTTLCoversState (0.00s)
+=== RUN   TestDeniedKeepsTAT
+--- PASS: TestDeniedKeepsTAT (0.00s)
+PASS
+ok  	github.com/Alejo-Basile/platform-services/rate-limiter/internal/limiter	0.021s

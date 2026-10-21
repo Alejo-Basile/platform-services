@@ -1,0 +1,188 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: /home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/tests/k6/baseline/pdf_process.js
+        output: json (/home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/benchmarks/baseline/pdf_process-run1.json)
+
+     scenarios: (100.00%) 1 scenario, 5 max VUs, 50s max duration (incl. graceful stop):
+              * pdf_process: Up to 5 looping VUs for 45s over 3 stages (gracefulRampDown: 5s, gracefulStop: 30s)
+
+
+running (00.9s), 1/5 VUs, 77 complete and 0 interrupted iterations
+pdf_process   [   2% ] 1/5 VUs  00.9s/45.0s
+
+running (01.9s), 1/5 VUs, 170 complete and 0 interrupted iterations
+pdf_process   [   4% ] 1/5 VUs  01.9s/45.0s
+
+running (02.9s), 2/5 VUs, 268 complete and 0 interrupted iterations
+pdf_process   [   7% ] 2/5 VUs  02.9s/45.0s
+
+running (03.9s), 2/5 VUs, 370 complete and 0 interrupted iterations
+pdf_process   [   9% ] 2/5 VUs  03.9s/45.0s
+
+running (04.9s), 2/5 VUs, 473 complete and 0 interrupted iterations
+pdf_process   [  11% ] 2/5 VUs  04.9s/45.0s
+
+running (05.9s), 3/5 VUs, 584 complete and 0 interrupted iterations
+pdf_process   [  13% ] 3/5 VUs  05.9s/45.0s
+
+running (06.9s), 3/5 VUs, 679 complete and 0 interrupted iterations
+pdf_process   [  15% ] 3/5 VUs  06.9s/45.0s
+
+running (07.9s), 4/5 VUs, 773 complete and 0 interrupted iterations
+pdf_process   [  18% ] 4/5 VUs  07.9s/45.0s
+
+running (08.9s), 4/5 VUs, 867 complete and 0 interrupted iterations
+pdf_process   [  20% ] 4/5 VUs  08.9s/45.0s
+
+running (09.9s), 4/5 VUs, 965 complete and 0 interrupted iterations
+pdf_process   [  22% ] 4/5 VUs  09.9s/45.0s
+
+running (10.9s), 5/5 VUs, 1060 complete and 0 interrupted iterations
+pdf_process   [  24% ] 5/5 VUs  10.9s/45.0s
+
+running (11.9s), 5/5 VUs, 1154 complete and 0 interrupted iterations
+pdf_process   [  27% ] 5/5 VUs  11.9s/45.0s
+
+running (12.9s), 5/5 VUs, 1242 complete and 0 interrupted iterations
+pdf_process   [  29% ] 5/5 VUs  12.9s/45.0s
+
+running (13.9s), 5/5 VUs, 1338 complete and 0 interrupted iterations
+pdf_process   [  31% ] 5/5 VUs  13.9s/45.0s
+
+running (14.9s), 5/5 VUs, 1422 complete and 0 interrupted iterations
+pdf_process   [  33% ] 5/5 VUs  14.9s/45.0s
+
+running (15.9s), 5/5 VUs, 1518 complete and 0 interrupted iterations
+pdf_process   [  35% ] 5/5 VUs  15.9s/45.0s
+
+running (16.9s), 5/5 VUs, 1610 complete and 0 interrupted iterations
+pdf_process   [  38% ] 5/5 VUs  16.9s/45.0s
+
+running (17.9s), 5/5 VUs, 1704 complete and 0 interrupted iterations
+pdf_process   [  40% ] 5/5 VUs  17.9s/45.0s
+
+running (18.9s), 5/5 VUs, 1796 complete and 0 interrupted iterations
+pdf_process   [  42% ] 5/5 VUs  18.9s/45.0s
+
+running (19.9s), 5/5 VUs, 1880 complete and 0 interrupted iterations
+pdf_process   [  44% ] 5/5 VUs  19.9s/45.0s
+
+running (20.9s), 5/5 VUs, 1959 complete and 0 interrupted iterations
+pdf_process   [  47% ] 5/5 VUs  20.9s/45.0s
+
+running (21.9s), 5/5 VUs, 2039 complete and 0 interrupted iterations
+pdf_process   [  49% ] 5/5 VUs  21.9s/45.0s
+
+running (22.9s), 5/5 VUs, 2134 complete and 0 interrupted iterations
+pdf_process   [  51% ] 5/5 VUs  22.9s/45.0s
+
+running (23.9s), 5/5 VUs, 2227 complete and 0 interrupted iterations
+pdf_process   [  53% ] 5/5 VUs  23.9s/45.0s
+
+running (24.9s), 5/5 VUs, 2322 complete and 0 interrupted iterations
+pdf_process   [  55% ] 5/5 VUs  24.9s/45.0s
+
+running (25.9s), 5/5 VUs, 2415 complete and 0 interrupted iterations
+pdf_process   [  58% ] 5/5 VUs  25.9s/45.0s
+
+running (26.9s), 5/5 VUs, 2503 complete and 0 interrupted iterations
+pdf_process   [  60% ] 5/5 VUs  26.9s/45.0s
+
+running (27.9s), 5/5 VUs, 2597 complete and 0 interrupted iterations
+pdf_process   [  62% ] 5/5 VUs  27.9s/45.0s
+
+running (28.9s), 5/5 VUs, 2692 complete and 0 interrupted iterations
+pdf_process   [  64% ] 5/5 VUs  28.9s/45.0s
+
+running (29.9s), 5/5 VUs, 2779 complete and 0 interrupted iterations
+pdf_process   [  67% ] 5/5 VUs  29.9s/45.0s
+
+running (30.9s), 5/5 VUs, 2864 complete and 0 interrupted iterations
+pdf_process   [  69% ] 5/5 VUs  30.9s/45.0s
+
+running (31.9s), 5/5 VUs, 2959 complete and 0 interrupted iterations
+pdf_process   [  71% ] 5/5 VUs  31.9s/45.0s
+
+running (32.9s), 5/5 VUs, 3054 complete and 0 interrupted iterations
+pdf_process   [  73% ] 5/5 VUs  32.9s/45.0s
+
+running (33.9s), 5/5 VUs, 3150 complete and 0 interrupted iterations
+pdf_process   [  75% ] 5/5 VUs  33.9s/45.0s
+
+running (34.9s), 5/5 VUs, 3233 complete and 0 interrupted iterations
+pdf_process   [  78% ] 5/5 VUs  34.9s/45.0s
+
+running (35.9s), 5/5 VUs, 3325 complete and 0 interrupted iterations
+pdf_process   [  80% ] 5/5 VUs  35.9s/45.0s
+
+running (36.9s), 5/5 VUs, 3416 complete and 0 interrupted iterations
+pdf_process   [  82% ] 5/5 VUs  36.9s/45.0s
+
+running (37.9s), 5/5 VUs, 3499 complete and 0 interrupted iterations
+pdf_process   [  84% ] 5/5 VUs  37.9s/45.0s
+
+running (38.9s), 5/5 VUs, 3586 complete and 0 interrupted iterations
+pdf_process   [  87% ] 5/5 VUs  38.9s/45.0s
+
+running (39.9s), 5/5 VUs, 3679 complete and 0 interrupted iterations
+pdf_process   [  89% ] 5/5 VUs  39.9s/45.0s
+
+running (40.9s), 5/5 VUs, 3768 complete and 0 interrupted iterations
+pdf_process   [  91% ] 5/5 VUs  40.9s/45.0s
+
+running (41.9s), 4/5 VUs, 3856 complete and 0 interrupted iterations
+pdf_process   [  93% ] 4/5 VUs  41.9s/45.0s
+
+running (42.9s), 3/5 VUs, 3942 complete and 0 interrupted iterations
+pdf_process   [  95% ] 3/5 VUs  42.9s/45.0s
+
+running (43.9s), 2/5 VUs, 4027 complete and 0 interrupted iterations
+pdf_process   [  98% ] 2/5 VUs  43.9s/45.0s
+
+running (44.9s), 1/5 VUs, 4107 complete and 0 interrupted iterations
+pdf_process   [ 100% ] 1/5 VUs  44.9s/45.0s
+
+
+  █ THRESHOLDS 
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 8228    182.807395/s
+    checks_succeeded...: 100.00% 8228 out of 8228
+    checks_failed......: 0.00%   0 out of 8228
+
+    ✓ pdf_process 200/409
+    ✓ pdf_process devuelve texto
+
+    HTTP
+    http_req_duration..............: avg=45.32ms min=6.94ms med=48.13ms max=137.64ms p(90)=65.44ms p(95)=71.8ms 
+      { expected_response:true }...: avg=45.32ms min=6.94ms med=48.13ms max=137.64ms p(90)=65.44ms p(95)=71.8ms 
+    http_req_failed................: 0.00%  0 out of 4114
+    http_reqs......................: 4114   91.403698/s
+
+    EXECUTION
+    iteration_duration.............: avg=46.13ms min=7.52ms med=48.85ms max=138.34ms p(90)=66.43ms p(95)=72.97ms
+    iterations.....................: 4114   91.403698/s
+    vus............................: 1      min=1         max=5
+    vus_max........................: 5      min=5         max=5
+
+    NETWORK
+    data_received..................: 1.1 MB 24 kB/s
+    data_sent......................: 4.4 MB 97 kB/s
+
+
+
+
+running (45.0s), 0/5 VUs, 4114 complete and 0 interrupted iterations
+pdf_process ✓ [ 100% ] 0/5 VUs  45s

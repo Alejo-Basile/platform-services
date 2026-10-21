@@ -1,0 +1,10 @@
+metodo,ruta,request,response,auth,errores,consumidor,destino
+GET,/health,-,200 status/timestamp/version,ninguna,-,gateway/ops/healthchecks,queda en el monolito
+GET,/health/ready,-,200 status=ready,ninguna,-,gateway/ops/healthchecks,queda en el monolito
+POST,/pdf/process,multipart file (application/pdf),200 text/plain descarga .txt,ninguna,400 tipo/validacion; 422 PDF invalido/sin texto; 500 extraccion; duplicado por hash responde 200 con texto cacheado (409 solo en carrera de guardado),cliente v1 (por confirmar con access logs),doc-service + worker (flujo asincrono v2)
+GET,/registros,query page/page_size,200 items/total/page/page_size,ninguna,400; 500,cliente v1 (por confirmar),doc-service GET /api/v2/documents
+GET,/registros/hash/{hash_contenido},path hash 64 hex,200 registro,ninguna,400 hash invalido; 404,cliente v1 (por confirmar),se elimina (idempotencia por Idempotency-Key)
+GET,/registros/{id_registro},path UUID,200 registro,ninguna,400 UUID invalido; 404,cliente v1 (por confirmar),doc-service GET /api/v2/documents/{id}
+PUT,/registros/{id_registro},JSON update,200 registro actualizado,ninguna,400 sin campos; 404,admin legacy (por confirmar),se elimina del camino de negocio
+DELETE,/registros/{id_registro},path UUID,200 eliminado/id/mensaje,ninguna,400 UUID invalido; 404,admin legacy (por confirmar),se elimina del camino de negocio
+GET,"/docs,/redoc,/openapi.json",-,200 HTML/JSON cuando debug=true,ninguna,404 si debug=false,desarrolladores,no aplica (contrato v2 en platform-services/openapi/documents.yaml)

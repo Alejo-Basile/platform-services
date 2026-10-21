@@ -1,0 +1,84 @@
+time="2026-10-19T21:40:34-03:00" level=warning msg="\"cli\" level configuration overrode scenarios configuration entirely"
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: /home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/tests/k6/baseline/registros.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 1 max VUs, 40s max duration (incl. graceful stop):
+              * default: 1 looping VUs for 10s (gracefulStop: 30s)
+
+
+running (01.0s), 1/1 VUs, 41 complete and 0 interrupted iterations
+default   [  10% ] 1 VUs  01.0s/10s
+
+running (02.0s), 1/1 VUs, 103 complete and 0 interrupted iterations
+default   [  20% ] 1 VUs  02.0s/10s
+
+running (03.0s), 1/1 VUs, 171 complete and 0 interrupted iterations
+default   [  30% ] 1 VUs  03.0s/10s
+
+running (04.0s), 1/1 VUs, 240 complete and 0 interrupted iterations
+default   [  40% ] 1 VUs  04.0s/10s
+
+running (05.0s), 1/1 VUs, 309 complete and 0 interrupted iterations
+default   [  50% ] 1 VUs  05.0s/10s
+
+running (06.0s), 1/1 VUs, 366 complete and 0 interrupted iterations
+default   [  60% ] 1 VUs  06.0s/10s
+
+running (07.0s), 1/1 VUs, 432 complete and 0 interrupted iterations
+default   [  70% ] 1 VUs  07.0s/10s
+
+running (08.0s), 1/1 VUs, 498 complete and 0 interrupted iterations
+default   [  80% ] 1 VUs  08.0s/10s
+
+running (09.0s), 1/1 VUs, 566 complete and 0 interrupted iterations
+default   [  90% ] 1 VUs  09.0s/10s
+
+running (10.0s), 1/1 VUs, 635 complete and 0 interrupted iterations
+default   [ 100% ] 1 VUs  10.0s/10s
+
+
+  █ THRESHOLDS 
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 1272    127.130018/s
+    checks_succeeded...: 100.00% 1272 out of 1272
+    checks_failed......: 0.00%   0 out of 1272
+
+    ✓ registros 200
+    ✓ registros items
+
+    HTTP
+    http_req_duration..............: avg=15.12ms min=9.42ms med=13.61ms max=392.37ms p(90)=19.59ms p(95)=21.93ms
+      { expected_response:true }...: avg=15.12ms min=9.42ms med=13.61ms max=392.37ms p(90)=19.59ms p(95)=21.93ms
+    http_req_failed................: 0.00%  0 out of 636
+    http_reqs......................: 636    63.565009/s
+
+    EXECUTION
+    iteration_duration.............: avg=15.68ms min=9.89ms med=14.13ms max=394.73ms p(90)=20.23ms p(95)=22.68ms
+    iterations.....................: 636    63.565009/s
+    vus............................: 1      min=1        max=1
+    vus_max........................: 1      min=1        max=1
+
+    NETWORK
+    data_received..................: 2.1 MB 210 kB/s
+    data_sent......................: 63 kB  6.3 kB/s
+
+
+
+
+running (10.0s), 0/1 VUs, 636 complete and 0 interrupted iterations
+default ✓ [ 100% ] 1 VUs  10s

@@ -1,0 +1,103 @@
+{
+  "schemathesis_version": "4.32.2",
+  "command": "st run platform-services/openapi/documents.yaml --url https://api.localhost:8543 --tls-verify false --checks not_a_server_error --phases fuzzing -n 250 --seed 20261021 --generation-deterministic --max-failures 5 --report json --report-dir platform-services/docs/evidencias/S1 --no-color",
+  "seed": 20261021,
+  "started_at": "2026-10-21T12:02:56.488247+00:00",
+  "running_time": 68.75007070900028,
+  "stop_reason": "completed",
+  "complete": true,
+  "exit_code": 0,
+  "operations": {
+    "total": 4,
+    "selected": 4,
+    "tested": 4,
+    "errored": 0,
+    "skipped": 0,
+    "skip_reasons": []
+  },
+  "phases": {
+    "examples": {
+      "status": "skip",
+      "skip_reason": "disabled"
+    },
+    "coverage": {
+      "status": "skip",
+      "skip_reason": "disabled"
+    },
+    "fuzzing": {
+      "status": "success",
+      "skip_reason": null
+    },
+    "stateful": {
+      "status": "skip",
+      "skip_reason": "disabled"
+    }
+  },
+  "test_cases": {
+    "generated": 1000,
+    "with_failures": 0,
+    "unique_failures": 0,
+    "without_checks": 0,
+    "errored": 0
+  },
+  "failures": [],
+  "errors": [],
+  "baseline": null,
+  "filtered": 0,
+  "warnings": {
+    "missing_auth": [],
+    "base_url_mismatch": [],
+    "missing_test_data": [
+      "GET /api/v2/documents/{id}/download"
+    ],
+    "validation_mismatch": [],
+    "missing_deserializer": [],
+    "unused_openapi_auth": [],
+    "unsupported_regex": [],
+    "method_not_allowed": [],
+    "constants_extraction": [],
+    "unmatched_filter": [],
+    "unresolvable_reference": [],
+    "low_valid_rate": [],
+    "rate_limited": [],
+    "dictionary_mismatch": []
+  },
+  "valid_rates": {
+    "POST /api/v2/documents": {
+      "fuzzing": {
+        "accepted": 154,
+        "unreachable": 0,
+        "conflicts": 0,
+        "rejected": 17
+      }
+    },
+    "GET /api/v2/documents": {
+      "fuzzing": {
+        "accepted": 119,
+        "unreachable": 0,
+        "conflicts": 0,
+        "rejected": 30
+      }
+    },
+    "GET /api/v2/documents/{id}": {
+      "fuzzing": {
+        "accepted": 60,
+        "unreachable": 190,
+        "conflicts": 0,
+        "rejected": 0
+      }
+    },
+    "GET /api/v2/documents/{id}/download": {
+      "fuzzing": {
+        "accepted": 0,
+        "unreachable": 25,
+        "conflicts": 225,
+        "rejected": 0
+      }
+    }
+  },
+  "auth": {
+    "reauth_count": 0,
+    "reauth_broke": false
+  }
+}

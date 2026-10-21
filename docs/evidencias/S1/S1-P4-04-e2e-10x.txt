@@ -1,0 +1,29 @@
+# S1-P4-04 — E2E del camino feliz (10 ejecuciones)
+# Fecha: 2026-10-21T12:57:38Z
+# Comando: ./tests/e2e/run.sh happy --runs 10 --keep-stack
+# Alcance parcial: worker no implementado (S1-P3-02 pendiente); se valida hasta UPLOADED
+# y el mensaje en stream:pdf-processing. El DoD de S1-P4-04 sigue BLOQUEADO.
+# Contexto: stack ya en marcha y change stream estabilizado. En arranque en frío la
+# primera ejecución puede perder su evento (hallazgo #2 del informe S1).
+
+[e2e] stack ya estaba corriendo; no se apagará al terminar
+[e2e] S1-P4-04 parcial: worker no implementado; se valida hasta UPLOADED y Redis Streams
+[e2e] run 1: OK document_id=p4-1792587305-ed6193a0b32777b7 status=UPLOADED stream=1792587305767-0 XLEN=1
+[e2e] run 2: OK document_id=p4-1792587318-0dd1d52fc45c1996 status=UPLOADED stream=1792587318695-0 XLEN=1
+[e2e] run 3: OK document_id=p4-1792587328-864c8dec6a10f7fe status=UPLOADED stream=1792587329062-0 XLEN=1
+[e2e] run 4: OK document_id=p4-1792587339-7ea943b78d6c6c9c status=UPLOADED stream=1792587340242-0 XLEN=1
+[e2e] run 5: OK document_id=p4-1792587352-ade0af75b50016be status=UPLOADED stream=1792587352830-0 XLEN=1
+[e2e] run 6: OK document_id=p4-1792587364-730a44eb72267f97 status=UPLOADED stream=1792587365229-0 XLEN=1
+[e2e] run 7: OK document_id=p4-1792587375-665aa689bff9e85b status=UPLOADED stream=1792587376341-0 XLEN=1
+[e2e] run 8: OK document_id=p4-1792587387-566f7bf444ee2a19 status=UPLOADED stream=1792587387507-0 XLEN=1
+[e2e] run 9: OK document_id=p4-1792587398-b2e8e03578ec6c36 status=UPLOADED stream=1792587398900-0 XLEN=1
+[e2e] run 10: OK document_id=p4-1792587410-db718032a67284e7 status=UPLOADED stream=1792587410701-0 XLEN=1
+[e2e] happy: 10/10 ejecuciones OK (COMPLETED no validado: S1-P3-02 pendiente)
+[e2e] --keep-stack: el stack queda levantado
+
+# Verificación de limpieza (2026-10-21T12:57:38Z)
+# documents con _id /^p4-/: 0
+# documents PENDING_UPLOAD: 0
+# XLEN stream:pdf-processing: 0
+# objetos raw-pdfs/*.pdf: 0 (solo queda el marcador de carpeta 0B raw-pdfs/)
+# La limpieza se ejecuta en cada iteración: deleteOne, mc rm --force y XDEL.

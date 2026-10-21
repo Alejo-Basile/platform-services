@@ -22,3 +22,13 @@ jobs:
         run: |
           sudo apt-get install -y shellcheck
           git ls-files '*.sh' -z | xargs -0 shellcheck
+
+  openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Redocly lint (contrato v2)
+        run: npx --yes @redocly/cli@2.66.1 lint openapi/documents.yaml

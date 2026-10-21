@@ -1,0 +1,60 @@
+# S1-P4-03 — Fuzzing de contrato (1000 casos)
+# Fecha: 2026-10-21T12:02:51Z
+# Comando: schemathesis run openapi/documents.yaml --url https://api.localhost:8543 -n 250 --phases fuzzing
+
+Schemathesis v4.32.2
+━━━━━━━━━━━━━━━━━━━━
+
+ ✅  Loaded specification from platform-services/openapi/documents.yaml (in
+ 1.95s)
+
+     Base URL:         https://api.localhost:8543
+     Specification:    Open API 3.1.0
+     Operations:       4 selected / 4 total
+
+ ✅  API capabilities:
+
+     Supports NULL byte in headers:                            ✘
+     Accepts backslash and control characters in URL paths:    ✓
+
+ ✅  Fuzzing (in 68.00s)
+
+     ✅ 4 passed
+
+=================================== WARNINGS ===================================
+
+Missing test data: 1 operation repeatedly returned 404 Not Found, preventing tests from reaching your API's core logic
+
+  - GET /api/v2/documents/{id}/download
+
+💡 Add a link from GET /api/v2/documents/{id}, or supply the identifiers it returns in your config file
+
+=================================== SUMMARY ====================================
+
+API Operations:
+  Selected: 4/4
+  Tested: 4
+
+Test Phases:
+  ⏭  Examples (disabled)
+  ⏭  Coverage (disabled)
+  ✅ Fuzzing
+  ⏭  Stateful (disabled)
+
+Warnings:
+  ⚠️ Missing test data: 1 operation repeatedly returned 404 responses
+
+Test cases:
+  1000 generated, 1000 passed
+
+Reports:
+  - JSON: platform-services/docs/evidencias/S1/json-20261021T090253Z.json
+
+Seed: not used in the deterministic mode
+
+============================= 1 warning in 68.75s ==============================
+
+# Limpieza de documentos creados por el fuzzing (desde 2026-10-21T12:02:51Z)
+antes: 148
+borrados: 148
+despues: 0

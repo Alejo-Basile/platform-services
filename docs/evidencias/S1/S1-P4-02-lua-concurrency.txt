@@ -1,0 +1,70 @@
+# S1-P4-02 — 100 clientes concurrentes
+# Fecha: 2026-10-21T11:58:21Z
+# BASE_URL=http://127.0.0.1:8090 RUN_ID=1792583901
+# Comando: k6 run tests/k6/ratelimit/concurrency.js
+
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: /home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/tests/k6/ratelimit/concurrency.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 100 max VUs, 50s max duration (incl. graceful stop):
+              * burst: 100 iterations shared among 100 VUs (maxDuration: 20s, gracefulStop: 30s)
+
+
+
+  █ THRESHOLDS 
+
+    allowed_total
+    ✓ 'count==1' count=1
+
+    checks
+    ✓ 'rate==1' rate=100.00%
+
+    denied_total
+    ✓ 'count==99' count=99
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 200     819.952911/s
+    checks_succeeded...: 100.00% 200 out of 200
+    checks_failed......: 0.00%   0 out of 200
+
+    ✓ status 200 o 429
+    ✓ cuerpo JSON
+
+    CUSTOM
+    allowed_total..................: 1      4.099765/s
+    denied_total...................: 99     405.876691/s
+
+    HTTP
+    http_req_duration..............: avg=78.81ms  min=3.03ms  med=56.17ms  max=214.58ms p(90)=186.81ms p(95)=197.72ms
+      { expected_response:true }...: avg=61.63ms  min=61.63ms med=61.63ms  max=61.63ms  p(90)=61.63ms  p(95)=61.63ms 
+    http_req_failed................: 99.00% 99 out of 100
+    http_reqs......................: 100    409.976456/s
+
+    EXECUTION
+    iteration_duration.............: avg=131.82ms min=33.53ms med=123.87ms max=237.83ms p(90)=207.97ms p(95)=218.57ms
+    iterations.....................: 100    409.976456/s
+
+    NETWORK
+    data_received..................: 24 kB  100 kB/s
+    data_sent......................: 12 kB  50 kB/s
+
+
+
+
+running (00.2s), 000/100 VUs, 100 complete and 0 interrupted iterations
+burst ✓ [ 100% ] 100 VUs  00.2s/20s  100/100 shared iters
+
+# Limpieza de claves de prueba
+0
+claves rl:* restantes: 0

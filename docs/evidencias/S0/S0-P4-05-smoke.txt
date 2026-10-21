@@ -1,0 +1,14 @@
+# S0-P4-05 — Smoke E2E
+# Fecha: 2026-10-21T12:57:53Z
+# Comando: ./tests/e2e/run.sh smoke --keep-stack
+# Entorno: stack Compose `infra` (perfil full), certs autofirmados, sin secretos en la salida.
+
+[e2e] stack ya estaba corriendo; no se apagará al terminar
+[e2e] esperando gateway y monolito en https://api.localhost:8543/health
+[e2e] health: OK
+[e2e] ready: OK
+[e2e] minio: OK
+[e2e] redirect HTTP->HTTPS: OK (301)
+[e2e] mongo vía /registros: OK
+[e2e] smoke completado sobre el stack existente
+[e2e] --keep-stack: el stack queda levantado

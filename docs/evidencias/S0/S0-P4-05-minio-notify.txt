@@ -1,0 +1,17 @@
+# S0-P4-05 — Corrección de la suscripción MinIO -> doc-service
+# Fecha: 2026-10-21T12:27:35Z
+# Causa: init-notifications.sh usaba arn:minio:sqs::docservice:webhook (minúsculas, sin región)
+#        mientras MinIO publica arn:minio:sqs:us-east-1:DOCSERVICE:webhook.
+# Comando: docker compose --profile full up -d --force-recreate minio-notify-init
+
+Eventos configurados en raw-pdfs:
+arn:minio:sqs:us-east-1:DOCSERVICE:webhook   s3:ObjectCreated:*   Filter: 
+MinIO notificaciones inicializadas.
+Target notify_webhook:DOCSERVICE activo -> http://doc-service:8080/internal/storage/events
+Evento ya suscrito en raw-pdfs (arn:minio:sqs:us-east-1:DOCSERVICE:webhook)
+Eventos configurados en raw-pdfs:
+arn:minio:sqs:us-east-1:DOCSERVICE:webhook   s3:ObjectCreated:*   Filter: 
+MinIO notificaciones inicializadas.
+
+# mc event list local/raw-pdfs
+arn:minio:sqs:us-east-1:DOCSERVICE:webhook   s3:ObjectCreated:*   Filter: 

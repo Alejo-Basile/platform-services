@@ -1,0 +1,68 @@
+S4-P4-03 — Redis Streams caído 5 minutos
+==========================================
+
+Estado: PARCIAL (COMPLETED y pérdida por réplica asíncrona bloqueados por G-B)
+Fecha: 2026-10-24
+Commit: 2bc9d56031d8fe9d66c1bb23bbeb9465b63bcade
+Workflow: e2e workflow_dispatch 40135424950
+URL: https://github.com/Alejo-Basile/platform-services/actions/runs/40135424950
+Job: smoke, 10m39s
+Proyecto Compose: p4-e2e
+Stack: imágenes construidas desde main de infra, doc-service y extraction-worker
+
+Inyección
+---------
+- Dos documentos creados y encolados con Redis arriba.
+- Redis Streams detenido durante 300 s reales.
+- Tercer documento subido durante la caída; quedó en UPLOADED.
+- Redis recuperado; las dos entradas previas seguían presentes.
+- El relay no reencoló el tercer documento; se forzó reconciliación retrasando
+  created_at/updated_at 45 minutos y llamando POST /internal/reconcile.
+
+Resultado
+---------
+PASS: dos documentos previos encolados antes de la caída.
+PASS: documento subido durante la caída quedó en UPLOADED.
+PASS: ventana de caída real de 300 s.
+PASS: Redis volvió.
+PASS: entradas previas preservadas (AOF), una por documento.
+PASS: documento de la caída recuperado por el reconciliador.
+PASS: una sola entrada en el stream por documento.
+BLOCKED: COMPLETED y medición de pérdida con réplica asíncrona requieren G-B.
+Resumen del arnés: PASS=2 FAIL=0 BLOCKED=2 (incluye S4-P4-01).
+
+Salida
+------
+[chaos] S4-P4-03: Redis caido 300s con trabajos encolados
+  [PASS] documento previo encolado: chaos3-pre-1792878410-28868
+  [PASS] documento previo encolado: chaos3-pre-1792878411-13856
+ Container p4-e2e-redis-streams-1  Stopping
+ Container p4-e2e-redis-streams-1  Stopped
+  [INFO] Redis detenido; se sube un documento durante la caida
+  [PASS] documento subido durante la caida quedo UPLOADED
+  [INFO] esperando 299s para completar la ventana
+  [INFO] ventana de caida real: 300s
+  [PASS] Redis recuperado
+  [PASS] una sola entrada en el stream para chaos3-pre-1792878410-28868
+  [PASS] una sola entrada en el stream para chaos3-pre-1792878411-13856
+  [PASS] entradas previas preservadas (AOF)
+  [INFO] relay no recupero el documento de la caida; se fuerza reconciliacion
+  [PASS] documento de la caida recuperado por reconciler
+  [PASS] una sola entrada en el stream para chaos3-during-1792878412-19821
+  [BLOCKED] COMPLETED y perdida por replica asincrona bloqueados por G-B
+  [PASS] S4-P4-03 parcial
+
+Hallazgos
+---------
+1. Redis conservó las entradas previas tras la caída y reinicio (AOF).
+2. El relay no recuperó el documento encolado durante la caída. El
+   reconciliador sí. Aplican las mismas observaciones que en S4-P4-01.
+3. No se midió pérdida con réplica asíncrona porque el worker no está en
+   Compose y no hay consumidor real.
+4. La recuperación por reconciliación se forzó; no se esperó el ciclo natural.
+
+Limitaciones
+------------
+- Solo se detuvo el master de Redis; no se probó failover Sentinel.
+- No se ejecutó el runbook de failover de P1 (owner P1).
+- No se validó COMPLETED ni .txt: dependen de G-B.

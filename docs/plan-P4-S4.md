@@ -41,7 +41,7 @@ Auditoría de `main` al 2026-10-24.
 | **G-C — Correctitud** | TTL, transiciones, correlación y `/readyz` cerrados | P2 | Parcial |
 | **S4-P2 — Auditoría** | Tests y código de reconciliación/relay/endpoints verificados contra el DoD | P2/P4 | Pendiente |
 | **S4-P1-01** | 2 réplicas del doc-service y 50/50 mensajes sin duplicados | P1 | Pendiente |
-| **G-E — Caos** | Caos 1/3 parciales verdes y evidencia; caos 2/4 con worker | P4 | En curso |
+| **G-E — Caos** | Caos 1/3 parciales verdes y evidencia; caos 2/4 con worker | P4 | Parcial verde (run 40135424950) |
 
 **Regla:** un caos solo se marca `HECHO` si su DoD completo se ejecutó. Hasta entonces se registra `PARCIAL` o `BLOQUEADO`.
 
@@ -50,7 +50,7 @@ Auditoría de `main` al 2026-10-24.
 ### S4-P4-01 — El Document Service cae tras el webhook
 
 **Depende de:** `S2-P2-06`, G-B, G-C, S4-P2 auditado.
-**Estado:** **PARCIAL EJECUTABLE**; el cierre con `COMPLETED` está `BLOQUEADO` por G-B.
+**Estado:** **PARCIAL EJECUTADO** (CI 40135424950); el cierre con `COMPLETED` está `BLOQUEADO` por G-B.
 
 **Inyección sin failpoints:**
 
@@ -96,7 +96,7 @@ Auditoría de `main` al 2026-10-24.
 ### S4-P4-03 — Redis de Streams caído 5 minutos
 
 **Depende de:** `S1-P1-08`, G-B.
-**Estado:** **PARCIAL EJECUTABLE**; el cierre con `COMPLETED` y la pérdida por réplica asíncrona están `BLOQUEADOS`.
+**Estado:** **PARCIAL EJECUTADO** (CI 40135424950); el cierre con `COMPLETED` y la pérdida por réplica asíncrona están `BLOQUEADOS`.
 
 **Procedimiento parcial:**
 
@@ -181,13 +181,19 @@ tests/e2e/chaos/run.sh --all --full
 
 **CI:** paso manual `workflow_dispatch` después del smoke. No corre en cada PR por la espera de 300 s.
 
+**Primera ejecución:** workflow `e2e` 40135424950, 10m39s, commit `2bc9d56`.
+Resultado: `PASS=2 FAIL=0 BLOCKED=2`. Caos 1 y 3 recuperaron por el
+reconciliador; el relay no reencoló en ninguno de los dos. Evidencias en
+`docs/evidencias/S4/S4-P4-01-caos-doc-service.txt` y
+`S4-P4-03-caos-redis.txt`.
+
 ## 6. Matriz de ejecución
 
 | Tarea | Ahora | Con G-B | Con G-C + S4-P2 | Evidencia |
 |---|---|---|---|---|
-| S4-P4-01 | Parcial | Completa | Completa | `S4-P4-01` |
+| S4-P4-01 | Parcial ejecutado | Completa | Completa | `S4-P4-01-caos-doc-service.txt` |
 | S4-P4-02 | Bloqueada | Completa | Completa | `S4-P4-02` |
-| S4-P4-03 | Parcial | Completa | Completa | `S4-P4-03` |
+| S4-P4-03 | Parcial ejecutado | Completa | Completa | `S4-P4-03-caos-redis.txt` |
 | S4-P4-04 | Bloqueada | Completa | Completa | `S4-P4-04` |
 | S4-P4-05 | Borrador | Validable | Completa | `S4-P4-05` |
 
@@ -195,7 +201,7 @@ tests/e2e/chaos/run.sh --all --full
 
 | Riesgo | Mitigación |
 |---|---|
-| El relay no reanuda desde el resume token y el documento queda `UPLOADED` | Forzar reconciliación con `updated_at` viejo; registrar el camino y abrir hallazgo si falla |
+| El relay no reanuda desde el resume token y el documento queda `UPLOADED` | Ocurrió en la primera ejecución; se forzó reconciliación con `created_at`/`updated_at` viejos y se abrió hallazgo para P2 |
 | La caída de Redis no es exactamente “antes del XADD” | Es una inyección equivalente sin failpoints; se documenta la limitación |
 | El caos 3 tarda 5 min y alarga CI | Solo `workflow_dispatch`; duración configurable para desarrollo |
 | El worker no llega | No se simula; caos 2/4 y cierres `COMPLETED` quedan bloqueados |
@@ -206,8 +212,8 @@ tests/e2e/chaos/run.sh --all --full
 ## 8. Orden de ejecución
 
 1. Auditar S4-P2 y confirmar que reconciliador/relay/endpoints cumplen su DoD.
-2. Implementar y validar el arnés de caos 1/3 parcial.
-3. Ejecutar en CI manual y guardar evidencia.
+2. ~~Implementar y validar el arnés de caos 1/3 parcial.~~
+3. ~~Ejecutar en CI manual y guardar evidencia.~~ (hecho en 40135424950)
 4. Redactar el borrador de `S4-P4-05`.
 5. Al llegar G-B y S4-P1-01: caos 2/4, cierre `COMPLETED` y validación real del runbook.
 6. Actualizar este plan y las evidencias con cada gate.
@@ -219,10 +225,11 @@ platform-services/
 ├── docs/plan-P4-S4.md
 ├── docs/evidencias/S4/
 │   ├── S4-P4-01-caos-doc-service.txt
-│   ├── S4-P4-02-caos-worker.txt
 │   ├── S4-P4-03-caos-redis.txt
-│   ├── S4-P4-04-caos-mongo.txt
-│   └── S4-P4-05-runbook.txt
+│   ├── S4-BLOQUEOS.txt
+│   ├── S4-P4-02-caos-worker.txt   # pendiente de G-B
+│   ├── S4-P4-04-caos-mongo.txt    # pendiente de G-B
+│   └── S4-P4-05-runbook.txt       # pendiente de S3-P4-03
 └── tests/e2e/chaos/run.sh
 ```
 

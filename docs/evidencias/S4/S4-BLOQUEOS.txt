@@ -1,0 +1,42 @@
+S4-P4 — Tareas bloqueadas
+=========================
+
+Fecha: 2026-10-24
+Commit auditado: 2bc9d56031d8fe9d66c1bb23bbeb9465b63bcade
+Base: main de infra (a7e44d0), doc-service (210be28) y extraction-worker (b849e1d)
+
+S4-P4-02 — Worker muere a mitad de extracción
+---------------------------------------------
+Estado: BLOQUEADA por G-B y S4-P3-03/04.
+
+Evidencia:
+- No hay servicio extraction-worker en infra/compose/docker-compose.yml.
+- El worker tiene consumidor, DLQ y XAUTOCLAIM, pero el extractor es fake
+  (crates/core/src/fake.rs).
+- Sin .txt real no se puede verificar un único COMPLETED ni ausencia de
+  duplicados.
+- min-idle-time y drenaje siguen pendientes en S4-P3.
+
+S4-P4-04 — Mongo caído durante el paso 5
+----------------------------------------
+Estado: BLOQUEADA por G-B.
+
+Evidencia:
+- La secuencia .txt -> COMPLETED requiere worker real.
+- Sin worker no se puede probar la compensación ni detectar .txt huérfano.
+- La prueba no se simula con mocks.
+
+S4-P4-05 — Guía de documentos atascados
+---------------------------------------
+Estado: BORRADOR POSIBLE; validación real BLOQUEADA por S3-P4-03 y G-B.
+
+Evidencia:
+- El runbook de S3-P4-03 no existe/está bloqueado.
+- Un caso real de PROCESSING viejo requiere worker y G-C.
+- Se puede redactar el árbol de decisión, pero no validarlo end-to-end.
+
+Conclusión
+----------
+Solo S4-P4-01 y S4-P4-03 se ejecutaron parcialmente. No se marca ninguna tarea
+como HECHA: sus DoD completos dependen de G-B. El plan y el arnés están en
+docs/plan-P4-S4.md y tests/e2e/chaos/run.sh.

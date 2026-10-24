@@ -1,0 +1,74 @@
+S2-P4-01 — E2E de caminos de error
+==================================
+
+Fecha: 2026-10-24
+Alcance: P4, subconjunto control-plane ejecutable sin worker.
+Entorno: local (api.localhost:8543 / s3.localhost:8543), stack `infra`.
+Codigo: platform-services 4294956, infra a7e44d0, doc-service 210be28,
+         extraction-worker b849e1d.
+
+Casos ejecutados (--chaos):
+  - oversize declarado (400, sin documento persistido)
+  - MIME falso / no PDF (REJECTED con NOT_A_PDF, sin stream)
+  - cliente que nunca sube (PENDING_UPLOAD, sin stream)
+  - PDF mayor al maximo en MinIO (400 EntityTooLarge, PENDING_UPLOAD)
+  - MinIO caido (fallo controlado y recuperacion)
+  - Redis caido (UPLOADED en Mongo; relay sin Redis)
+  - Mongo caido (500 controlado y recuperacion)
+
+Casos bloqueados:
+  - PDF corrupto/cifrado/sin texto: requieren worker real (G-B).
+
+Hallazgo: con Mongo caido, POST /api/v2/documents tarda ~31 s antes de
+devolver 500 (server selection timeout por defecto). Es un fallo controlado
+pero no fail-fast; se registra para P2 en G-C, no bloquea el aserto de S2-P4-01.
+
+Nota local: el Redis del stack en ejecucion usa una credencial previa y no
+autentica con infra/.env; el aserto de stream se omitio en modo local. En CI,
+donde el stack se crea con secretos efimeros, el aserto es obligatorio.
+
+Salida:
+[errors] API_BASE=https://api.localhost:8543 proyecto=infra
+[errors] oversize declarado
+  [PASS] 400 validation y sin documento persistido
+  [PASS] oversize declarado
+[errors] MIME falso (no PDF)
+[errors] aviso: Redis no autentica; se omite el aserto de stream
+  [PASS] REJECTED/NOT_A_PDF y sin mensaje en Redis
+  [PASS] MIME falso (no PDF)
+[errors] cliente que nunca sube
+  [PASS] PENDING_UPLOAD sin mensaje en Redis (ventana corta; TTL no esperado)
+  [PASS] cliente que nunca sube
+[errors] PDF mayor al maximo en MinIO
+  [PASS] MinIO rechazo por content-length-range (400) y el documento sigue PENDING_UPLOAD
+  [PASS] PDF mayor al maximo en MinIO
+[errors] MinIO caido
+ Container infra-minio-1 Stopping 
+ Container infra-minio-1 Stopped 
+ Container infra-minio-1 Starting 
+ Container infra-minio-1 Started 
+  [PASS] fallo controlado con MinIO caido y recuperacion
+  [PASS] MinIO caido
+[errors] Redis caido
+ Container infra-redis-streams-1 Stopping 
+ Container infra-redis-streams-1 Stopped 
+ Container infra-redis-streams-1 Starting 
+ Container infra-redis-streams-1 Started 
+  [PASS] webhook registro UPLOADED con Redis caido; relay no pudo encolar
+  [PASS] Redis caido
+[errors] Mongo caido
+ Container infra-mongo-1 Stopping 
+ Container infra-mongo-1 Stopped 
+[errors] create con Mongo caido: HTTP 500 en 30s
+ Container infra-mongo-1 Starting 
+ Container infra-mongo-1 Started 
+  [PASS] create devolvio 5xx con Mongo caido
+  [PASS] Mongo caido
+[errors] PDF corrupto
+  [BLOCKED] requiere worker real (G-B)
+[errors] PDF cifrado
+  [BLOCKED] requiere worker real (G-B)
+[errors] PDF sin texto
+  [BLOCKED] requiere worker real (G-B)
+
+[errors] resumen: PASS=7 FAIL=0 BLOCKED=3

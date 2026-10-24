@@ -1,0 +1,151 @@
+{
+    "metrics": {
+        "http_req_connecting": {
+            "avg": 0.001197662805944056,
+            "min": 0,
+            "med": 0,
+            "max": 2.088418,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "http_req_waiting": {
+            "min": 0,
+            "med": 28.14817,
+            "max": 226.006421,
+            "p(90)": 72.36556,
+            "p(95)": 90.53261725,
+            "avg": 35.31574743028853
+        },
+        "checks": {
+            "passes": 9152,
+            "fails": 0,
+            "value": 1
+        },
+        "iteration_duration": {
+            "med": 74.88863900000001,
+            "max": 317.56859,
+            "p(90)": 130.97928940000006,
+            "p(95)": 168.31951695,
+            "avg": 83.04155000393365,
+            "min": 19.498419
+        },
+        "http_reqs": {
+            "count": 4576,
+            "rate": 101.60004594565449
+        },
+        "iterations": {
+            "count": 2288,
+            "rate": 50.80002297282724
+        },
+        "http_req_sending": {
+            "p(90)": 7.4744205,
+            "p(95)": 13.76532175,
+            "avg": 2.7311189840472014,
+            "min": 0.12438,
+            "med": 0.551803,
+            "max": 69.056791
+        },
+        "vus": {
+            "value": 1,
+            "min": 1,
+            "max": 5
+        },
+        "http_req_duration": {
+            "max": 227.35359,
+            "p(90)": 77.37182150000001,
+            "p(95)": 96.1892805,
+            "avg": 39.86911388308564,
+            "min": 5.06477,
+            "med": 32.502948
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 4576,
+            "thresholds": {
+                "rate<0.01": false
+            },
+            "value": 0
+        },
+        "http_req_receiving": {
+            "max": 66.314887,
+            "p(90)": 4.366738,
+            "p(95)": 7.4789734999999995,
+            "avg": 1.822247468749998,
+            "min": 0.067268,
+            "med": 0.416387
+        },
+        "vus_max": {
+            "value": 5,
+            "min": 5,
+            "max": 5
+        },
+        "data_sent": {
+            "count": 548926,
+            "rate": 12187.698168873325
+        },
+        "http_req_blocked": {
+            "p(95)": 0.0026585000000000003,
+            "avg": 0.06748558194930081,
+            "min": 0.000795,
+            "med": 0.001937,
+            "max": 112.094119,
+            "p(90)": 0.002362
+        },
+        "http_req_duration{expected_response:true}": {
+            "p(95)": 96.1892805,
+            "avg": 39.86911388308564,
+            "min": 5.06477,
+            "med": 32.502948,
+            "max": 227.35359,
+            "p(90)": 77.37182150000001
+        },
+        "http_req_tls_handshaking": {
+            "min": 0,
+            "med": 0,
+            "max": 110.514245,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0.05478898732517482
+        },
+        "data_received": {
+            "count": 5118251,
+            "rate": 113639.54037617832
+        }
+    },
+    "root_group": {
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "create for state 201": {
+                    "name": "create for state 201",
+                    "path": "::create for state 201",
+                    "id": "39320f997be3fbe78f4a2ba2e1bd5a80",
+                    "passes": 2288,
+                    "fails": 0
+                },
+                "state 200": {
+                    "name": "state 200",
+                    "path": "::state 200",
+                    "id": "a2fc965ddd6df76dbfc7771fbab2fbcd",
+                    "passes": 2288,
+                    "fails": 0
+                },
+                "state document_id": {
+                    "path": "::state document_id",
+                    "id": "2f060d749f7a688a380633197eb0dbe9",
+                    "passes": 2288,
+                    "fails": 0,
+                    "name": "state document_id"
+                },
+                "state PENDING_UPLOAD": {
+                    "id": "0c648e9602f1141a935970d9d5cd8ee6",
+                    "passes": 2288,
+                    "fails": 0,
+                    "name": "state PENDING_UPLOAD",
+                    "path": "::state PENDING_UPLOAD"
+                }
+            },
+        "name": "",
+        "path": ""
+    }
+}

@@ -8,6 +8,12 @@ on:
       - "openapi/**"
       - ".github/workflows/e2e.yml"
   workflow_dispatch:
+    inputs:
+      chaos_redis_seconds:
+        description: "Duracion de la caida de Redis en S4-P4-03"
+        required: false
+        default: "300"
+        type: string
   schedule:
     - cron: "0 3 * * *"
 
@@ -59,6 +65,14 @@ jobs:
         run: |
           set -o pipefail
           tests/e2e/errors/run.sh --chaos 2>&1 | tee artifacts/errors.txt
+
+      - name: Caos S4 parcial
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          P4_CHAOS_REDIS_SECONDS: ${{ github.event.inputs.chaos_redis_seconds || '300' }}
+        run: |
+          set -o pipefail
+          tests/e2e/chaos/run.sh --all 2>&1 | tee artifacts/chaos.txt
 
       - name: Instalar k6
         uses: grafana/setup-k6-action@v1

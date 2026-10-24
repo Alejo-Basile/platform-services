@@ -120,7 +120,11 @@ write_secret() {
     return 0
   fi
   printf '%s' "$value" > "$SECRETS_DIR/$file"
-  chmod 600 "$SECRETS_DIR/$file"
+  if [[ "$MODE" == "ci" ]]; then
+    chmod 0444 "$SECRETS_DIR/$file"
+  else
+    chmod 600 "$SECRETS_DIR/$file"
+  fi
 }
 
 write_secret mongo_initdb_root_password.txt MONGO_INITDB_ROOT_PASSWORD
@@ -141,7 +145,11 @@ REDIS_STREAMS_PASSWORD="$(env_value REDIS_STREAMS_PASSWORD)"
 if [[ "$MODE" == "ci" || ! -s "$SECRETS_DIR/redis_streams_password.json" ]]; then
   printf '{"redis_password": "%s"}' "$REDIS_STREAMS_PASSWORD" \
     > "$SECRETS_DIR/redis_streams_password.json"
-  chmod 600 "$SECRETS_DIR/redis_streams_password.json"
+  if [[ "$MODE" == "ci" ]]; then
+    chmod 0444 "$SECRETS_DIR/redis_streams_password.json"
+  else
+    chmod 600 "$SECRETS_DIR/redis_streams_password.json"
+  fi
 fi
 
 count="$(find "$SECRETS_DIR" -maxdepth 1 -type f ! -name '.gitkeep' | wc -l | tr -d ' ')"

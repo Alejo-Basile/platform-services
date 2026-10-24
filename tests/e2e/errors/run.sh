@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2016,SC2329
+# shellcheck disable=SC2016,SC2317,SC2329
 # E2E de caminos de error (S2-P4-01).
 #
 # Uso:
@@ -210,7 +210,9 @@ cleanup_current() {
 restore_services() {
   local svc
   for svc in "${STOPPED[@]:-}"; do
-    [[ -n "$svc" ]] && compose start "$svc" >/dev/null 2>&1 || true
+    if [[ -n "$svc" ]]; then
+      compose start "$svc" >/dev/null 2>&1 || true
+    fi
   done
   STOPPED=()
 }

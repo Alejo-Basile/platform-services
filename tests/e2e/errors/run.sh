@@ -29,6 +29,7 @@ INFRA_DIR="$WORKSPACE_ROOT/infra"
 ENV_FILE="${P4_ENV_FILE:-$INFRA_DIR/.env}"
 COMPOSE_FILE="$INFRA_DIR/compose/docker-compose.yml"
 BUILD_FILE="$INFRA_DIR/compose/docker-compose.build.yml"
+OVERRIDE_FILE="$PLATFORM_ROOT/tests/e2e/ci/compose.override.yml"
 PROJECT="${P4_COMPOSE_PROJECT:-infra}"
 CHAOS=0
 [[ "${1:-}" == "--chaos" ]] && CHAOS=1
@@ -39,7 +40,7 @@ bad()   { printf '  [FAIL] %s\n' "$*"; }
 block() { printf '  [BLOCKED] %s\n' "$*"; }
 
 compose() {
-  docker compose -f "$COMPOSE_FILE" -f "$BUILD_FILE" \
+  docker compose -f "$COMPOSE_FILE" -f "$BUILD_FILE" -f "$OVERRIDE_FILE" \
     --env-file "$ENV_FILE" -p "$PROJECT" "$@"
 }
 
@@ -375,6 +376,7 @@ for tool in docker curl jq openssl; do
 done
 [[ -f "$ENV_FILE" ]] || { bad "falta $ENV_FILE"; exit 1; }
 [[ -f "$VALID_PDF" ]] || { bad "falta el fixture $VALID_PDF"; exit 1; }
+[[ -f "$OVERRIDE_FILE" ]] || { bad "falta $OVERRIDE_FILE"; exit 1; }
 
 log "API_BASE=$API_BASE proyecto=$PROJECT"
 curl -sk --max-time 5 --resolve "api.localhost:${HTTPS_PORT}:127.0.0.1" \

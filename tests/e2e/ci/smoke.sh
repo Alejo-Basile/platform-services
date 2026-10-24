@@ -26,6 +26,7 @@ INFRA_DIR="$WORKSPACE_ROOT/infra"
 ENV_FILE="${P4_ENV_FILE:-$INFRA_DIR/.env}"
 COMPOSE_FILE="$INFRA_DIR/compose/docker-compose.yml"
 BUILD_FILE="$INFRA_DIR/compose/docker-compose.build.yml"
+OVERRIDE_FILE="$SCRIPT_DIR/compose.override.yml"
 PROJECT="${P4_COMPOSE_PROJECT:-infra}"
 MODE="local"
 if [[ "${1:-}" == "--ci" || "${CI:-}" == "true" ]]; then
@@ -36,7 +37,7 @@ log()  { printf '[smoke] %s\n' "$*"; }
 fail() { printf '[smoke] ERROR: %s\n' "$*" >&2; exit 1; }
 
 compose() {
-  docker compose -f "$COMPOSE_FILE" -f "$BUILD_FILE" \
+  docker compose -f "$COMPOSE_FILE" -f "$BUILD_FILE" -f "$OVERRIDE_FILE" \
     --env-file "$ENV_FILE" -p "$PROJECT" "$@"
 }
 
@@ -66,6 +67,7 @@ for tool in docker curl openssl; do
 done
 [[ -f "$ENV_FILE" ]] || fail "falta $ENV_FILE; ejecuta tests/e2e/ci/prepare-env.sh"
 [[ -f "$BUILD_FILE" ]] || fail "falta $BUILD_FILE"
+[[ -f "$OVERRIDE_FILE" ]] || fail "falta $OVERRIDE_FILE"
 [[ -s "$INFRA_DIR/secrets/mongo_initdb_root_password.txt" ]] \
   || fail "faltan secretos; ejecuta tests/e2e/ci/prepare-env.sh"
 

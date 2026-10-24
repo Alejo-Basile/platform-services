@@ -38,6 +38,19 @@ command -v openssl >/dev/null 2>&1 || fail "falta openssl"
 [[ -f "$INFRA_DIR/.env.example" ]] || fail "falta $INFRA_DIR/.env.example"
 mkdir -p "$SECRETS_DIR"
 
+# Mongo exige keyFile para auth+replicaSet. No se versiona: en cada checkout
+# limpio hay que generarlo con dueño 999 (UID de mongod) y modo 400.
+ensure_mongo_keyfile() {
+  local keyfile="$INFRA_DIR/compose/mongo/keyfile"
+  [[ -s "$keyfile" ]] && return 0
+  command -v docker >/dev/null 2>&1 || fail "falta docker para generar $keyfile"
+  mkdir -p "$(dirname "$keyfile")"
+  log "generando keyfile de Mongo"
+  docker run --rm -u 0 -v "$(dirname "$keyfile"):/mnt" --entrypoint sh mongo:7.0 -c \
+    'umask 077; openssl rand -base64 756 > /mnt/keyfile; chown 999:999 /mnt/keyfile; chmod 400 /mnt/keyfile'
+}
+ensure_mongo_keyfile
+
 rand_hex() { openssl rand -hex "$1"; }
 
 env_value() {

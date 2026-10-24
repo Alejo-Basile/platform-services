@@ -1,0 +1,44 @@
+S2-P4-03 — Verificación de runbooks v1
+======================================
+
+Fecha: 2026-10-24
+Owner de contenido: P1. P4 solo verifica y usa.
+Repo revisado: infra/main a7e44d0.
+Directorio: infra/runbooks/
+
+Checklist del plan
+------------------
+
+[X] restore Mongo          -> runbooks/restore-mongo.md existe.
+[X] TTL Mongo              -> runbooks/mongo-ttl.md existe (no es uno de los 4
+                              pedidos, pero documenta el índice TTL).
+[X] rotación de secretos   -> runbooks/rotacion-secretos.md existe.
+[ ] failover Redis         -> NO existe runbook; hay evidencia de ensayo
+                              (docs/evidencias/S2/S2-ensayo-failover.txt) y
+                              S1-P1-08, pero no procedimiento versionado.
+[ ] retry DLQ              -> NO existe runbook.
+[ ] desbloqueo deployment  -> NO existe runbook.
+
+Metadatos
+---------
+
+Los runbooks existentes no incluyen fecha, autor ni versión en el encabezado.
+Solo tienen una sección "Evidencia" al final. El criterio del plan (fecha,
+autor y evidencia por runbook) no se cumple todavía.
+
+Uso en caos
+-----------
+
+No se usó ningún runbook en los escenarios de caos de S2-P4-01 porque:
+
+- restore Mongo no aplica: se reinició el mismo contenedor, sin restaurar backup;
+- failover Redis no aplica: se detuvo y arrancó el contenedor primario, sin
+  Sentinel;
+- retry DLQ y desbloqueo deployment no existen;
+- los casos de caos se recuperaron con `docker compose start` y healthchecks.
+
+Conclusión
+----------
+
+S2-P4-03 queda BLOQUEADA. Faltan 3 de los 4 runbooks pedidos y los existentes
+no tienen metadatos. Se escala a P1. No se redactan desde P4.

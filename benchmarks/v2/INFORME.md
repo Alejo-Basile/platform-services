@@ -44,7 +44,18 @@ Cada escenario tiene warm-up de 10 s a 1 VU y 3 corridas medidas. Los escenarios
 | `create` | `POST /api/v2/documents` | rampa 10 s a 5 VUs, 30 s a 5 VUs, 5 s de bajada |
 | `state` | `POST` + `GET /api/v2/documents/{id}` | rampa 10 s a 5 VUs, 30 s a 5 VUs, 5 s de bajada |
 
-Umbral aplicado: `http_req_failed = 0` (`rate<0.01`). Todas las corridas terminaron con `http_req_failed = 0` y `checks = 1,0`.
+Umbral aplicado en el smoke de CI: `http_req_failed: rate==0` y `checks: rate==1`.
+
+Umbrales p95 de las corridas comparativas (`run-v2.sh`, regla `p95 <= 1,2x baseline`):
+
+| Escenario | p95 máximo | Estado |
+|---|---:|---|
+| `list` | 252,6 ms | Activo (`210,5 ms x 1,2`) |
+| `health` | 44,52 ms | Condicionado a P1: desactivado por defecto; activar con `P4_HEALTH_P95_MS=44.52` |
+| `create` | — | Sin baseline equivalente |
+| `state` | — | Sin baseline equivalente |
+
+Las 12 corridas históricas terminaron con `http_req_failed = 0` y `checks = 1,0`. La automatización de thresholds se incorporó después de esas corridas; el rerun con la imagen actual sigue pendiente (platform-services#5).
 
 ## 4. Resultados
 
@@ -108,6 +119,8 @@ La prueba con 2 CPUs se revirtió a `0.5` al terminar (`NanoCpus=500000000`). El
 - Cadena completa (`UPLOADED` → `COMPLETED`): **BLOQUEADA** por G-B.
 - Aceptación de performance: **no cerrada**. El health por gateway incumple la regla de regresión; requiere decisión de P1 sobre el límite de Traefik y repetir con la imagen actual.
 - CI: `tests/k6/v2/run-smoke.sh` queda para el workflow; no reemplaza las 3 corridas comparativas.
+- Automatización de regresión: smoke con `rate==0`/`checks==1`; `run-v2.sh` exige p95 de `list` y permite activar el de `health` cuando P1 decida el límite de Traefik.
+- Rerun pendiente: repetir las 3 corridas por escenario con la imagen construida por CI y reemplazar estos números (platform-services#5).
 
 ## 9. Reproducción
 

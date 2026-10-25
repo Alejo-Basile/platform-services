@@ -13,43 +13,34 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLATFORM_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-if [[ -n "${P4_WORKSPACE_ROOT:-}" ]]; then
-  WORKSPACE_ROOT="$P4_WORKSPACE_ROOT"
-elif [[ -f "$PLATFORM_ROOT/../infra/compose/docker-compose.yml" ]]; then
-  WORKSPACE_ROOT="$(cd "$PLATFORM_ROOT/.." && pwd)"
-elif [[ -f "$PLATFORM_ROOT/infra/compose/docker-compose.yml" ]]; then
-  WORKSPACE_ROOT="$PLATFORM_ROOT"
-else
-  echo "[errors] ERROR: no se encontro infra/ junto a platform-services" >&2
-  exit 1
-fi
+# shellcheck source=../lib.sh
+source "$SCRIPT_DIR/../lib.sh"
 
-INFRA_DIR="$WORKSPACE_ROOT/infra"
-ENV_FILE="${P4_ENV_FILE:-$INFRA_DIR/.env}"
-COMPOSE_FILE="$INFRA_DIR/compose/docker-compose.yml"
-BUILD_FILE="$INFRA_DIR/compose/docker-compose.build.yml"
-OVERRIDE_FILE="$PLATFORM_ROOT/tests/e2e/ci/compose.override.yml"
-PROJECT="${P4_COMPOSE_PROJECT:-infra}"
+COMPOSE_FILES+=(-f "$BUILD_FILE" -f "$OVERRIDE_FILE")
+
+usage() {
+  cat <<'EOF'
+Uso: tests/e2e/errors/run.sh [--chaos]
+
+  --chaos   incluye MinIO/Redis/Mongo caidos (requiere stack aislado)
+EOF
+}
+
 CHAOS=0
-[[ "${1:-}" == "--chaos" ]] && CHAOS=1
+case "${1:-}" in
+  "") ;;
+  --chaos) CHAOS=1 ;;
+  -h|--help) usage; exit 0 ;;
+  *) usage >&2; exit 2 ;;
+esac
+STRICT_RELAY="${P4_STRICT_RELAY:-0}"
+RELAY_ISSUE="doc-service#55"
 
 log()   { printf '[errors] %s\n' "$*"; }
 pass()  { printf '  [PASS] %s\n' "$*"; }
 bad()   { printf '  [FAIL] %s\n' "$*"; }
 block() { printf '  [BLOCKED] %s\n' "$*"; }
-
-compose() {
-  docker compose -f "$COMPOSE_FILE" -f "$BUILD_FILE" -f "$OVERRIDE_FILE" \
-    --env-file "$ENV_FILE" -p "$PROJECT" "$@"
-}
-
-env_value() {
-  awk -v k="$1" '
-    index($0, k "=") == 1 { value = substr($0, length(k) + 2) }
-    END { print value }
-  ' "$ENV_FILE"
-}
+known() { printf '  [KNOWN-ISSUE] %s\n' "$*"; }
 
 HTTPS_PORT="$(env_value TRAEFIK_HTTPS_PORT)"
 HTTPS_PORT="${HTTPS_PORT:-8543}"
@@ -80,6 +71,7 @@ STOPPED=()
 TOTAL_PASS=0
 TOTAL_FAIL=0
 TOTAL_BLOCKED=0
+TOTAL_KNOWN=0
 
 mongo_eval() {
   local js="$1"
@@ -108,66 +100,6 @@ mongo_delete() {
   local id="$1"
   [[ -n "$id" ]] || return 0
   mongo_eval "db.documents.deleteOne({_id:'$id'})" >/dev/null 2>&1 || true
-}
-
-redis_cli() {
-  compose exec -T redis-streams sh -c '
-    if [ -r /run/secrets/redis_streams_password ]; then
-      PW=$(cat /run/secrets/redis_streams_password)
-    else
-      PW=$REDIS_STREAMS_PASSWORD
-    fi
-    redis-cli -a "$PW" --no-auth-warning "$@"
-  ' sh "$@" 2>/dev/null
-}
-
-redis_available() { redis_cli PING | grep -qx PONG; }
-
-stream_entry_for() {
-  local id="$1"
-  redis_cli --raw XRANGE "$REDIS_STREAM_KEY" - + COUNT 10000 |
-    awk -v id="$id" '
-      /^[0-9]+-[0-9]+$/ { entry=$0; next }
-      index($0, "\"document_id\":\"" id "\"") { print entry; exit }
-    '
-}
-
-stream_delete() {
-  local entry="$1"
-  [[ -n "$entry" ]] || return 0
-  redis_cli XDEL "$REDIS_STREAM_KEY" "$entry" >/dev/null 2>&1 || true
-}
-
-minio_delete() {
-  local key="$1"
-  [[ -n "$key" ]] || return 0
-  local user pass
-  user="$(env_value MINIO_ROOT_USER)"
-  pass="$(env_value MINIO_ROOT_PASSWORD)"
-  MC_HOST_local="http://${user}:${pass}@minio:9000" \
-    docker run --rm --network infra_data --entrypoint mc \
-    -e MC_HOST_local bitnamilegacy/minio-client:2025.7.21 \
-    rm --force "local/${key}" >/dev/null 2>&1 || true
-}
-
-wait_http() {
-  local url="$1" resolve="$2" tries="${3:-60}"
-  for ((i = 1; i <= tries; i++)); do
-    [[ "$(curl -sk --max-time 3 --resolve "$resolve" -o /dev/null -w '%{http_code}' "$url" || true)" == "200" ]] && return 0
-    sleep 1
-  done
-  return 1
-}
-
-wait_status() {
-  local id="$1" expected="$2" tries="${3:-30}" status=""
-  for ((i = 1; i <= tries; i++)); do
-    status="$(mongo_status "$id")"
-    [[ "$status" == "$expected" ]] && return 0
-    sleep 1
-  done
-  printf '  estado final: %s (esperado %s)\n' "${status:-MISSING}" "$expected" >&2
-  return 1
 }
 
 post_create() {
@@ -320,15 +252,18 @@ case_minio_down() {
     CURRENT_DOC="$id"
     upload="$(upload_pdf "$body" "$NOT_PDF" "application/pdf")"
     [[ "$upload" == "000" || "$upload" =~ ^5 ]] \
-      || { bad "upload con MinIO caido devolvio $upload"; return 1; }
+      || { restore_services; bad "upload con MinIO caido devolvio $upload"; return 1; }
     [[ "$(mongo_status "$id")" == "PENDING_UPLOAD" ]] \
-      || { bad "el documento no quedo PENDING_UPLOAD"; return 1; }
+      || { restore_services; bad "el documento no quedo PENDING_UPLOAD"; return 1; }
   else
-    [[ "$code" =~ ^5 ]] || { bad "create con MinIO caido devolvio $code"; return 1; }
+    [[ "$code" =~ ^5 ]] || { restore_services; bad "create con MinIO caido devolvio $code"; return 1; }
   fi
   compose start minio >/dev/null
-  wait_http "$S3_BASE/minio/health/live" "s3.localhost:${HTTPS_PORT}:127.0.0.1" 60 \
-    || { bad "MinIO no volvio"; return 1; }
+  if ! wait_http "$S3_BASE/minio/health/live" "s3.localhost:${HTTPS_PORT}:127.0.0.1" 60; then
+    restore_services
+    bad "MinIO no volvio"
+    return 1
+  fi
   restore_services
   pass "fallo controlado con MinIO caido y recuperacion"
 }
@@ -340,16 +275,33 @@ case_redis_down() {
   hdr="$TMP_DIR/redis.hdr"
   stop_service redis-streams
   code="$(post_create "$id" "$(wc -c < "$VALID_PDF" | tr -d ' ')" "$body" "$hdr")"
-  [[ "$code" == "201" ]] || { bad "create con Redis caido devolvio $code"; return 1; }
+  [[ "$code" == "201" ]] \
+    || { restore_services; bad "create con Redis caido devolvio $code"; return 1; }
   CURRENT_DOC="$id"
   upload="$(upload_pdf "$body" "$VALID_PDF" "application/pdf")"
-  [[ "$upload" =~ ^2[0-9][0-9]$ ]] || { bad "upload HTTP $upload"; return 1; }
-  wait_status "$id" "UPLOADED" 30 || return 1
+  [[ "$upload" =~ ^2[0-9][0-9]$ ]] \
+    || { restore_services; bad "upload HTTP $upload"; return 1; }
+  if ! wait_status "$id" "UPLOADED" 30; then
+    restore_services
+    return 1
+  fi
   compose start redis-streams >/dev/null
-  wait_http "$S3_BASE/minio/health/live" "s3.localhost:${HTTPS_PORT}:127.0.0.1" 1 >/dev/null || true
-  for ((i = 1; i <= 30; i++)); do redis_available && break; sleep 1; done
+  if ! wait_redis 30; then
+    restore_services
+    bad "Redis no volvio"
+    return 1
+  fi
   restore_services
-  pass "webhook registro UPLOADED con Redis caido; relay no pudo encolar"
+  if wait_stream_entry "$id" 60; then
+    pass "el relay encolo el documento tras recuperar Redis"
+  else
+    known "el relay no encolo tras recuperar Redis. Ver $RELAY_ISSUE"
+    TOTAL_KNOWN=$((TOTAL_KNOWN + 1))
+    if [[ "$STRICT_RELAY" == "1" ]]; then
+      bad "relay no recupero el evento (P4_STRICT_RELAY=1)"
+      return 1
+    fi
+  fi
 }
 
 case_mongo_down() {
@@ -400,7 +352,7 @@ blocked_case "PDF cifrado" "requiere worker real (G-B)"
 blocked_case "PDF sin texto" "requiere worker real (G-B)"
 
 echo
-log "resumen: PASS=$TOTAL_PASS FAIL=$TOTAL_FAIL BLOCKED=$TOTAL_BLOCKED"
+log "resumen: PASS=$TOTAL_PASS FAIL=$TOTAL_FAIL BLOCKED=$TOTAL_BLOCKED KNOWN=$TOTAL_KNOWN"
 if ((TOTAL_FAIL > 0)); then
   exit 1
 fi

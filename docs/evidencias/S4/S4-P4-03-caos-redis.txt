@@ -8,7 +8,9 @@ Workflow: e2e workflow_dispatch 40135424950
 URL: https://github.com/Alejo-Basile/platform-services/actions/runs/40135424950
 Job: smoke, 10m39s
 Proyecto Compose: p4-e2e
-Stack: imágenes construidas desde main de infra, doc-service y extraction-worker
+Stack: imágenes construidas desde main de infra y doc-service; extraction-worker
+no está definido en infra/compose y no participó.
+Issue del relay: https://github.com/Alejo-Basile/doc-service/issues/55
 
 Inyección
 ---------
@@ -30,9 +32,10 @@ PASS: documento de la caída recuperado por el reconciliador.
 PASS: una sola entrada en el stream por documento.
 BLOCKED: COMPLETED y medición de pérdida con réplica asíncrona requieren G-B.
 Resumen del arnés: PASS=2 FAIL=0 BLOCKED=2 (incluye S4-P4-01).
+El arnés actual agrega KNOWN=n y no cuenta el relay como fallo parcial.
 
-Salida
-------
+Salida (arnés anterior)
+-----------------------
 [chaos] S4-P4-03: Redis caido 300s con trabajos encolados
   [PASS] documento previo encolado: chaos3-pre-1792878410-28868
   [PASS] documento previo encolado: chaos3-pre-1792878411-13856
@@ -56,7 +59,8 @@ Hallazgos
 ---------
 1. Redis conservó las entradas previas tras la caída y reinicio (AOF).
 2. El relay no recuperó el documento encolado durante la caída. El
-   reconciliador sí. Aplican las mismas observaciones que en S4-P4-01.
+   reconciliador sí. Aplican las mismas observaciones que en S4-P4-01
+   (doc-service#55).
 3. No se midió pérdida con réplica asíncrona porque el worker no está en
    Compose y no hay consumidor real.
 4. La recuperación por reconciliación se forzó; no se esperó el ciclo natural.

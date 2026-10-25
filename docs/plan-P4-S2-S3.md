@@ -73,7 +73,7 @@ Auditoría posterior al `pull` de `main` en los cuatro repos, 2026-10-24.
 
 ### S2-P4-02 — k6 contra el stack nuevo
 
-**Estado:** **HECHA con limitaciones**. 12 corridas API-level sin errores. `list` mejora la baseline; `health` por Traefik incumple la regla de regresión (p95 2,81×) y la prueba directa al doc-service confirma que el límite `cpus: 0.5` de Traefik es la causa principal. La imagen local es del 21/10 y no se reconstruyó; el CI debe repetir el smoke. La cadena completa sigue `BLOQUEADA` por G-B.
+**Estado:** **HECHA con limitaciones**. 12 corridas API-level sin errores. `list` mejora la baseline; `health` por Traefik incumple la regla de regresión (p95 2,81×) y la prueba directa al doc-service confirma que el límite `cpus: 0.5` de Traefik es la causa principal. La imagen local se reconstruyó el 2026-10-25 desde `doc-service@210be28` (`doc-service:local`, ID `7ff6dec39c6f`); smoke, happy 1/1 y errores no-caos (`PASS=4 FAIL=0 BLOCKED=4 KNOWN=0`) quedaron verdes. Las 12 corridas k6 siguen pendientes de repetir con esta imagen; el CI debe repetir el smoke. Los k6 ya usan `rate==0`/`checks==1`, y `run-v2.sh` valida p95 de `list`; el p95 de `health` queda condicionado a P1. La cadena completa sigue `BLOQUEADA` por G-B.
 
 **Depende de:** `S2-P2-05`, G-C.
 
@@ -223,7 +223,7 @@ Auditoría posterior al `pull` de `main` en los cuatro repos, 2026-10-24.
 | Compose en CI lento/inestable | Spike temprano, caché, healthchecks y logs en fallo |
 | Correlación sin worker | Incluirlo en el DoD y actualizar la evidencia de S3-P1-03 |
 | Runbooks P1 incompletos | P4 verifica y bloquea S2-P4-03 |
-| Comparación k6 inválida | Host fijo, 3 corridas, mismos límites; imagen local del 21/10 declarada |
+| Comparación k6 inválida | Host fijo, 3 corridas, mismos límites; imagen local reconstruida el 2026-10-25 y k6 pendiente de repetir |
 | Health por gateway lento | Traefik `cpus: 0.5`; prueba con 2 CPUs mejora de 172 a 338 RPS. P1 decide el límite y se repite |
 
 ## 9. Entregables

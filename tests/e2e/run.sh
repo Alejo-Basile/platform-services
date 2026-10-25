@@ -12,18 +12,14 @@
 # de S1-P4-04 queda BLOQUEADO (se registra en la evidencia).
 #
 # Seguridad de datos:
-#   - Usa el proyecto Compose `infra` (las redes tienen nombre fijo `infra_*`).
+#   - Usa el proyecto Compose `infra` (o `P4_COMPOSE_PROJECT`).
 #   - Si el stack ya estaba corriendo, NO lo apaga.
 #   - Si el script lo levanta, al terminar hace `stop` (nunca `down -v`).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLATFORM_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-WORKSPACE_ROOT="$(cd "$PLATFORM_ROOT/.." && pwd)"
-INFRA_DIR="$WORKSPACE_ROOT/infra"
-COMPOSE_FILE="$INFRA_DIR/compose/docker-compose.yml"
-ENV_FILE="$INFRA_DIR/.env"
-PROJECT="infra"
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
 
 KEEP_STACK=0
 RUNS=10
@@ -42,10 +38,6 @@ done
 log()  { printf '[e2e] %s\n' "$*"; }
 fail() { printf '[e2e] ERROR: %s\n' "$*" >&2; exit 1; }
 
-compose() {
-  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" -p "$PROJECT" "$@"
-}
-
 compose_full() {
   compose --profile full "$@"
 }
@@ -54,29 +46,10 @@ preflight() {
   command -v docker >/dev/null 2>&1 || fail "docker no está instalado"
   docker compose version >/dev/null 2>&1 || fail "docker compose v2 no está disponible"
   [[ -f "$COMPOSE_FILE" ]] || fail "no existe $COMPOSE_FILE"
-  [[ -f "$ENV_FILE" ]] || fail "falta infra/.env: copia infra/.env.example y genera credenciales (nunca lo commitees)"
+  [[ -f "$ENV_FILE" ]] || fail "falta $ENV_FILE: copia infra/.env.example y genera credenciales (nunca lo commitees)"
   [[ -f "$INFRA_DIR/compose/mongo/keyfile" ]] || fail "falta infra/compose/mongo/keyfile: ejecuta infra/scripts/bootstrap.sh"
   [[ -f "$INFRA_DIR/traefik/certs/api.localhost.pem" ]] || fail "faltan certs locales: ejecuta infra/scripts/gen-certs.sh"
   [[ -f "$INFRA_DIR/traefik/certs/s3.localhost.pem" ]] || fail "faltan certs locales: ejecuta infra/scripts/gen-certs.sh"
-}
-
-env_value() {
-  local key="$1" default="${2:-}"
-  local value
-  value="$(grep -E "^${key}=" "$ENV_FILE" | tail -n1 | cut -d= -f2- || true)"
-  printf '%s' "${value:-$default}"
-}
-
-wait_http() {
-  local url="$1" expected="$2" tries="${3:-60}" code=""
-  for ((i = 1; i <= tries; i++)); do
-    code="$(curl -sk -o /dev/null -w '%{http_code}' --max-time 3 "$url" || true)"
-    if [[ "$code" == "$expected" ]]; then
-      return 0
-    fi
-    sleep 2
-  done
-  return 1
 }
 
 http_code() {
@@ -147,7 +120,7 @@ wait_jobs() {
 
 mongo_status() {
   local id="$1"
-  docker exec infra-mongo-1 mongosh --quiet \
+  compose exec -T mongo mongosh --quiet \
     -u "$MONGO_APP_USER" -p "$MONGO_APP_PASSWORD" \
     --authenticationDatabase "$MONGO_DATABASE" "$MONGO_DATABASE" \
     --eval "var d=db.documents.findOne({_id:'$id'}); print(d?d.status:'MISSING')" \
@@ -156,42 +129,10 @@ mongo_status() {
 
 mongo_delete() {
   local id="$1"
-  docker exec infra-mongo-1 mongosh --quiet \
+  compose exec -T mongo mongosh --quiet \
     -u "$MONGO_APP_USER" -p "$MONGO_APP_PASSWORD" \
     --authenticationDatabase "$MONGO_DATABASE" "$MONGO_DATABASE" \
     --eval "db.documents.deleteOne({_id:'$id'})" >/dev/null 2>&1 || true
-}
-
-stream_length() {
-  docker exec infra-redis-streams-1 redis-cli \
-    -a "$REDIS_STREAMS_PASSWORD" --no-auth-warning XLEN "$REDIS_STREAM_KEY" 2>/dev/null || echo 0
-}
-
-stream_entry_for() {
-  local id="$1"
-  docker exec infra-redis-streams-1 redis-cli \
-    -a "$REDIS_STREAMS_PASSWORD" --no-auth-warning \
-    --raw XRANGE "$REDIS_STREAM_KEY" - + COUNT 10000 2>/dev/null |
-    awk -v id="$id" '
-      /^[0-9]+-[0-9]+$/ { entry=$0; next }
-      index($0, "\"document_id\":\"" id "\"") { print entry; exit }
-    '
-}
-
-stream_delete() {
-  local entry="$1"
-  [[ -n "$entry" ]] || return 0
-  docker exec infra-redis-streams-1 redis-cli \
-    -a "$REDIS_STREAMS_PASSWORD" --no-auth-warning \
-    XDEL "$REDIS_STREAM_KEY" "$entry" >/dev/null 2>&1 || true
-}
-
-minio_delete() {
-  local key="$1"
-  MC_HOST_local="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@minio:9000" \
-    docker run --rm --network infra_data --entrypoint mc \
-    -e MC_HOST_local bitnamilegacy/minio-client:2025.7.21 \
-    rm --force "local/${key}" >/dev/null 2>&1 || true
 }
 
 smoke() {
@@ -207,8 +148,10 @@ smoke() {
   s3_base="https://s3.localhost:${https_port}"
 
   log "esperando gateway y monolito en ${api_base}/health"
-  wait_http "${api_base}/health" "200" 60 || fail "el monolito no respondió 200 en /health"
-  wait_http "${s3_base}/minio/health/live" "200" 60 || fail "MinIO no respondió 200 en /minio/health/live"
+  wait_http "${api_base}/health" "api.localhost:${https_port}:127.0.0.1" 60 \
+    || fail "el monolito no respondió 200 en /health"
+  wait_http "${s3_base}/minio/health/live" "s3.localhost:${https_port}:127.0.0.1" 60 \
+    || fail "MinIO no respondió 200 en /minio/health/live"
 
   local health ready s3 redirect registros
   health="$(curl -sk --max-time 5 "${api_base}/health")"
@@ -331,16 +274,16 @@ happy() {
   MONGO_DATABASE="$(env_value MONGO_DATABASE documents)"
   REDIS_STREAMS_PASSWORD="$(env_value REDIS_STREAMS_PASSWORD)"
   REDIS_STREAM_KEY="$(env_value REDIS_STREAM_KEY stream:pdf-processing)"
-  MINIO_ROOT_USER="$(env_value MINIO_ROOT_USER)"
-  MINIO_ROOT_PASSWORD="$(env_value MINIO_ROOT_PASSWORD)"
   export MONGO_APP_USER MONGO_APP_PASSWORD REDIS_STREAMS_PASSWORD REDIS_STREAM_KEY
 
   local required=(mongo redis-streams redis-ratelimit minio traefik monolito doc-service)
   INIT_SERVICES=(mongo-init minio-init minio-notify-init)
   start_if_needed "${required[@]}"
 
-  wait_http "$api_base/healthz" "200" 90 || fail "doc-service no respondió 200 en /healthz"
-  wait_http "https://s3.localhost:${https_port}/minio/health/live" "200" 60 || fail "MinIO no respondió"
+  wait_http "$api_base/healthz" "api.localhost:${https_port}:127.0.0.1" 90 \
+    || fail "doc-service no respondió 200 en /healthz"
+  wait_http "https://s3.localhost:${https_port}/minio/health/live" \
+    "s3.localhost:${https_port}:127.0.0.1" 60 || fail "MinIO no respondió"
 
   if (( started == 1 )); then
     log "esperando jobs de inicialización (mongo-init, minio-init, minio-notify-init)"
@@ -366,17 +309,19 @@ happy() {
   return 0
 }
 
-case "${1:-}" in
-  smoke) smoke ;;
-  happy) happy ;;
-  *)
-    cat <<'EOF'
+usage() {
+  cat <<'EOF'
 Uso: ./tests/e2e/run.sh <comando> [opciones]
 
   smoke   Valida gateway, monolito legacy, Mongo y MinIO (S0-P4-05).
   happy   Valida el camino v2 hasta UPLOADED y Redis Streams (S1-P4-04).
           Opciones: --runs N (default 10), --keep-stack
 EOF
-    exit 2
-    ;;
+}
+
+case "${1:-}" in
+  smoke) smoke ;;
+  happy) happy ;;
+  -h|--help) usage; exit 0 ;;
+  *) usage; exit 2 ;;
 esac

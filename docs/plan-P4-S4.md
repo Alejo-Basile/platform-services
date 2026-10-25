@@ -11,8 +11,8 @@
 |---|---|
 | Alcance | Solo P4; no incluye worker, reconciliador ni endpoints de P2/P3 |
 | Ejecución | Primero los caos parciales que no requieren worker; el resto queda `BLOQUEADO` |
-| Caos 1 | La caída entre webhook y `XADD` se fuerza dejando Redis caído; no se añaden failpoints al código |
-| Caos 3 | Redis caído 300 s por defecto; el arnés admite una duración menor solo para desarrollo |
+| Caos 1 | “Redis caído + `SIGKILL` de doc-service”: la caída entre webhook y `XADD` se fuerza dejando Redis caído y matando el proceso; no se añaden failpoints al código |
+| Caos 3 | Redis caído 300 s por defecto en la corrida manual y 60 s en el nightly; el arnés admite una duración menor solo para desarrollo |
 | Reconciliador | Se puede forzar con `created_at`/`updated_at` retrasados y `POST /internal/reconcile` para no esperar el ciclo |
 | Worker ausente | No se simula; `S4-P4-02/04` y el cierre `COMPLETED` quedan `BLOQUEADOS` |
 | Evidencias | `docs/evidencias/S4/`; los artefactos de CI no sustituyen la evidencia versionada |
@@ -47,7 +47,7 @@ Auditoría de `main` al 2026-10-24.
 
 ## 4. Tareas
 
-### S4-P4-01 — El Document Service cae tras el webhook
+### S4-P4-01 — Redis caído + SIGKILL de doc-service
 
 **Depende de:** `S2-P2-06`, G-B, G-C, S4-P2 auditado.
 **Estado:** **PARCIAL EJECUTADO** (CI 40135424950); el cierre con `COMPLETED` está `BLOQUEADO` por G-B.
@@ -58,7 +58,7 @@ Auditoría de `main` al 2026-10-24.
 2. Crear y subir un PDF válido; el webhook debe dejar el documento en `UPLOADED` y el relay no puede hacer `XADD`.
 3. Matar el proceso del doc-service con `SIGKILL`.
 4. Levantar Redis y el doc-service.
-5. Esperar el mensaje en el stream. Si el relay no lo recupera, retrasar `created_at` y `updated_at` más de 30 min y ejecutar `POST /internal/reconcile` para probar la segunda red de seguridad.
+5. Esperar el mensaje en el stream. Si el relay no lo recupera, registrar `KNOWN-ISSUE` (doc-service#55), retrasar `created_at` y `updated_at` más de 30 min y ejecutar `POST /internal/reconcile` para probar la segunda red de seguridad.
 6. Registrar qué camino recuperó: `relay` o `reconciler`.
 
 **Asertos parciales:**
@@ -66,7 +66,9 @@ Auditoría de `main` al 2026-10-24.
 - El documento existe y quedó en `UPLOADED` durante la caída.
 - El stream contiene exactamente un mensaje para el `document_id` tras la recuperación.
 - No hay mensajes duplicados.
-- La recuperación ocurre sin intervención manual; el `reconcile` forzado se registra como diagnóstico, no como operación de producción.
+- La recuperación puede ser por `reconciler`; si el relay no reencola se reporta `KNOWN-ISSUE` con doc-service#55 y no se cuenta como fallo parcial.
+- `P4_STRICT_RELAY=1` convierte ese `KNOWN-ISSUE` en fallo, para cuando se corrija el relay.
+- El `reconcile` forzado se registra como diagnóstico, no como operación de producción.
 
 **Asertos completos (bloqueados):**
 
@@ -177,15 +179,19 @@ P4_CHAOS_REDIS_SECONDS=10 tests/e2e/chaos/run.sh --chaos3
 tests/e2e/chaos/run.sh --all --full
 ```
 
-**Salida:** `PASS`, `FAIL` y `BLOCKED`; exit 1 solo si falla un aserto parcial. `--full` convierte los bloqueos de worker en fallos.
+**Salida:** `PASS`, `FAIL`, `BLOCKED` y `KNOWN`; exit 1 solo si falla un aserto parcial o si `P4_STRICT_RELAY=1` y el relay no recupera. `BLOCKED` no hace fallar el job; los bloqueos de worker y caos 2/4 quedan cubiertos por platform-services#5. `--full` convierte los bloqueos de worker en fallos.
 
-**CI:** paso manual `workflow_dispatch` después del smoke. No corre en cada PR por la espera de 300 s.
+**CI:** `workflow_dispatch` con 300 s después del smoke y `schedule` nocturno con 60 s. No corre en cada PR por la espera.
 
 **Primera ejecución:** workflow `e2e` 40135424950, 10m39s, commit `2bc9d56`.
 Resultado: `PASS=2 FAIL=0 BLOCKED=2`. Caos 1 y 3 recuperaron por el
 reconciliador; el relay no reencoló en ninguno de los dos. Evidencias en
 `docs/evidencias/S4/S4-P4-01-caos-doc-service.txt` y
 `S4-P4-03-caos-redis.txt`.
+
+El arnés actualizado (comparte `tests/e2e/lib.sh`, reporta `KNOWN` y admite
+`P4_STRICT_RELAY=1`) todavía no se ejecutó; la próxima corrida de CI debe
+guardar el resumen nuevo.
 
 ## 6. Matriz de ejecución
 
@@ -201,9 +207,9 @@ reconciliador; el relay no reencoló en ninguno de los dos. Evidencias en
 
 | Riesgo | Mitigación |
 |---|---|
-| El relay no reanuda desde el resume token y el documento queda `UPLOADED` | Ocurrió en la primera ejecución; se forzó reconciliación con `created_at`/`updated_at` viejos y se abrió hallazgo para P2 |
+| El relay no reanuda desde el resume token y el documento queda `UPLOADED` | Ocurrió en la primera ejecución; se reporta `KNOWN-ISSUE` (doc-service#55), se recupera por reconciliador y el arnés puede exigir el relay con `P4_STRICT_RELAY=1` |
 | La caída de Redis no es exactamente “antes del XADD” | Es una inyección equivalente sin failpoints; se documenta la limitación |
-| El caos 3 tarda 5 min y alarga CI | Solo `workflow_dispatch`; duración configurable para desarrollo |
+| El caos 3 tarda 5 min y alarga CI | `workflow_dispatch` con 300 s y nightly con 60 s; duración configurable para desarrollo |
 | El worker no llega | No se simula; caos 2/4 y cierres `COMPLETED` quedan bloqueados |
 | Se confunde `PARCIAL` con `HECHO` | El resumen del arnés y la evidencia separan ambos estados |
 | El reconciliador tarda 10 min | Se usa el endpoint interno con `created_at`/`updated_at` retrasados, sin esperar el ciclo real |

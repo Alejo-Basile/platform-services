@@ -1,0 +1,64 @@
+S3 — Bloqueos verificados antes de empezar
+==========================================
+
+Fecha: 2026-10-24
+Repos: doc-service 210be28, extraction-worker b849e1d, infra a7e44d0.
+Alcance: P4 no implementa los arreglos; solo verifica y bloquea.
+
+1. Worker real
+--------------
+
+- extraction-worker/crates/core/src/fake.rs sigue siendo el extractor usado.
+- No hay extracción a texto, subida de .txt ni transición a COMPLETED.
+- infra/compose/docker-compose.yml no define servicio extraction-worker.
+- Impacto: S3-P4-01, S3-P4-02 y S3-P4-03 quedan BLOQUEADAS.
+
+2. TTL
+------
+
+- doc-service/internal/adapters/mongo/migrations.go crea un índice TTL
+  {expires_at: 1} con expireAfterSeconds: 0, sin filtro por estado.
+- Impacto: un documento terminal puede borrarse igual que uno PENDING_UPLOAD;
+  impide asertos de matriz a largo plazo. No afectó las corridas de 45 s de
+  S2-P4-02. Owner: P2.
+
+3. Transiciones
+---------------
+
+- doc-service/internal/domain/document.go define allowedTransitions completa
+  (incluye PENDING_UPLOAD -> REJECTED y EXTRACTION_FAILED -> COMPENSATING).
+- doc-service/internal/adapters/mongo/repository.go UpdateStatusWithHistory
+  solo filtra por _id + status de origen; no llama CanTransitionFrom.
+- Impacto: el enforcement depende de cada caller; no está garantizado en el
+  repositorio. Owner: P2.
+
+4. Correlación
+--------------
+
+- doc-service/internal/webhook/handler.go usa correlationID(c), es decir, el
+  correlation_id de la request del webhook, para las entradas de historial.
+- UpdateStatusWithHistory no escribe correlation_id en el nivel superior del
+  documento; solo en history[].
+- Impacto: el correlation_id del documento creado por el cliente no se conserva
+  en el webhook. S3-P4-02 debe extender S3-P1-03 (que declaró worker N/A).
+  Owner: P2.
+
+5. /readyz
+----------
+
+- doc-service/internal/transport/http/health.go responde "ready" sin verificar
+  Mongo, MinIO ni Redis; el comentario del código lo reconoce.
+- Impacto: el smoke no distingue proceso vivo de dependencias listas. Owner:
+  P2/P1.
+
+6. Runbooks
+-----------
+
+- S2-P4-03 BLOQUEADA: faltan failover Redis, retry DLQ y desbloqueo deployment.
+- Evidencia: docs/evidencias/S2/S2-P4-03-runbooks.txt.
+
+Conclusión
+----------
+
+No se inicia S3. No se usan mocks. La cadena real y la correlación completa
+requieren G-B y G-C.

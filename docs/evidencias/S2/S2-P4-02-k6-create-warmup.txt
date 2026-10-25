@@ -1,0 +1,87 @@
+time="2026-10-24T17:02:54-03:00" level=warning msg="\"cli\" level configuration overrode scenarios configuration entirely"
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: /home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/tests/k6/v2/create.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 1 max VUs, 40s max duration (incl. graceful stop):
+              * default: 1 looping VUs for 10s (gracefulStop: 30s)
+
+
+running (01.0s), 1/1 VUs, 42 complete and 0 interrupted iterations
+default   [  10% ] 1 VUs  01.0s/10s
+
+running (02.0s), 1/1 VUs, 96 complete and 0 interrupted iterations
+default   [  20% ] 1 VUs  02.0s/10s
+
+running (03.0s), 1/1 VUs, 150 complete and 0 interrupted iterations
+default   [  30% ] 1 VUs  03.0s/10s
+
+running (04.0s), 1/1 VUs, 174 complete and 0 interrupted iterations
+default   [  40% ] 1 VUs  04.0s/10s
+
+running (05.0s), 1/1 VUs, 231 complete and 0 interrupted iterations
+default   [  50% ] 1 VUs  05.0s/10s
+
+running (06.0s), 1/1 VUs, 288 complete and 0 interrupted iterations
+default   [  60% ] 1 VUs  06.0s/10s
+
+running (07.0s), 1/1 VUs, 348 complete and 0 interrupted iterations
+default   [  70% ] 1 VUs  07.0s/10s
+
+running (08.0s), 1/1 VUs, 404 complete and 0 interrupted iterations
+default   [  80% ] 1 VUs  08.0s/10s
+
+running (09.0s), 1/1 VUs, 454 complete and 0 interrupted iterations
+default   [  90% ] 1 VUs  09.0s/10s
+
+running (10.0s), 1/1 VUs, 496 complete and 0 interrupted iterations
+default ↓ [ 100% ] 1 VUs  10s
+
+
+  █ THRESHOLDS 
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 2485    247.340249/s
+    checks_succeeded...: 100.00% 2485 out of 2485
+    checks_failed......: 0.00%   0 out of 2485
+
+    ✓ create 201
+    ✓ create document_id
+    ✓ create presigned url
+    ✓ create form_fields
+    ✓ create expires_at
+
+    HTTP
+    http_req_duration..............: avg=18.92ms min=10.31ms med=16.23ms max=84.42ms p(90)=25.98ms p(95)=32.96ms
+      { expected_response:true }...: avg=18.92ms min=10.31ms med=16.23ms max=84.42ms p(90)=25.98ms p(95)=32.96ms
+    http_req_failed................: 0.00%  0 out of 497
+    http_reqs......................: 497    49.46805/s
+
+    EXECUTION
+    iteration_duration.............: avg=20.14ms min=10.97ms med=17.45ms max=96.78ms p(90)=27.33ms p(95)=34.97ms
+    iterations.....................: 497    49.46805/s
+    vus............................: 1      min=1        max=1
+    vus_max........................: 1      min=1        max=1
+
+    NETWORK
+    data_received..................: 879 kB 88 kB/s
+    data_sent......................: 80 kB  8.0 kB/s
+
+
+
+
+running (10.0s), 0/1 VUs, 497 complete and 0 interrupted iterations
+default ✓ [ 100% ] 1 VUs  10s

@@ -1,0 +1,114 @@
+name: e2e
+
+on:
+  pull_request:
+    paths:
+      - "tests/e2e/**"
+      - "tests/k6/**"
+      - "openapi/**"
+      - ".github/workflows/e2e.yml"
+  workflow_dispatch:
+    inputs:
+      chaos_redis_seconds:
+        description: "Duracion de la caida de Redis en S4-P4-03"
+        required: false
+        default: "300"
+        type: string
+  schedule:
+    - cron: "0 3 * * *"
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      P4_COMPOSE_PROJECT: p4-e2e
+    steps:
+      - name: Checkout platform-services
+        uses: actions/checkout@v4
+
+      - name: Checkout infra
+        uses: actions/checkout@v4
+        with:
+          repository: Alejo-Basile/infra
+          path: infra
+          ref: main
+
+      - name: Checkout doc-service
+        uses: actions/checkout@v4
+        with:
+          repository: Alejo-Basile/doc-service
+          path: doc-service
+          ref: main
+
+      - name: Checkout extraction-worker
+        uses: actions/checkout@v4
+        with:
+          repository: Alejo-Basile/extraction-worker
+          path: extraction-worker
+          ref: main
+
+      - name: Preparar entorno efimero
+        run: tests/e2e/ci/prepare-env.sh --ci
+
+      - name: Smoke del stack
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          tests/e2e/ci/smoke.sh --ci 2>&1 | tee artifacts/smoke.txt
+
+      - name: E2E caminos de error
+        run: |
+          set -o pipefail
+          tests/e2e/errors/run.sh --chaos 2>&1 | tee artifacts/errors.txt
+
+      - name: Caos S4 parcial
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          P4_CHAOS_REDIS_SECONDS: ${{ github.event.inputs.chaos_redis_seconds || '300' }}
+        run: |
+          set -o pipefail
+          tests/e2e/chaos/run.sh --all 2>&1 | tee artifacts/chaos.txt
+
+      - name: Instalar k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Smoke de carga API-level
+        run: |
+          set -o pipefail
+          tests/k6/v2/run-smoke.sh 2>&1 | tee artifacts/k6-smoke.txt
+
+      - name: Recolectar logs
+        if: failure()
+        run: |
+          mkdir -p artifacts
+          docker compose \
+            -f infra/compose/docker-compose.yml \
+            -f infra/compose/docker-compose.build.yml \
+            --env-file infra/.env -p p4-e2e ps > artifacts/ps.txt 2>&1 || true
+          docker compose \
+            -f infra/compose/docker-compose.yml \
+            -f infra/compose/docker-compose.build.yml \
+            --env-file infra/.env -p p4-e2e logs --no-color --tail=300 \
+            > artifacts/logs.txt 2>&1 || true
+
+      - name: Subir artefactos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-compose-${{ github.run_id }}
+          path: artifacts
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Bajar stack
+        if: always()
+        run: |
+          docker compose \
+            -f infra/compose/docker-compose.yml \
+            -f infra/compose/docker-compose.build.yml \
+            --env-file infra/.env -p p4-e2e down -v || true

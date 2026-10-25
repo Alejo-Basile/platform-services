@@ -1,0 +1,48 @@
+G-A — Entorno efímero y Compose
+===============================
+
+Fecha: 2026-10-24
+Alcance: P4, Gate A local.
+
+1. Repos actualizados
+--------------------
+
+platform-services  4294956
+infra              a7e44d0
+doc-service        210be28
+extraction-worker  b849e1d
+
+2. Secretos efímeros (modo --ci, rutas temporales)
+-------------------------------------------------
+
+Comando:
+  P4_ENV_FILE=/tmp/opencode/p4-ga/.env \
+  P4_SECRETS_DIR=/tmp/opencode/p4-ga/secrets \
+  tests/e2e/ci/prepare-env.sh --ci
+
+Resultado:
+  secret_files=14
+  placeholders=0
+  [prepare-env] infra/.env efimero generado
+  [prepare-env] secretos listos en infra/secrets (14 archivos; valores no impresos)
+
+No se imprimieron valores. En local se generaron los 14 secretos faltantes en
+infra/secrets/ sin pisar los existentes.
+
+3. Compose y smoke local
+------------------------
+
+Ver docs/evidencias/S2/S2-GA-smoke.txt.
+
+Resultado: compose config OK; doc-service healthz 200; readyz ready; MinIO
+health 200; Mongo PRIMARY. Redis local no autentica con infra/.env porque el
+contenedor en ejecución conserva una credencial previa; el smoke local lo
+declara como aviso. En CI el stack se crea desde cero con los secretos
+efímeros y el auth de Redis es obligatorio.
+
+4. CI
+-----
+
+Workflow .github/workflows/e2e.yml creado y validado con yamllint/PyYAML.
+No se ejecutó en GitHub porque los cambios no se commitearon/pushearon.
+G-D sigue pendiente.

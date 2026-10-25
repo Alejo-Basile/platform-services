@@ -1,0 +1,8 @@
+[smoke] compose config: OK
+[smoke] doc-service /healthz: 200
+[smoke] doc-service /readyz: ready
+[smoke] MinIO health: 200
+[smoke] Mongo: PRIMARY
+AUTH failed: WRONGPASS invalid username-password pair or user is disabled.
+[smoke] AVISO: Redis local usa credenciales previas; se omite el auth check
+[smoke] Gate A smoke: OK

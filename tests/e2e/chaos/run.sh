@@ -405,6 +405,7 @@ preflight() {
   for tool in docker curl jq openssl; do
     command -v "$tool" >/dev/null 2>&1 || { bad "falta $tool"; exit 1; }
   done
+  require_mc_image || exit 1
   [[ -f "$ENV_FILE" ]] || { bad "falta $ENV_FILE"; exit 1; }
   [[ -f "$OVERRIDE_FILE" ]] || { bad "falta $OVERRIDE_FILE"; exit 1; }
   [[ -f "$VALID_PDF" ]] || { bad "falta el fixture $VALID_PDF"; exit 1; }

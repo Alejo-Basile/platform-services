@@ -35,6 +35,10 @@ log()  { printf '[prepare-env] %s\n' "$*"; }
 command -v openssl >/dev/null 2>&1 || fail "falta openssl"
 [[ -f "$INFRA_DIR/.env.example" ]] || fail "falta $INFRA_DIR/.env.example"
 mkdir -p "$SECRETS_DIR"
+# Los archivos son 0444 (los lee el usuario no-root de cada contenedor por bind
+# mount individual); la carpeta queda 0700 para que otros usuarios del host no
+# puedan listarla ni abrirlos.
+chmod 0700 "$SECRETS_DIR"
 
 # Mongo exige keyFile para auth+replicaSet. No se versiona: en cada checkout
 # limpio hay que generarlo con dueño 999 (UID de mongod) y modo 400.

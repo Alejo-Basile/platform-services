@@ -3,6 +3,12 @@
 #
 # No habilita opciones de shell ni imprime: cada script decide su `set` y su
 # formato de salida. Se espera sourcear este archivo desde tests/e2e/.
+#
+# El script que lo sourcea debe definir, antes de llamar a las funciones que
+# los usan:
+#   REDIS_STREAM_KEY   stream_entries_for, stream_length, stream_delete
+#   mongo_status()     wait_status
+# y puede agregar archivos a COMPOSE_FILES (ver compose()).
 # shellcheck shell=bash
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,7 +28,10 @@ fi
 INFRA_DIR="$WORKSPACE_ROOT/infra"
 ENV_FILE="${P4_ENV_FILE:-$INFRA_DIR/.env}"
 COMPOSE_FILE="$INFRA_DIR/compose/docker-compose.yml"
+# BUILD_FILE y OVERRIDE_FILE los consumen los scripts que sourcean este archivo.
+# shellcheck disable=SC2034
 BUILD_FILE="$INFRA_DIR/compose/docker-compose.build.yml"
+# shellcheck disable=SC2034
 OVERRIDE_FILE="$PLATFORM_ROOT/tests/e2e/ci/compose.override.yml"
 PROJECT="${P4_COMPOSE_PROJECT:-infra}"
 
@@ -46,10 +55,14 @@ env_value() {
   printf '%s' "${value:-$default}"
 }
 
+# El script del contenedor va entre comillas simples a proposito: lo expande el
+# `sh` remoto, no este shell.
+# shellcheck disable=SC2016
 redis_cli() {
-  local pw
-  pw="$(env_value REDIS_STREAMS_PASSWORD)"
-  compose exec -T -e P4_REDIS_PASSWORD="$pw" redis-streams sh -c '
+  # La contrasena viaja por stdin y no por argv: asi no aparece en `ps` del host
+  # (mismo criterio que infra/scripts/e2e-horizontal-scaling.sh, S6).
+  env_value REDIS_STREAMS_PASSWORD | compose exec -T redis-streams sh -c '
+    IFS= read -r P4_REDIS_PASSWORD || true
     if [ -r /run/secrets/redis_streams_password ]; then
       PW=$(cat /run/secrets/redis_streams_password)
     else
@@ -140,7 +153,22 @@ minio_delete() {
   pass="$(env_value MINIO_ROOT_PASSWORD)"
   network="$(data_network || true)"
   [[ -n "$network" ]] && net_args=(--network "$network")
-  MC_HOST_local="http://${user}:${pass}@minio:9000" \
+  # La limpieza nunca debe romper un caso, pero tampoco fallar en silencio.
+  if ! MC_HOST_local="http://${user}:${pass}@minio:9000" \
     docker run --rm "${net_args[@]}" -e MC_HOST_local "$MC_IMAGE" \
-    rm --force "local/${key}" >/dev/null 2>&1 || true
+    rm --force "local/${key}" >/dev/null 2>&1; then
+    printf '[e2e-lib] AVISO: no se pudo borrar local/%s de MinIO\n' "$key" >&2
+  fi
+}
+
+# Falla de forma visible si la imagen del cliente MinIO no se puede obtener.
+# minio_delete descarta sus errores a proposito (es limpieza): sin este chequeo
+# una imagen inexistente dejaria los tests en verde y objetos huerfanos.
+require_mc_image() {
+  docker image inspect "$MC_IMAGE" >/dev/null 2>&1 && return 0
+  printf '[e2e-lib] descargando %s\n' "$MC_IMAGE" >&2
+  if ! docker pull --quiet "$MC_IMAGE" >/dev/null; then
+    printf '[e2e-lib] ERROR: no se pudo obtener la imagen de mc: %s\n' "$MC_IMAGE" >&2
+    return 1
+  fi
 }

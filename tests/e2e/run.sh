@@ -263,6 +263,7 @@ happy() {
   for tool in jq openssl; do
     command -v "$tool" >/dev/null 2>&1 || fail "falta la herramienta: $tool"
   done
+  require_mc_image || fail "no se pudo obtener la imagen de mc ($MC_IMAGE)"
 
   local https_port api_base
   https_port="$(env_value TRAEFIK_HTTPS_PORT 443)"

@@ -313,7 +313,7 @@ case_mongo_down() {
   start=$SECONDS
   code="$(post_create "$id" 1024 "$body" "$hdr")"
   log "create con Mongo caido: HTTP ${code:-000} en $((SECONDS - start))s"
-  [[ "$code" =~ ^5 ]] || { bad "create con Mongo caido devolvio $code"; return 1; }
+  [[ "$code" =~ ^5 ]] || { restore_services; bad "create con Mongo caido devolvio $code"; return 1; }
   compose start mongo >/dev/null
   for ((i = 1; i <= 60; i++)); do
     [[ "$(mongo_eval 'db.runCommand({ping:1}).ok' 2>/dev/null | tail -n1)" == "1" ]] && break
@@ -329,6 +329,7 @@ done
 [[ -f "$ENV_FILE" ]] || { bad "falta $ENV_FILE"; exit 1; }
 [[ -f "$VALID_PDF" ]] || { bad "falta el fixture $VALID_PDF"; exit 1; }
 [[ -f "$OVERRIDE_FILE" ]] || { bad "falta $OVERRIDE_FILE"; exit 1; }
+require_mc_image || exit 1
 
 log "API_BASE=$API_BASE proyecto=$PROJECT"
 curl -sk --max-time 5 --resolve "api.localhost:${HTTPS_PORT}:127.0.0.1" \

@@ -8,31 +8,21 @@
 #   tests/e2e/chaos/run.sh --chaos1
 #   P4_CHAOS_REDIS_SECONDS=10 tests/e2e/chaos/run.sh --chaos3
 #   tests/e2e/chaos/run.sh --all --full   # cuando exista worker real
+#   P4_STRICT_RELAY=1 tests/e2e/chaos/run.sh --all  # exige recuperacion por relay
 #
 # Sin worker real, los caos terminan en la cola y el aserto COMPLETED queda
 # BLOQUEADO. --full convierte ese bloqueo en fallo.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLATFORM_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-if [[ -n "${P4_WORKSPACE_ROOT:-}" ]]; then
-  WORKSPACE_ROOT="$P4_WORKSPACE_ROOT"
-elif [[ -f "$PLATFORM_ROOT/../infra/compose/docker-compose.yml" ]]; then
-  WORKSPACE_ROOT="$(cd "$PLATFORM_ROOT/.." && pwd)"
-elif [[ -f "$PLATFORM_ROOT/infra/compose/docker-compose.yml" ]]; then
-  WORKSPACE_ROOT="$PLATFORM_ROOT"
-else
-  echo "[chaos] ERROR: no se encontro infra/ junto a platform-services" >&2
-  exit 1
-fi
+# shellcheck source=../lib.sh
+source "$SCRIPT_DIR/../lib.sh"
 
-INFRA_DIR="$WORKSPACE_ROOT/infra"
-ENV_FILE="${P4_ENV_FILE:-$INFRA_DIR/.env}"
-COMPOSE_FILE="$INFRA_DIR/compose/docker-compose.yml"
-BUILD_FILE="$INFRA_DIR/compose/docker-compose.build.yml"
-OVERRIDE_FILE="$PLATFORM_ROOT/tests/e2e/ci/compose.override.yml"
-PROJECT="${P4_COMPOSE_PROJECT:-infra}"
+COMPOSE_FILES+=(-f "$BUILD_FILE" -f "$OVERRIDE_FILE")
+
 REDIS_DOWN_SECONDS="${P4_CHAOS_REDIS_SECONDS:-300}"
+STRICT_RELAY="${P4_STRICT_RELAY:-0}"
+RELAY_ISSUE="doc-service#55"
 RUN_CHAOS1=0
 RUN_CHAOS3=0
 FULL=0
@@ -41,13 +31,14 @@ usage() {
   cat <<'EOF'
 Uso: tests/e2e/chaos/run.sh <--chaos1|--chaos3|--all> [--full]
 
-  --chaos1   S4-P4-01: doc-service cae entre webhook y XADD
+  --chaos1   S4-P4-01: Redis caido + SIGKILL de doc-service
   --chaos3   S4-P4-03: Redis Streams cae durante la ventana configurada
   --all      ambos caos
   --full     exige COMPLETED (solo con worker real)
 
 Variables:
   P4_CHAOS_REDIS_SECONDS   duracion de la caida de Redis (default 300)
+  P4_STRICT_RELAY          si vale 1, exige que el relay reencole (default 0)
   P4_COMPOSE_PROJECT       proyecto Compose (default infra)
   P4_WORKSPACE_ROOT        workspace con infra/ y platform-services/
 EOF
@@ -79,18 +70,7 @@ pass()  { printf '  [PASS] %s\n' "$*"; }
 bad()   { printf '  [FAIL] %s\n' "$*"; }
 block() { printf '  [BLOCKED] %s\n' "$*"; }
 note()  { printf '  [INFO] %s\n' "$*"; }
-
-compose() {
-  docker compose -f "$COMPOSE_FILE" -f "$BUILD_FILE" -f "$OVERRIDE_FILE" \
-    --env-file "$ENV_FILE" -p "$PROJECT" "$@"
-}
-
-env_value() {
-  awk -v k="$1" '
-    index($0, k "=") == 1 { value = substr($0, length(k) + 2) }
-    END { print value }
-  ' "$ENV_FILE"
-}
+known() { printf '  [KNOWN-ISSUE] %s\n' "$*"; }
 
 HTTPS_PORT="$(env_value TRAEFIK_HTTPS_PORT)"
 HTTPS_PORT="${HTTPS_PORT:-8543}"
@@ -111,6 +91,7 @@ NEW_DOC_KEY=""
 TOTAL_PASS=0
 TOTAL_FAIL=0
 TOTAL_BLOCKED=0
+TOTAL_KNOWN=0
 
 mongo_eval() {
   local js="$1"
@@ -140,85 +121,6 @@ mongo_age_document() {
   local id="$1"
   mongo_eval "db.documents.updateOne({_id:'$id'},{\$set:{created_at:new Date(Date.now()-45*60*1000),updated_at:new Date(Date.now()-45*60*1000)}}).modifiedCount" \
     | tail -n1
-}
-
-redis_cli() {
-  compose exec -T redis-streams sh -c '
-    if [ -r /run/secrets/redis_streams_password ]; then
-      PW=$(cat /run/secrets/redis_streams_password)
-    else
-      PW=$REDIS_STREAMS_PASSWORD
-    fi
-    redis-cli -a "$PW" --no-auth-warning "$@"
-  ' sh "$@" 2>/dev/null
-}
-
-redis_available() { redis_cli PING | grep -qx PONG; }
-
-stream_entries_for() {
-  local id="$1"
-  redis_cli --raw XRANGE "$REDIS_STREAM_KEY" - + COUNT 10000 |
-    awk -v id="$id" '
-      /^[0-9]+-[0-9]+$/ { entry=$0; next }
-      index($0, "\"document_id\":\"" id "\"") { print entry }
-    '
-}
-
-stream_entry_for() {
-  stream_entries_for "$1" | head -n1
-}
-
-stream_delete() {
-  local entry="$1"
-  [[ -n "$entry" ]] || return 0
-  redis_cli XDEL "$REDIS_STREAM_KEY" "$entry" >/dev/null 2>&1 || true
-}
-
-minio_delete() {
-  local key="$1"
-  [[ -n "$key" ]] || return 0
-  local user pass
-  user="$(env_value MINIO_ROOT_USER)"
-  pass="$(env_value MINIO_ROOT_PASSWORD)"
-  MC_HOST_local="http://${user}:${pass}@minio:9000" \
-    docker run --rm --network "$(data_network)" --entrypoint mc \
-    -e MC_HOST_local bitnamilegacy/minio-client:2025.7.21 \
-    rm --force "local/${key}" >/dev/null 2>&1 || true
-}
-
-data_network() {
-  docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}' \
-    "$(compose ps -q minio 2>/dev/null)" 2>/dev/null | head -n1
-}
-
-wait_http() {
-  local url="$1" resolve="$2" tries="${3:-60}"
-  for ((i = 1; i <= tries; i++)); do
-    [[ "$(curl -sk --max-time 3 --resolve "$resolve" -o /dev/null -w '%{http_code}' "$url" || true)" == "200" ]] && return 0
-    sleep 1
-  done
-  return 1
-}
-
-wait_status() {
-  local id="$1" expected="$2" tries="${3:-30}" status=""
-  for ((i = 1; i <= tries; i++)); do
-    status="$(mongo_status "$id")"
-    [[ "$status" == "$expected" ]] && return 0
-    sleep 1
-  done
-  printf '  estado final: %s (esperado %s)\n' "${status:-MISSING}" "$expected" >&2
-  return 1
-}
-
-wait_stream_entry() {
-  local id="$1" tries="${2:-60}" entry=""
-  for ((i = 1; i <= tries; i++)); do
-    entry="$(stream_entry_for "$id")"
-    [[ -n "$entry" ]] && return 0
-    sleep 1
-  done
-  return 1
 }
 
 post_create() {
@@ -284,15 +186,6 @@ restore_services() {
     fi
   done
   STOPPED=()
-}
-
-wait_redis() {
-  local tries="${1:-60}"
-  for ((i = 1; i <= tries; i++)); do
-    redis_available && return 0
-    sleep 1
-  done
-  return 1
 }
 
 kill_doc_service() {
@@ -374,7 +267,7 @@ assert_completed() {
 
 chaos1() {
   local id recovered=""
-  log "S4-P4-01: doc-service cae entre webhook y XADD"
+  log "S4-P4-01: Redis caido + SIGKILL de doc-service"
   require_full_worker || return 1
 
   stop_service redis-streams
@@ -408,7 +301,16 @@ chaos1() {
   fi
 
   [[ -n "$recovered" ]] || { bad "ni relay ni reconciliador encolaron el documento"; return 1; }
-  pass "documento recuperado por $recovered"
+  if [[ "$recovered" == "reconciler" ]]; then
+    known "el relay no reencolo; recupero el reconciliador (forzado). Ver $RELAY_ISSUE"
+    TOTAL_KNOWN=$((TOTAL_KNOWN + 1))
+    if [[ "$STRICT_RELAY" == "1" ]]; then
+      bad "relay no recupero el evento (P4_STRICT_RELAY=1)"
+      return 1
+    fi
+  else
+    pass "documento recuperado por $recovered"
+  fi
   assert_single_entry "$id" || return 1
 
   if ((FULL == 1)); then
@@ -473,7 +375,16 @@ chaos3() {
     fi
   fi
   [[ -n "$recovered" ]] || { bad "el documento de la caida no se recupero"; return 1; }
-  pass "documento de la caida recuperado por $recovered"
+  if [[ "$recovered" == "reconciler" ]]; then
+    known "el relay no reencolo el documento de la caida; recupero el reconciliador (forzado). Ver $RELAY_ISSUE"
+    TOTAL_KNOWN=$((TOTAL_KNOWN + 1))
+    if [[ "$STRICT_RELAY" == "1" ]]; then
+      bad "relay no recupero el evento de la caida (P4_STRICT_RELAY=1)"
+      return 1
+    fi
+  else
+    pass "documento de la caida recuperado por $recovered"
+  fi
   assert_single_entry "$id" || return 1
 
   if ((FULL == 1)); then
@@ -494,6 +405,7 @@ preflight() {
   for tool in docker curl jq openssl; do
     command -v "$tool" >/dev/null 2>&1 || { bad "falta $tool"; exit 1; }
   done
+  require_mc_image || exit 1
   [[ -f "$ENV_FILE" ]] || { bad "falta $ENV_FILE"; exit 1; }
   [[ -f "$OVERRIDE_FILE" ]] || { bad "falta $OVERRIDE_FILE"; exit 1; }
   [[ -f "$VALID_PDF" ]] || { bad "falta el fixture $VALID_PDF"; exit 1; }
@@ -505,7 +417,7 @@ preflight() {
   redis_available || { bad "Redis no autentica con $ENV_FILE"; exit 1; }
 }
 
-log "API_BASE=$API_BASE proyecto=$PROJECT redis_down=${REDIS_DOWN_SECONDS}s full=$FULL"
+log "API_BASE=$API_BASE proyecto=$PROJECT redis_down=${REDIS_DOWN_SECONDS}s full=$FULL strict_relay=$STRICT_RELAY"
 preflight
 
 if ((RUN_CHAOS1 == 1)); then
@@ -527,7 +439,7 @@ if ((RUN_CHAOS3 == 1)); then
 fi
 
 echo
-log "resumen: PASS=$TOTAL_PASS FAIL=$TOTAL_FAIL BLOCKED=$TOTAL_BLOCKED"
+log "resumen: PASS=$TOTAL_PASS FAIL=$TOTAL_FAIL BLOCKED=$TOTAL_BLOCKED KNOWN=$TOTAL_KNOWN"
 if ((TOTAL_FAIL > 0)); then
   exit 1
 fi

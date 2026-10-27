@@ -29,9 +29,7 @@ BUILD_FILE="$INFRA_DIR/compose/docker-compose.build.yml"
 OVERRIDE_FILE="$SCRIPT_DIR/compose.override.yml"
 PROJECT="${P4_COMPOSE_PROJECT:-infra}"
 MODE="local"
-if [[ "${1:-}" == "--ci" || "${CI:-}" == "true" ]]; then
-  MODE="ci"
-fi
+[[ "${1:-}" == "--ci" ]] && MODE="ci"
 
 log()  { printf '[smoke] %s\n' "$*"; }
 fail() { printf '[smoke] ERROR: %s\n' "$*" >&2; exit 1; }
@@ -70,19 +68,13 @@ done
 [[ -f "$OVERRIDE_FILE" ]] || fail "falta $OVERRIDE_FILE"
 [[ -s "$INFRA_DIR/secrets/mongo_initdb_root_password.txt" ]] \
   || fail "faltan secretos; ejecuta tests/e2e/ci/prepare-env.sh"
+[[ -s "$INFRA_DIR/compose/mongo/keyfile" ]] \
+  || fail "falta el keyfile de Mongo; ejecuta tests/e2e/ci/prepare-env.sh"
 
 HTTPS_PORT="$(env_value TRAEFIK_HTTPS_PORT)"
 HTTPS_PORT="${HTTPS_PORT:-8543}"
 API_BASE="https://api.localhost:${HTTPS_PORT}"
 S3_BASE="https://s3.localhost:${HTTPS_PORT}"
-
-if [[ ! -s "$INFRA_DIR/compose/mongo/keyfile" ]]; then
-  log "generando keyfile de Mongo para el entorno efimero"
-  (umask 077; openssl rand -base64 756 > "$INFRA_DIR/compose/mongo/keyfile")
-  chmod 600 "$INFRA_DIR/compose/mongo/keyfile"
-  docker run --rm -v "$INFRA_DIR/compose/mongo/keyfile:/keyfile" \
-    --entrypoint chown mongo:7.0 999:999 /keyfile >/dev/null
-fi
 
 if [[ ! -s "$INFRA_DIR/traefik/certs/api.localhost.pem" ]]; then
   log "generando certificados locales"

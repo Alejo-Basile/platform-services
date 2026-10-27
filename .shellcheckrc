@@ -1,0 +1,3 @@
+# Seguir los `source` entre scripts (tests/e2e/lib.sh) al correr shellcheck.
+external-sources=true
+source-path=SCRIPTDIR

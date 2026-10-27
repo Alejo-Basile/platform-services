@@ -35,6 +35,13 @@ Evidencia:
 - Un caso real de PROCESSING viejo requiere worker y G-C.
 - Se puede redactar el árbol de decisión, pero no validarlo end-to-end.
 
+Seguimiento
+-----------
+- El relay no reencola tras una caída; el reconciliador recupera. Issue:
+  https://github.com/Alejo-Basile/doc-service/issues/55
+- Pendientes de cobertura, caos nocturno, benchmark y política de binarios:
+  https://github.com/Alejo-Basile/platform-services/issues/5
+
 Conclusión
 ----------
 Solo S4-P4-01 y S4-P4-03 se ejecutaron parcialmente. No se marca ninguna tarea

@@ -20,5 +20,6 @@ curl -sk --max-time 5 "$BASE_URL/healthz" >/dev/null || {
 
 for scenario in health create state list; do
   printf '[k6-smoke] %s\n' "$scenario"
-  RUN_ID="${RUN_ID}-${scenario}" k6 run --duration 5s --vus 1 "$SCRIPT_DIR/${scenario}.js"
+  RUN_ID="${RUN_ID}-${scenario}" P95_MS=0 k6 run \
+    --duration 5s --vus 1 "$SCRIPT_DIR/${scenario}.js"
 done

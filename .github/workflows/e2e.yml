@@ -1,5 +1,8 @@
 name: e2e
 
+permissions:
+  contents: read
+
 on:
   pull_request:
     paths:
@@ -19,7 +22,7 @@ on:
 
 concurrency:
   group: e2e-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   smoke:
@@ -27,6 +30,7 @@ jobs:
     timeout-minutes: 40
     env:
       P4_COMPOSE_PROJECT: p4-e2e
+      P4_STRICT_RELAY: ${{ vars.P4_STRICT_RELAY || '0' }}
     steps:
       - name: Checkout platform-services
         uses: actions/checkout@v4
@@ -36,21 +40,23 @@ jobs:
         with:
           repository: Alejo-Basile/infra
           path: infra
-          ref: main
+          ref: ${{ vars.INFRA_REF || 'main' }}
 
       - name: Checkout doc-service
         uses: actions/checkout@v4
         with:
           repository: Alejo-Basile/doc-service
           path: doc-service
-          ref: main
+          ref: ${{ vars.DOC_SERVICE_REF || 'main' }}
 
-      - name: Checkout extraction-worker
-        uses: actions/checkout@v4
-        with:
-          repository: Alejo-Basile/extraction-worker
-          path: extraction-worker
-          ref: main
+      # extraction-worker no esta definido en infra/compose; se clonara cuando
+      # exista el servicio real y G-B este cerrado.
+      # - name: Checkout extraction-worker
+      #   uses: actions/checkout@v4
+      #   with:
+      #     repository: Alejo-Basile/extraction-worker
+      #     path: extraction-worker
+      #     ref: ${{ vars.EXTRACTION_WORKER_REF || 'main' }}
 
       - name: Preparar entorno efimero
         run: tests/e2e/ci/prepare-env.sh --ci
@@ -67,15 +73,16 @@ jobs:
           tests/e2e/errors/run.sh --chaos 2>&1 | tee artifacts/errors.txt
 
       - name: Caos S4 parcial
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
         env:
-          P4_CHAOS_REDIS_SECONDS: ${{ github.event.inputs.chaos_redis_seconds || '300' }}
+          # 300 s en la corrida manual; 60 s en el nightly.
+          P4_CHAOS_REDIS_SECONDS: ${{ github.event.inputs.chaos_redis_seconds || (github.event_name == 'schedule' && '60') || '300' }}
         run: |
           set -o pipefail
           tests/e2e/chaos/run.sh --all 2>&1 | tee artifacts/chaos.txt
 
       - name: Instalar k6
-        uses: grafana/setup-k6-action@v1
+        uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1 # v1
 
       - name: Smoke de carga API-level
         run: |

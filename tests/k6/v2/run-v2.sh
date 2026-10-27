@@ -29,23 +29,41 @@ curl -sk --max-time 5 "$BASE_URL/healthz" >/dev/null || {
   exit 1
 }
 
+failures=0
 for scenario in health list create state; do
+  # Regla congelada: p95 <= 1,2x baseline. `list` tiene baseline equivalente
+  # (`/registros`, 210,5 ms -> 252,6 ms). `health` queda condicionado a la
+  # decision de P1 sobre Traefik: exportar P4_HEALTH_P95_MS=44.52 para activarlo.
+  # `create`/`state` no tienen baseline equivalente y no aplican p95.
+  case "$scenario" in
+    list) p95_ms="252.6" ;;
+    health) p95_ms="${P4_HEALTH_P95_MS:-0}" ;;
+    *) p95_ms="0" ;;
+  esac
+
   printf '[v2] %s warm-up (10s)\n' "$scenario"
-  RUN_ID="${RUN_ID}-${scenario}-warmup" k6 run \
+  RUN_ID="${RUN_ID}-${scenario}-warmup" P95_MS=0 k6 run \
+    --no-thresholds \
     --duration 10s \
     --vus 1 \
     "$SCRIPT_DIR/${scenario}.js" \
     > "$EVID_DIR/S2-P4-02-k6-${scenario}-warmup.txt" 2>&1
 
   for run in 1 2 3; do
-    printf '[v2] %s run %s\n' "$scenario" "$run"
-    RUN_ID="${RUN_ID}-${scenario}-${run}" k6 run \
+    printf '[v2] %s run %s (p95_ms=%s)\n' "$scenario" "$run" "$p95_ms"
+    RUN_ID="${RUN_ID}-${scenario}-${run}" P95_MS="$p95_ms" k6 run \
       --out "json=$OUT_DIR/${scenario}-run${run}.json" \
       --summary-export "$OUT_DIR/${scenario}-run${run}-summary.json" \
       "$SCRIPT_DIR/${scenario}.js" \
-      > "$EVID_DIR/S2-P4-02-k6-${scenario}-run${run}.txt" 2>&1
+      > "$EVID_DIR/S2-P4-02-k6-${scenario}-run${run}.txt" 2>&1 \
+      || failures=$((failures + 1))
     gzip -9 -f "$OUT_DIR/${scenario}-run${run}.json"
   done
 done
+
+if ((failures > 0)); then
+  printf '[v2] %s corrida(s) incumplieron thresholds\n' "$failures" >&2
+  exit 1
+fi
 
 printf '[v2] listo: %s\n' "$OUT_DIR"

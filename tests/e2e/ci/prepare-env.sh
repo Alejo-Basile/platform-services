@@ -27,9 +27,7 @@ ENV_FILE="${P4_ENV_FILE:-$INFRA_DIR/.env}"
 SECRETS_DIR="${P4_SECRETS_DIR:-$INFRA_DIR/secrets}"
 
 MODE="local"
-if [[ "${1:-}" == "--ci" || "${CI:-}" == "true" ]]; then
-  MODE="ci"
-fi
+[[ "${1:-}" == "--ci" ]] && MODE="ci"
 
 fail() { printf '[prepare-env] ERROR: %s\n' "$*" >&2; exit 1; }
 log()  { printf '[prepare-env] %s\n' "$*"; }
@@ -37,6 +35,10 @@ log()  { printf '[prepare-env] %s\n' "$*"; }
 command -v openssl >/dev/null 2>&1 || fail "falta openssl"
 [[ -f "$INFRA_DIR/.env.example" ]] || fail "falta $INFRA_DIR/.env.example"
 mkdir -p "$SECRETS_DIR"
+# Los archivos son 0444 (los lee el usuario no-root de cada contenedor por bind
+# mount individual); la carpeta queda 0700 para que otros usuarios del host no
+# puedan listarla ni abrirlos.
+chmod 0700 "$SECRETS_DIR"
 
 # Mongo exige keyFile para auth+replicaSet. No se versiona: en cada checkout
 # limpio hay que generarlo con dueño 999 (UID de mongod) y modo 400.
@@ -117,14 +119,12 @@ write_secret() {
   value="$(env_value "$key")"
   [[ -n "$value" && "$value" != "changeme" ]] || fail "$key vacio o con placeholder en $ENV_FILE"
   if [[ "$MODE" == "local" && -s "$SECRETS_DIR/$file" ]]; then
+    chmod 0444 "$SECRETS_DIR/$file"
     return 0
   fi
+  rm -f "$SECRETS_DIR/$file"
   printf '%s' "$value" > "$SECRETS_DIR/$file"
-  if [[ "$MODE" == "ci" ]]; then
-    chmod 0444 "$SECRETS_DIR/$file"
-  else
-    chmod 600 "$SECRETS_DIR/$file"
-  fi
+  chmod 0444 "$SECRETS_DIR/$file"
 }
 
 write_secret mongo_initdb_root_password.txt MONGO_INITDB_ROOT_PASSWORD
@@ -143,13 +143,12 @@ write_secret svc_worker_secret_key.txt SVC_WORKER_SECRET_KEY
 
 REDIS_STREAMS_PASSWORD="$(env_value REDIS_STREAMS_PASSWORD)"
 if [[ "$MODE" == "ci" || ! -s "$SECRETS_DIR/redis_streams_password.json" ]]; then
+  rm -f "$SECRETS_DIR/redis_streams_password.json"
   printf '{"redis_password": "%s"}' "$REDIS_STREAMS_PASSWORD" \
     > "$SECRETS_DIR/redis_streams_password.json"
-  if [[ "$MODE" == "ci" ]]; then
-    chmod 0444 "$SECRETS_DIR/redis_streams_password.json"
-  else
-    chmod 600 "$SECRETS_DIR/redis_streams_password.json"
-  fi
+  chmod 0444 "$SECRETS_DIR/redis_streams_password.json"
+elif [[ "$MODE" == "local" ]]; then
+  chmod 0444 "$SECRETS_DIR/redis_streams_password.json"
 fi
 
 count="$(find "$SECRETS_DIR" -maxdepth 1 -type f ! -name '.gitkeep' | wc -l | tr -d ' ')"

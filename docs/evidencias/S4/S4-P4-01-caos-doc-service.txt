@@ -1,4 +1,4 @@
-S4-P4-01 — Document Service cae tras el webhook
+S4-P4-01 — Redis caído + SIGKILL de doc-service
 ================================================
 
 Estado: PARCIAL (COMPLETED bloqueado por G-B)
@@ -8,7 +8,9 @@ Workflow: e2e workflow_dispatch 40135424950
 URL: https://github.com/Alejo-Basile/platform-services/actions/runs/40135424950
 Job: smoke, 10m39s
 Proyecto Compose: p4-e2e
-Stack: imágenes construidas desde main de infra, doc-service y extraction-worker
+Stack: imágenes construidas desde main de infra y doc-service; extraction-worker
+no está definido en infra/compose y no participó.
+Issue del relay: https://github.com/Alejo-Basile/doc-service/issues/55
 
 Inyección
 ---------
@@ -29,9 +31,10 @@ PASS: documento recuperado por el reconciliador.
 PASS: una sola entrada en el stream para el document_id.
 BLOCKED: transición a COMPLETED, .txt y descarga requieren worker real.
 Resumen del arnés: PASS=2 FAIL=0 BLOCKED=2 (incluye S4-P4-03).
+El arnés actual agrega KNOWN=n y no cuenta el relay como fallo parcial.
 
-Salida
-------
+Salida (arnés anterior)
+-----------------------
 [chaos] S4-P4-01: doc-service cae entre webhook y XADD
  Container p4-e2e-redis-streams-1  Stopping
  Container p4-e2e-redis-streams-1  Stopped
@@ -49,8 +52,9 @@ Salida
 Hallazgos
 ---------
 1. El relay no recuperó el evento tras el SIGKILL. El reconciliador sí lo
-   reencoló. Es el camino de segunda red previsto, pero conviene revisar la
-   reanudación del change stream en P2; no se corrige desde P4.
+   reencoló. Causa probable: el resume token se persiste antes de procesar el
+   evento (doc-service#55). El arnés actual lo reporta como [KNOWN-ISSUE] y
+   `P4_STRICT_RELAY=1` lo convierte en fallo; no se corrige desde P4.
 2. La recuperación por reconciliación se forzó retrasando created_at y
    updated_at. No se esperó el ciclo natural de 10 minutos ni el umbral de
    30 minutos para UPLOADED.

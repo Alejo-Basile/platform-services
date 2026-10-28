@@ -1,18 +1,21 @@
 S4-P4-01 — doc-service cae entre webhook y XADD
 ================================================
 
-Estado: PARCIAL (COMPLETED bloqueado por G-B). El escenario real se ejecutó en
-local; la corrida de CI queda pendiente para adjuntar el resumen del workflow.
+Estado: PARCIAL (COMPLETED bloqueado por G-B). Escenario real ejecutado en
+CI (workflow_dispatch) y en local.
 Fecha: 2026-10-28
 Proyecto Compose: infra (stack local ya levantado)
 Stack: imágenes locales de infra y doc-service; extraction-worker no está
 definido en infra/compose y no participó.
 Issue del relay: https://github.com/Alejo-Basile/doc-service/issues/55
 
-Ejecución local — escenario real
---------------------------------
-Comando:
-  P4_CHAOS1_RACE_RUNS=10 tests/e2e/chaos/run.sh --chaos1
+Ejecución CI — escenario real (workflow_dispatch)
+--------------------------------------------------
+Commit: 931788185d41e91de2a46a0dc01df3ce3dc31b1d
+Workflow: e2e
+Run: https://github.com/Alejo-Basile/platform-services/actions/runs/40609491183
+Proyecto Compose: p4-e2e
+Variables: P4_CHAOS_REDIS_SECONDS=300, P4_CHAOS1_RACE_RUNS=10
 
 Inyección por iteración:
 - Redis Streams arriba.
@@ -26,19 +29,35 @@ Resultado:
 PASS: 10/10 iteraciones sin pérdida ni duplicados.
 PASS: una sola entrada en el stream por documento en las 10 iteraciones.
 BLOCKED: transición a COMPLETED, .txt y descarga requieren worker real.
-Resumen del arnés: PASS=1 FAIL=0 BLOCKED=1 KNOWN=0.
+Resumen del arnés (caos): PASS=3 FAIL=0 BLOCKED=3 KNOWN=3.
 
 Cobertura observada:
-  webhook->XADD=0  webhook-perdido=0  ya-encolado=10  reconciliador-forzado=0
+  webhook->XADD=1  webhook-perdido=0  ya-encolado=9  reconciliador-forzado=1
 
 Salida relevante:
 [chaos] S4-P4-01 (real): doc-service muere entre webhook y XADD (10 repeticiones)
+  [KNOWN-ISSUE] iteracion 1: el relay no reencolo (status=UPLOADED). Ver doc-service#55
   [PASS] una sola entrada en el stream para chaos1-race-...
-  [PASS] iteracion 1: recuperado por ya-encolado (status previo=UPLOADED)
+  [PASS] iteracion 1: recuperado por reconciler (status previo=UPLOADED)
   ...
-  [INFO] cobertura: webhook->XADD=0 webhook-perdido=0 ya-encolado=10 reconciliador-forzado=0
+  [PASS] iteracion 10: recuperado por ya-encolado (status previo=UPLOADED)
+  [INFO] cobertura: webhook->XADD=1 webhook-perdido=0 ya-encolado=9 reconciliador-forzado=1
   [BLOCKED] COMPLETED bloqueado por G-B (worker real ausente)
   [PASS] S4-P4-01 real: 10/10 sin perdida ni duplicados
+
+Hallazgo:
+En CI se alcanzó la ventana exacta webhook -> XADD al menos en 1 de las 10
+repeticiones; el relay no reencoló y el reconciliador lo recuperó
+(doc-service#55). El resto de iteraciones fueron ya-encolado. No hubo
+pérdida ni duplicado. El invariante se cumple.
+
+Ejecución local (verificación)
+-----------------------------
+Comando:
+  P4_CHAOS1_RACE_RUNS=10 tests/e2e/chaos/run.sh --chaos1
+
+Resultado: 10/10 sin pérdida ni duplicados; cobertura dependiente de la
+carrera (sin ventana alcanzada en esa ejecución local).
 
 Hallazgo de la corrida:
 La ventana exacta webhook -> XADD no se alcanzó en 10/10: el kill llegó

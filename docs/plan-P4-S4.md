@@ -19,16 +19,16 @@
 
 ## 2. Estado real de partida
 
-Auditoría de `main` al 2026-10-24.
+Auditoría de `main` al 2026-10-27.
 
 | Área | Estado | Impacto en S4-P4 |
 |---|---|---|
-| `platform-services` | PR #4 con E2E de S2 en verde | Base del arnés de caos |
-| `infra` | Redis Sentinel y webhook disponibles; sin servicio worker | Caos 3 parcial; caos 2/4 bloqueados |
+| `platform-services` | PR #6 mergeada (`0ca65b9`): arnés con `KNOWN`, `P4_STRICT_RELAY`, `lib.sh` y workflow corregido | Base actualizada del arnés de caos |
+| `infra` | Redis Sentinel y webhook disponibles; `S4-P1-01` mergeado (`b21250a`); sin servicio worker | Caos 3 parcial; caos 2/4 bloqueados |
 | `doc-service` | Reconciliador, relay con backoff, lease, historial y endpoints internos en `main` | Caos 1/3 ejecutables hasta cola |
-| `extraction-worker` | Consumidor, DLQ y `XAUTOCLAIM`; extractor todavía fake | No hay cadena real ni `COMPLETED` |
+| `extraction-worker` | Consumidor, DLQ y `XAUTOCLAIM`; PR #11 (extracción real) y #17 (Mongo/`COMPLETED`) aprobadas, sin mergear | No hay cadena real ni `COMPLETED` |
 | `S4-P2` | Implementación y tests presentes, sin auditoría de cierre | Debe auditarse antes de declarar el caos 1 cerrado |
-| `S4-P1-01` | Escalado horizontal con 2 réplicas todavía sin verificar | Necesario para el caos 1 con concurrencia real |
+| `S4-P1-01` | Escalado horizontal con 2 réplicas **HECHO** (evidencia `infra/docs/evidencias/S4/S4-P1-01-escalado.txt`) | Habilita caos 1 con concurrencia real; limitación: imagen local, deploy GHCR bloqueado |
 | `S4-P1-02/03` | Métricas y alertas de negocio pendientes | No bloquean el arnés, sí el cierre operativo |
 | `S3-P4-03` | `BLOQUEADA` por worker y G-C | Bloquea el cierre de `S4-P4-05` |
 | `S4-P3-01..04` | Replay, métricas, `min-idle-time` y drenaje pendientes | Afectan la validez de caos 2/3 completos |
@@ -40,33 +40,36 @@ Auditoría de `main` al 2026-10-24.
 | **G-B — Worker real** | Extracción real, `.txt` en MinIO, `COMPLETED` y servicio en Compose | P3/P1 | Bloqueado |
 | **G-C — Correctitud** | TTL, transiciones, correlación y `/readyz` cerrados | P2 | Parcial |
 | **S4-P2 — Auditoría** | Tests y código de reconciliación/relay/endpoints verificados contra el DoD | P2/P4 | Pendiente |
-| **S4-P1-01** | 2 réplicas del doc-service y 50/50 mensajes sin duplicados | P1 | Pendiente |
-| **G-E — Caos** | Caos 1/3 parciales verdes y evidencia; caos 2/4 con worker | P4 | Parcial verde (run 40135424950) |
+| **S4-P1-01** | 2 réplicas del doc-service y 50/50 mensajes sin duplicados | P1 | Hecha (PR infra #32; imagen local) |
+| **G-E — Caos** | Caos 1/3 parciales verdes y evidencia; caos 2/4 con worker | P4 | Parcial verde (run 40135424950); arnés nuevo ejecutado en local, CI pendiente |
 
 **Regla:** un caos solo se marca `HECHO` si su DoD completo se ejecutó. Hasta entonces se registra `PARCIAL` o `BLOQUEADO`.
 
 ## 4. Tareas
 
-### S4-P4-01 — Redis caído + SIGKILL de doc-service
+### S4-P4-01 — doc-service cae entre webhook y XADD
 
 **Depende de:** `S2-P2-06`, G-B, G-C, S4-P2 auditado.
-**Estado:** **PARCIAL EJECUTADO** (CI 40135424950); el cierre con `COMPLETED` está `BLOQUEADO` por G-B.
+**Estado:** **PARCIAL EJECUTADO** (variante Redis caído + SIGKILL, CI 40135424950; escenario real en local, 10/10 sin pérdida ni duplicados). El cierre con `COMPLETED` sigue `BLOQUEADO` por G-B.
 
-**Inyección sin failpoints:**
+**Inyección real (sin failpoints):**
 
-1. Detener `redis-streams`.
-2. Crear y subir un PDF válido; el webhook debe dejar el documento en `UPLOADED` y el relay no puede hacer `XADD`.
-3. Matar el proceso del doc-service con `SIGKILL`.
-4. Levantar Redis y el doc-service.
-5. Esperar el mensaje en el stream. Si el relay no lo recupera, registrar `KNOWN-ISSUE` (doc-service#55), retrasar `created_at` y `updated_at` más de 30 min y ejecutar `POST /internal/reconcile` para probar la segunda red de seguridad.
-6. Registrar qué camino recuperó: `relay` o `reconciler`.
+1. Redis arriba.
+2. Crear y subir un PDF válido.
+3. Enviar `SIGKILL` al doc-service inmediatamente después del upload.
+4. Reiniciar el doc-service y esperar `/healthz`.
+5. Leer el estado post-reinicio: `PENDING_UPLOAD` (el webhook no llegó), `UPLOADED` (ventana webhook → XADD) o `QUEUED` (el `XADD` ya se hizo).
+6. Esperar exactamente una entrada en el stream. Si falta, intentar reconciliación como diagnóstico y reportar `KNOWN`/`FAIL` según `P4_STRICT_RELAY`.
+7. Repetir N veces y registrar la cobertura real (`webhook->XADD`, `webhook-perdido`, `ya-encolado`, `reconciler-forzado`).
+
+**Variante:** `--chaos1-kill` conserva el escenario anterior (Redis caído + `SIGKILL`).
 
 **Asertos parciales:**
 
-- El documento existe y quedó en `UPLOADED` durante la caída.
+- El documento existe tras el kill y el reinicio.
 - El stream contiene exactamente un mensaje para el `document_id` tras la recuperación.
-- No hay mensajes duplicados.
-- La recuperación puede ser por `reconciler`; si el relay no reencola se reporta `KNOWN-ISSUE` con doc-service#55 y no se cuenta como fallo parcial.
+- No hay mensajes duplicados en ninguna de las N repeticiones.
+- Si el documento quedó `UPLOADED` y el relay no reencola, se reporta `KNOWN-ISSUE` con doc-service#55; no se cuenta como fallo parcial.
 - `P4_STRICT_RELAY=1` convierte ese `KNOWN-ISSUE` en fallo, para cuando se corrija el relay.
 - El `reconcile` forzado se registra como diagnóstico, no como operación de producción.
 
@@ -166,14 +169,20 @@ Auditoría de `main` al 2026-10-24.
 **Aislamiento:** `P4_COMPOSE_PROJECT`; `trap` restaura Redis y doc-service siempre.
 
 ```bash
-# Ambos caos parciales; Redis 300 s
+# Los tres casos; Redis 300 s y 10 repeticiones del caos 1 real
 tests/e2e/chaos/run.sh --all
 
-# Solo caos 1
+# Solo caos 1 real (ventana webhook -> XADD)
 tests/e2e/chaos/run.sh --chaos1
+
+# Variante Redis caído + SIGKILL
+tests/e2e/chaos/run.sh --chaos1-kill
 
 # Solo caos 3, duración explícita para desarrollo
 P4_CHAOS_REDIS_SECONDS=10 tests/e2e/chaos/run.sh --chaos3
+
+# Menos repeticiones para desarrollo
+P4_CHAOS1_RACE_RUNS=3 tests/e2e/chaos/run.sh --chaos1
 
 # Cuando exista worker real: exige COMPLETED y falla si no converge
 tests/e2e/chaos/run.sh --all --full
@@ -190,8 +199,21 @@ reconciliador; el relay no reencoló en ninguno de los dos. Evidencias en
 `S4-P4-03-caos-redis.txt`.
 
 El arnés actualizado (comparte `tests/e2e/lib.sh`, reporta `KNOWN` y admite
-`P4_STRICT_RELAY=1`) todavía no se ejecutó; la próxima corrida de CI debe
-guardar el resumen nuevo.
+`P4_STRICT_RELAY=1`) quedó en `main` con la PR #6 (`0ca65b9`), pero todavía no
+se ejecutó en CI; la próxima corrida `workflow_dispatch` debe guardar el
+resumen nuevo.
+
+Ejecución local del escenario real (2026-10-28):
+`P4_CHAOS1_RACE_RUNS=10 tests/e2e/chaos/run.sh --chaos1` →
+`PASS=1 FAIL=0 BLOCKED=1 KNOWN=0`; 10/10 sin pérdida ni duplicados.
+Cobertura: `webhook->XADD=0`, `webhook-perdido=0`, `ya-encolado=10`,
+`reconciliador-forzado=0`. La ventana exacta no se alcanzó sin failpoint; se
+registra la cobertura y no se cuenta como fallo. Falta la corrida de CI.
+
+`S4-P1-01` cerró con la PR infra #32 (`b21250a`): dos réplicas, 50 documentos,
+50 mensajes y dedup verificado. La evidencia está en
+`infra/docs/evidencias/S4/S4-P1-01-escalado.txt`; usó `doc-service:local` y el
+deploy por imagen GHCR sigue bloqueado.
 
 ## 6. Matriz de ejecución
 

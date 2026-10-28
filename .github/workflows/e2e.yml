@@ -17,6 +17,11 @@ on:
         required: false
         default: "300"
         type: string
+      chaos1_race_runs:
+        description: "Repeticiones del caos 1 real (webhook -> XADD)"
+        required: false
+        default: "10"
+        type: string
   schedule:
     - cron: "0 3 * * *"
 
@@ -77,6 +82,7 @@ jobs:
         env:
           # 300 s en la corrida manual; 60 s en el nightly.
           P4_CHAOS_REDIS_SECONDS: ${{ github.event.inputs.chaos_redis_seconds || (github.event_name == 'schedule' && '60') || '300' }}
+          P4_CHAOS1_RACE_RUNS: ${{ github.event.inputs.chaos1_race_runs || '10' }}
         run: |
           set -o pipefail
           tests/e2e/chaos/run.sh --all 2>&1 | tee artifacts/chaos.txt

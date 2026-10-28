@@ -41,7 +41,7 @@ Auditoría de `main` al 2026-10-27.
 | **G-C — Correctitud** | TTL, transiciones, correlación y `/readyz` cerrados | P2 | Parcial |
 | **S4-P2 — Auditoría** | Tests y código de reconciliación/relay/endpoints verificados contra el DoD | P2/P4 | Pendiente |
 | **S4-P1-01** | 2 réplicas del doc-service y 50/50 mensajes sin duplicados | P1 | Hecha (PR infra #32; imagen local) |
-| **G-E — Caos** | Caos 1/3 parciales verdes y evidencia; caos 2/4 con worker | P4 | Parcial verde (run 40135424950); arnés nuevo ejecutado en local, CI pendiente |
+| **G-E — Caos** | Caos 1/3 parciales verdes y evidencia; caos 2/4 con worker | P4 | Parcial verde (run 40135424950, 40609491183) |
 
 **Regla:** un caos solo se marca `HECHO` si su DoD completo se ejecutó. Hasta entonces se registra `PARCIAL` o `BLOQUEADO`.
 
@@ -50,7 +50,7 @@ Auditoría de `main` al 2026-10-27.
 ### S4-P4-01 — doc-service cae entre webhook y XADD
 
 **Depende de:** `S2-P2-06`, G-B, G-C, S4-P2 auditado.
-**Estado:** **PARCIAL EJECUTADO** (variante Redis caído + SIGKILL, CI 40135424950; escenario real en local, 10/10 sin pérdida ni duplicados). El cierre con `COMPLETED` sigue `BLOQUEADO` por G-B.
+**Estado:** **PARCIAL EJECUTADO** (variante Redis caído + SIGKILL, CI 40135424950; escenario real CI 40609491183, 10/10 sin pérdida ni duplicados, 1/10 ventana). El cierre con `COMPLETED` sigue `BLOQUEADO` por G-B.
 
 **Inyección real (sin failpoints):**
 
@@ -205,10 +205,16 @@ resumen nuevo.
 
 Ejecución local del escenario real (2026-10-28):
 `P4_CHAOS1_RACE_RUNS=10 tests/e2e/chaos/run.sh --chaos1` →
-`PASS=1 FAIL=0 BLOCKED=1 KNOWN=0`; 10/10 sin pérdida ni duplicados.
-Cobertura: `webhook->XADD=0`, `webhook-perdido=0`, `ya-encolado=10`,
-`reconciliador-forzado=0`. La ventana exacta no se alcanzó sin failpoint; se
-registra la cobertura y no se cuenta como fallo. Falta la corrida de CI.
+10/10 sin pérdida ni duplicados (cobertura dependiente de la carrera).
+
+Ejecución CI (workflow_dispatch 40609491183, 2026-10-28):
+`tests/e2e/chaos/run.sh --all` (P4_CHAOS1_RACE_RUNS=10) →
+`PASS=3 FAIL=0 BLOCKED=3 KNOWN=3`. `S4-P4-01 real`: 10/10 sin pérdida ni
+duplicados, cobertura `webhook->XADD=1`, `ya-encolado=9`,
+`reconciliador-forzado=1`. La ventana fue alcanzada; el relay no reencoló
+(doc-service#55) y el reconciliador lo recuperó. `S4-P4-01 variante` y
+`S4-P4-03`: recuperados por reconciliador con `KNOWN-ISSUE`. `COMPLETED`
+sigue `BLOQUEADO` por G-B.
 
 `S4-P1-01` cerró con la PR infra #32 (`b21250a`): dos réplicas, 50 documentos,
 50 mensajes y dedup verificado. La evidencia está en

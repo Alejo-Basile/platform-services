@@ -301,8 +301,9 @@ chaos1_race() {
       || { bad "iteracion $i: doc-service no volvio"; return 1; }
 
     status_after="$(mongo_status "$id")"
-    local had_entry=0
-    stream_entry_for "$id" >/dev/null 2>&1 && had_entry=1
+    local had_entry=0 entry_id
+    entry_id="$(stream_entry_for "$id")"
+    [[ -n "$entry_id" ]] && had_entry=1
     case "$status_after" in
       PENDING_UPLOAD) hit_pending=$((hit_pending + 1)) ;;
       UPLOADED)

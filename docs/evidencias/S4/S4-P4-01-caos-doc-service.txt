@@ -1,29 +1,89 @@
-S4-P4-01 — Redis caído + SIGKILL de doc-service
+S4-P4-01 — doc-service cae entre webhook y XADD
 ================================================
 
-Estado: PARCIAL (COMPLETED bloqueado por G-B)
-Fecha: 2026-10-24
+Estado: PARCIAL (COMPLETED bloqueado por G-B). Escenario real ejecutado en
+CI (workflow_dispatch) y en local.
+Fecha: 2026-10-28
+Proyecto Compose: infra (stack local ya levantado)
+Stack: imágenes locales de infra y doc-service; extraction-worker no está
+definido en infra/compose y no participó.
+Issue del relay: https://github.com/Alejo-Basile/doc-service/issues/55
+
+Ejecución CI — escenario real (workflow_dispatch)
+--------------------------------------------------
+Commit: 931788185d41e91de2a46a0dc01df3ce3dc31b1d
+Workflow: e2e
+Run: https://github.com/Alejo-Basile/platform-services/actions/runs/40609491183
+Proyecto Compose: p4-e2e
+Variables: P4_CHAOS_REDIS_SECONDS=300, P4_CHAOS1_RACE_RUNS=10
+
+Inyección por iteración:
+- Redis Streams arriba.
+- Crear y subir un PDF válido.
+- SIGKILL al contenedor doc-service inmediatamente después del upload.
+- Reiniciar el doc-service y esperar /healthz.
+- Leer el estado post-reinicio y comprobar que existe exactamente una entrada
+  en el stream para el document_id.
+
+Resultado:
+PASS: 10/10 iteraciones sin pérdida ni duplicados.
+PASS: una sola entrada en el stream por documento en las 10 iteraciones.
+BLOCKED: transición a COMPLETED, .txt y descarga requieren worker real.
+Resumen del arnés (caos): PASS=3 FAIL=0 BLOCKED=3 KNOWN=3.
+
+Cobertura observada:
+  webhook->XADD=1  webhook-perdido=0  ya-encolado=9  reconciliador-forzado=1
+
+Salida relevante:
+[chaos] S4-P4-01 (real): doc-service muere entre webhook y XADD (10 repeticiones)
+  [KNOWN-ISSUE] iteracion 1: el relay no reencolo (status=UPLOADED). Ver doc-service#55
+  [PASS] una sola entrada en el stream para chaos1-race-...
+  [PASS] iteracion 1: recuperado por reconciler (status previo=UPLOADED)
+  ...
+  [PASS] iteracion 10: recuperado por ya-encolado (status previo=UPLOADED)
+  [INFO] cobertura: webhook->XADD=1 webhook-perdido=0 ya-encolado=9 reconciliador-forzado=1
+  [BLOCKED] COMPLETED bloqueado por G-B (worker real ausente)
+  [PASS] S4-P4-01 real: 10/10 sin perdida ni duplicados
+
+Hallazgo:
+En CI se alcanzó la ventana exacta webhook -> XADD al menos en 1 de las 10
+repeticiones; el relay no reencoló y el reconciliador lo recuperó
+(doc-service#55). El resto de iteraciones fueron ya-encolado. No hubo
+pérdida ni duplicado. El invariante se cumple.
+
+Ejecución local (verificación)
+-----------------------------
+Comando:
+  P4_CHAOS1_RACE_RUNS=10 tests/e2e/chaos/run.sh --chaos1
+
+Resultado: 10/10 sin pérdida ni duplicados; cobertura dependiente de la
+carrera (sin ventana alcanzada en esa ejecución local).
+
+Hallazgo de la corrida:
+La ventana exacta webhook -> XADD no se alcanzó en 10/10: el kill llegó
+después de que el relay ya había hecho el XADD (estado UPLOADED con entrada
+presente). El invariante de no pérdida y no duplicado se cumple, pero para
+forzar la ventana hace falta un failpoint en el relay o una carrera más
+agresiva. Se registra la cobertura real y no se cuenta como fallo.
+
+Variante Redis caído + SIGKILL (2026-10-24)
+-------------------------------------------
 Commit: 2bc9d56031d8fe9d66c1bb23bbeb9465b63bcade
 Workflow: e2e workflow_dispatch 40135424950
 URL: https://github.com/Alejo-Basile/platform-services/actions/runs/40135424950
 Job: smoke, 10m39s
 Proyecto Compose: p4-e2e
-Stack: imágenes construidas desde main de infra y doc-service; extraction-worker
-no está definido en infra/compose y no participó.
-Issue del relay: https://github.com/Alejo-Basile/doc-service/issues/55
 
-Inyección
----------
+Inyección:
 - Redis Streams detenido antes de subir el PDF.
 - Webhook procesado con Redis caído; documento en UPLOADED.
 - SIGKILL al contenedor doc-service.
 - Redis y doc-service recuperados.
 - El relay no reencoló el evento; se forzó un ciclo de reconciliación
-  retrasando created_at/updated_at 45 minutos y llamando
+  retrasando created_at/updated_at/expires_at 45 minutos y llamando
   POST /internal/reconcile.
 
-Resultado
----------
+Resultado:
 PASS: webhook dejó UPLOADED con Redis caído.
 PASS: doc-service recibió SIGKILL.
 PASS: Redis y doc-service volvieron.
@@ -31,38 +91,23 @@ PASS: documento recuperado por el reconciliador.
 PASS: una sola entrada en el stream para el document_id.
 BLOCKED: transición a COMPLETED, .txt y descarga requieren worker real.
 Resumen del arnés: PASS=2 FAIL=0 BLOCKED=2 (incluye S4-P4-03).
-El arnés actual agrega KNOWN=n y no cuenta el relay como fallo parcial.
 
-Salida (arnés anterior)
------------------------
-[chaos] S4-P4-01: doc-service cae entre webhook y XADD
- Container p4-e2e-redis-streams-1  Stopping
- Container p4-e2e-redis-streams-1  Stopped
-  [INFO] Redis detenido; el webhook no podra encolar
-  [PASS] webhook proceso el evento y dejo UPLOADED
-  [INFO] document_id=chaos1-1792878325-4017
-  [PASS] doc-service recibio SIGKILL
-  [PASS] Redis y doc-service recuperados
-  [INFO] relay no recupero el evento; se fuerza un ciclo de reconciliacion
-  [PASS] documento recuperado por reconciler
-  [PASS] una sola entrada en el stream para chaos1-1792878325-4017
-  [BLOCKED] COMPLETED bloqueado por G-B (worker real ausente)
-  [PASS] S4-P4-01 parcial
-
-Hallazgos
----------
+Hallazgos de la variante
+------------------------
 1. El relay no recuperó el evento tras el SIGKILL. El reconciliador sí lo
    reencoló. Causa probable: el resume token se persiste antes de procesar el
    evento (doc-service#55). El arnés actual lo reporta como [KNOWN-ISSUE] y
    `P4_STRICT_RELAY=1` lo convierte en fallo; no se corrige desde P4.
-2. La recuperación por reconciliación se forzó retrasando created_at y
-   updated_at. No se esperó el ciclo natural de 10 minutos ni el umbral de
-   30 minutos para UPLOADED.
+2. La recuperación por reconciliación se forzó retrasando created_at,
+   updated_at y expires_at. No se esperó el ciclo natural de 10 minutos ni el
+   umbral de 30 minutos para UPLOADED.
 3. No se validó .txt, descarga ni status_history completo: dependen del worker
    real y de G-B.
 
 Limitaciones
 ------------
 - El kill es SIGKILL al contenedor, no una caída del host ni del kernel.
-- No hay 2 réplicas del doc-service (S4-P1-01 pendiente).
+- La corrida de 2026-10-24 usó 1 réplica del doc-service; S4-P1-01 ya cerró
+  con 2 réplicas en infra (evidencia S4-P1-01-escalado.txt).
 - El worker no está en Compose; no se simuló.
+- La corrida real de 2026-10-28 fue local; falta la evidencia de CI.

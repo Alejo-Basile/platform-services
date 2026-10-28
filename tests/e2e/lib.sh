@@ -75,7 +75,7 @@ redis_cli() {
 redis_available() { redis_cli PING | grep -qx PONG; }
 
 wait_redis() {
-  local tries="${1:-60}"
+  local tries="${1:-60}" i
   for ((i = 1; i <= tries; i++)); do
     redis_available && return 0
     sleep 1
@@ -110,7 +110,7 @@ stream_delete() {
 }
 
 wait_stream_entry() {
-  local id="$1" tries="${2:-60}" entry=""
+  local id="$1" tries="${2:-60}" entry="" i
   for ((i = 1; i <= tries; i++)); do
     entry="$(stream_entry_for "$id")"
     [[ -n "$entry" ]] && return 0
@@ -120,7 +120,7 @@ wait_stream_entry() {
 }
 
 wait_status() {
-  local id="$1" expected="$2" tries="${3:-30}" status=""
+  local id="$1" expected="$2" tries="${3:-30}" status="" i
   for ((i = 1; i <= tries; i++)); do
     status="$(mongo_status "$id")"
     [[ "$status" == "$expected" ]] && return 0
@@ -131,7 +131,7 @@ wait_status() {
 }
 
 wait_http() {
-  local url="$1" resolve="$2" tries="${3:-60}"
+  local url="$1" resolve="$2" tries="${3:-60}" i
   for ((i = 1; i <= tries; i++)); do
     [[ "$(curl -sk --max-time 3 --resolve "$resolve" -o /dev/null -w '%{http_code}' "$url" || true)" == "200" ]] && return 0
     sleep 1
@@ -154,10 +154,16 @@ minio_delete() {
   network="$(data_network || true)"
   [[ -n "$network" ]] && net_args=(--network "$network")
   # La limpieza nunca debe romper un caso, pero tampoco fallar en silencio.
-  if ! MC_HOST_local="http://${user}:${pass}@minio:9000" \
+  # El reconciliador puede borrar el objeto huerfano antes que nosotros; en ese
+  # caso `mc` sale con error y no es un fallo de la limpieza.
+  local out
+  if ! out="$(MC_HOST_local="http://${user}:${pass}@minio:9000" \
     docker run --rm "${net_args[@]}" -e MC_HOST_local "$MC_IMAGE" \
-    rm --force "local/${key}" >/dev/null 2>&1; then
-    printf '[e2e-lib] AVISO: no se pudo borrar local/%s de MinIO\n' "$key" >&2
+    rm --force "local/${key}" 2>&1)"; then
+    if [[ "$out" == *"Object does not exist"* ]]; then
+      return 0
+    fi
+    printf '[e2e-lib] AVISO: no se pudo borrar local/%s de MinIO: %s\n' "$key" "$out" >&2
   fi
 }
 

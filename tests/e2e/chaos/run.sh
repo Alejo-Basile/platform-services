@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2016,SC2317,SC2329
-# Caos parcial de S4-P4: S4-P4-01 (doc-service tras webhook) y S4-P4-03
-# (Redis Streams caido). Requiere el stack E2E ya levantado; no lo levanta.
+# Caos parcial de S4-P4: S4-P4-01 (doc-service tras webhook), su variante
+# Redis caido + SIGKILL, y S4-P4-03 (Redis Streams caido). Requiere el stack
+# E2E ya levantado; no lo levanta.
 #
 # Uso:
 #   tests/e2e/chaos/run.sh --all
-#   tests/e2e/chaos/run.sh --chaos1
+#   tests/e2e/chaos/run.sh --chaos1          # ventana webhook -> XADD (real)
+#   tests/e2e/chaos/run.sh --chaos1-kill     # variante Redis caido + SIGKILL
 #   P4_CHAOS_REDIS_SECONDS=10 tests/e2e/chaos/run.sh --chaos3
-#   tests/e2e/chaos/run.sh --all --full   # cuando exista worker real
+#   tests/e2e/chaos/run.sh --all --full      # cuando exista worker real
 #   P4_STRICT_RELAY=1 tests/e2e/chaos/run.sh --all  # exige recuperacion por relay
 #
 # Sin worker real, los caos terminan en la cola y el aserto COMPLETED queda
@@ -21,23 +23,27 @@ source "$SCRIPT_DIR/../lib.sh"
 COMPOSE_FILES+=(-f "$BUILD_FILE" -f "$OVERRIDE_FILE")
 
 REDIS_DOWN_SECONDS="${P4_CHAOS_REDIS_SECONDS:-300}"
+CHAOS1_RACE_RUNS="${P4_CHAOS1_RACE_RUNS:-10}"
 STRICT_RELAY="${P4_STRICT_RELAY:-0}"
 RELAY_ISSUE="doc-service#55"
 RUN_CHAOS1=0
+RUN_CHAOS1_KILL=0
 RUN_CHAOS3=0
 FULL=0
 
 usage() {
   cat <<'EOF'
-Uso: tests/e2e/chaos/run.sh <--chaos1|--chaos3|--all> [--full]
+Uso: tests/e2e/chaos/run.sh <--chaos1|--chaos1-kill|--chaos3|--all> [--full]
 
-  --chaos1   S4-P4-01: Redis caido + SIGKILL de doc-service
-  --chaos3   S4-P4-03: Redis Streams cae durante la ventana configurada
-  --all      ambos caos
-  --full     exige COMPLETED (solo con worker real)
+  --chaos1       S4-P4-01: doc-service muere entre webhook y XADD (real)
+  --chaos1-kill  Variante: Redis caido + SIGKILL de doc-service
+  --chaos3       S4-P4-03: Redis Streams cae durante la ventana configurada
+  --all          los tres casos
+  --full         exige COMPLETED (solo con worker real)
 
 Variables:
   P4_CHAOS_REDIS_SECONDS   duracion de la caida de Redis (default 300)
+  P4_CHAOS1_RACE_RUNS      repeticiones de --chaos1 (default 10)
   P4_STRICT_RELAY          si vale 1, exige que el relay reencole (default 0)
   P4_COMPOSE_PROJECT       proyecto Compose (default infra)
   P4_WORKSPACE_ROOT        workspace con infra/ y platform-services/
@@ -47,8 +53,9 @@ EOF
 while (($# > 0)); do
   case "$1" in
     --chaos1) RUN_CHAOS1=1 ;;
+    --chaos1-kill) RUN_CHAOS1_KILL=1 ;;
     --chaos3) RUN_CHAOS3=1 ;;
-    --all) RUN_CHAOS1=1; RUN_CHAOS3=1 ;;
+    --all) RUN_CHAOS1=1; RUN_CHAOS1_KILL=1; RUN_CHAOS3=1 ;;
     --full) FULL=1 ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; exit 2 ;;
@@ -56,12 +63,16 @@ while (($# > 0)); do
   shift
 done
 
-if ((RUN_CHAOS1 == 0 && RUN_CHAOS3 == 0)); then
+if ((RUN_CHAOS1 == 0 && RUN_CHAOS1_KILL == 0 && RUN_CHAOS3 == 0)); then
   usage >&2
   exit 2
 fi
 if ! [[ "$REDIS_DOWN_SECONDS" =~ ^[0-9]+$ ]] || ((REDIS_DOWN_SECONDS < 1)); then
   echo "[chaos] ERROR: P4_CHAOS_REDIS_SECONDS debe ser un entero >= 1" >&2
+  exit 2
+fi
+if ! [[ "$CHAOS1_RACE_RUNS" =~ ^[0-9]+$ ]] || ((CHAOS1_RACE_RUNS < 1)); then
+  echo "[chaos] ERROR: P4_CHAOS1_RACE_RUNS debe ser un entero >= 1" >&2
   exit 2
 fi
 
@@ -119,7 +130,10 @@ mongo_delete() {
 
 mongo_age_document() {
   local id="$1"
-  mongo_eval "db.documents.updateOne({_id:'$id'},{\$set:{created_at:new Date(Date.now()-45*60*1000),updated_at:new Date(Date.now()-45*60*1000)}}).modifiedCount" \
+  # Envejece también expires_at: el reconciliador solo toca PENDING_UPLOAD
+  # vencidos y UPLOADED con updated_at viejo. Sin expires_at, un documento
+  # que quedó PENDING_UPLOAD tras el kill nunca se recupera en la prueba.
+  mongo_eval "db.documents.updateOne({_id:'$id'},{\$set:{created_at:new Date(Date.now()-45*60*1000),updated_at:new Date(Date.now()-45*60*1000),expires_at:new Date(Date.now()-45*60*1000)}}).modifiedCount" \
     | tail -n1
 }
 
@@ -189,7 +203,7 @@ restore_services() {
 }
 
 kill_doc_service() {
-  local cid before after
+  local cid before after i
   cid="$(compose ps -q doc-service)"
   [[ -n "$cid" ]] || { bad "doc-service no esta levantado"; return 1; }
   before="$(docker inspect -f '{{.State.StartedAt}}' "$cid" 2>/dev/null || true)"
@@ -265,9 +279,96 @@ assert_completed() {
   return 1
 }
 
-chaos1() {
+chaos1_race() {
+  local runs="$CHAOS1_RACE_RUNS" i id status_after recovered
+  local hit_pending=0 hit_uploaded=0 hit_queued=0 forced=0
+  log "S4-P4-01 (real): doc-service muere entre webhook y XADD (${runs} repeticiones)"
+  require_full_worker || return 1
+
+  for ((i = 1; i <= runs; i++)); do
+    new_document "chaos1-race" || { restore_services; return 1; }
+    id="$NEW_DOC_ID"
+    note "iteracion $i/$runs: document_id=$id"
+
+    # Kill inmediatamente despues del upload, con Redis sano: no hay failpoint,
+    # asi que la ventana exacta webhook -> XADD es probabilistica. El estado
+    # posterior indica donde cayo el kill.
+    if ! kill_doc_service; then
+      bad "iteracion $i: no se pudo matar el doc-service"
+      return 1
+    fi
+    wait_http "$API_BASE/healthz" "api.localhost:${HTTPS_PORT}:127.0.0.1" 90 \
+      || { bad "iteracion $i: doc-service no volvio"; return 1; }
+
+    status_after="$(mongo_status "$id")"
+    local had_entry=0 entry_id
+    entry_id="$(stream_entry_for "$id")"
+    [[ -n "$entry_id" ]] && had_entry=1
+    case "$status_after" in
+      PENDING_UPLOAD) hit_pending=$((hit_pending + 1)) ;;
+      UPLOADED)
+        if ((had_entry)); then hit_queued=$((hit_queued + 1)); else hit_uploaded=$((hit_uploaded + 1)); fi
+        ;;
+      QUEUED|PROCESSING|COMPLETED) hit_queued=$((hit_queued + 1)) ;;
+      *) bad "iteracion $i: estado inesperado '$status_after'"; return 1 ;;
+    esac
+
+    recovered=""
+    if ((had_entry)); then
+      recovered="ya-encolado"
+    elif [[ "$status_after" != "PENDING_UPLOAD" ]]; then
+      wait_stream_entry "$id" 20 && recovered="relay"
+    fi
+
+    if [[ -z "$recovered" ]]; then
+      if [[ "$status_after" == "UPLOADED" ]]; then
+        known "iteracion $i: el relay no reencolo (status=UPLOADED). Ver $RELAY_ISSUE"
+        TOTAL_KNOWN=$((TOTAL_KNOWN + 1))
+        if [[ "$STRICT_RELAY" == "1" ]]; then
+          bad "iteracion $i: relay no recupero el evento (P4_STRICT_RELAY=1)"
+          return 1
+        fi
+      else
+        note "iteracion $i: el webhook no proceso (status=$status_after); se prueba el reconciliador"
+      fi
+
+      mongo_age_document "$id" >/dev/null
+      reconcile_once >/dev/null || true
+      if ! wait_stream_entry "$id" 30; then
+        # Segundo pase: PENDING_UPLOAD -> UPLOADED y, si el relay sigue roto,
+        # UPLOADED estancado -> reencolado directo por el reconciliador.
+        mongo_age_document "$id" >/dev/null
+        reconcile_once >/dev/null || true
+        if ! wait_stream_entry "$id" 30; then
+          bad "iteracion $i: ni relay ni reconciliador encolaron $id"
+          return 1
+        fi
+      fi
+      recovered="reconciler"
+      forced=$((forced + 1))
+    fi
+
+    assert_single_entry "$id" || return 1
+    pass "iteracion $i: recuperado por $recovered (status previo=$status_after)"
+  done
+
+  note "cobertura: webhook->XADD=${hit_uploaded} webhook-perdido=${hit_pending} ya-encolado=${hit_queued} reconciliador-forzado=${forced}"
+
+  if ((FULL == 1)); then
+    for i in "${!CURRENT_DOCS[@]}"; do
+      assert_completed "${CURRENT_DOCS[$i]}" || return 1
+    done
+    pass "S4-P4-01 real: $runs/$runs sin perdida ni duplicados y COMPLETED"
+  else
+    block "COMPLETED bloqueado por G-B (worker real ausente)"
+    TOTAL_BLOCKED=$((TOTAL_BLOCKED + 1))
+    pass "S4-P4-01 real: $runs/$runs sin perdida ni duplicados"
+  fi
+}
+
+chaos1_kill() {
   local id recovered=""
-  log "S4-P4-01: Redis caido + SIGKILL de doc-service"
+  log "S4-P4-01 (variante): Redis caido + SIGKILL de doc-service"
   require_full_worker || return 1
 
   stop_service redis-streams
@@ -417,11 +518,20 @@ preflight() {
   redis_available || { bad "Redis no autentica con $ENV_FILE"; exit 1; }
 }
 
-log "API_BASE=$API_BASE proyecto=$PROJECT redis_down=${REDIS_DOWN_SECONDS}s full=$FULL strict_relay=$STRICT_RELAY"
+log "API_BASE=$API_BASE proyecto=$PROJECT redis_down=${REDIS_DOWN_SECONDS}s chaos1_runs=${CHAOS1_RACE_RUNS} full=$FULL strict_relay=$STRICT_RELAY"
 preflight
 
 if ((RUN_CHAOS1 == 1)); then
-  if chaos1; then
+  if chaos1_race; then
+    TOTAL_PASS=$((TOTAL_PASS + 1))
+  else
+    TOTAL_FAIL=$((TOTAL_FAIL + 1))
+  fi
+  restore_services
+fi
+
+if ((RUN_CHAOS1_KILL == 1)); then
+  if chaos1_kill; then
     TOTAL_PASS=$((TOTAL_PASS + 1))
   else
     TOTAL_FAIL=$((TOTAL_FAIL + 1))

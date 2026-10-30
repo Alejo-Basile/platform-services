@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLATFORM_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=../lib.sh
 source "$SCRIPT_DIR/../lib.sh"
 
 COMPOSE_FILES+=(-f "$BUILD_FILE" -f "$OVERRIDE_FILE")
@@ -16,7 +16,6 @@ mkdir -p "$OUT_DIR"
 REPORT_JSON="$OUT_DIR/S5-P4-01-report.json"
 REPORT_CSV="$OUT_DIR/S5-P4-01-report.csv"
 REPORT_MD="$OUT_DIR/S5-P4-01-report.md"
-K6_JSON="${1:-$OUT_DIR/S5-P4-01-k6.json}"
 
 # Ventana por defecto: última hora (ajustable con P4_LOAD_SINCE)
 SINCE="${P4_LOAD_SINCE:-$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ)}"

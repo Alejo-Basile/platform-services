@@ -5,7 +5,7 @@
 # Requiere: G-B (worker real + servicio extraction-worker)
 #
 # Uso:
-#   tests/e2e/chain/run.sh --runs 10 --keep-stack
+#   tests/e2e/chain/run.sh --runs 10
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,12 +14,10 @@ source "$SCRIPT_DIR/../lib.sh"
 
 COMPOSE_FILES+=(-f "$BUILD_FILE" -f "$OVERRIDE_FILE")
 
-KEEP_STACK=0
 RUNS=10
 for ((i=1;i<=$#;i++)); do
   arg="${!i}"
   case "$arg" in
-    --keep-stack) KEEP_STACK=1 ;;
     --runs) j=$((i+1)); RUNS="${!j:-10}"; i=$j ;;
   esac
 done
@@ -32,18 +30,12 @@ block(){ printf '  [BLOCKED] %s\n' "$*"; }
 
 HTTPS_PORT="$(env_value TRAEFIK_HTTPS_PORT)"; HTTPS_PORT="${HTTPS_PORT:-8543}"
 API_BASE="https://api.localhost:${HTTPS_PORT}"
-S3_BASE="https://s3.localhost:${HTTPS_PORT}"
 MONGO_DATABASE="$(env_value MONGO_DATABASE)"; MONGO_DATABASE="${MONGO_DATABASE:-documents}"
-REDIS_STREAM_KEY="$(env_value REDIS_STREAM_KEY)"; REDIS_STREAM_KEY="${REDIS_STREAM_KEY:-stream:pdf-processing}"
-INTERNAL_TOKEN="$(env_value INTERNAL_TOKEN)"
 
 for tool in jq openssl curl docker mongosh mc; do
   command -v "$tool" >/dev/null 2>&1 || fail "falta herramienta: $tool"
 done
 require_mc_image || fail "no se pudo obtener imagen mc ($MC_IMAGE)"
-
-TMP_DIR="$(mktemp -d)"
-trap 'rm -rf "$TMP_DIR"' EXIT
 
 export P4_MONGO_DB="$MONGO_DATABASE"
 

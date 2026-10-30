@@ -141,6 +141,8 @@ wait_http() {
 
 mongo_eval() {
   local js="$1" db="${P4_MONGO_DB:-${MONGO_DATABASE:-documents}}"
+  # Las comillas simples son intencionales: $PW/$P4_* se expanden dentro del contenedor.
+  # shellcheck disable=SC2016
   compose exec -T -e P4_JS="$js" -e P4_DB="$db" mongo sh -c '
     if [ -r /run/secrets/mongo_initdb_root_password ]; then PW=$(cat /run/secrets/mongo_initdb_root_password); else PW=$MONGO_INITDB_ROOT_PASSWORD; fi
     mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$PW" --authenticationDatabase admin "$P4_DB" --eval "$P4_JS"

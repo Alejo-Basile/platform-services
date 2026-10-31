@@ -139,6 +139,33 @@ wait_http() {
   return 1
 }
 
+mongo_eval() {
+  local js="$1" db="${P4_MONGO_DB:-${MONGO_DATABASE:-documents}}"
+  # Las comillas simples son intencionales: $PW/$P4_* se expanden dentro del contenedor.
+  # shellcheck disable=SC2016
+  compose exec -T -e P4_JS="$js" -e P4_DB="$db" mongo sh -c '
+    if [ -r /run/secrets/mongo_initdb_root_password ]; then PW=$(cat /run/secrets/mongo_initdb_root_password); else PW=$MONGO_INITDB_ROOT_PASSWORD; fi
+    mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$PW" --authenticationDatabase admin "$P4_DB" --eval "$P4_JS"
+  ' 2>/dev/null
+}
+
+mongo_get() {
+  local id="$1" field="$2"
+  mongo_eval "var d=db.documents.findOne({_id:'$id'}); print(d&&d.$field?d.$field:'')" | tail -n1
+}
+
+minio_exists() {
+  local key="$1" user pass network
+  local net_args=()
+  [[ -n "$key" ]] || return 1
+  user="$(env_value MINIO_ROOT_USER)"
+  pass="$(env_value MINIO_ROOT_PASSWORD)"
+  network="$(data_network || true)"
+  [[ -n "$network" ]] && net_args=(--network "$network")
+  require_mc_image || return 1
+  MC_HOST_local="http://${user}:${pass}@minio:9000" docker run --rm "${net_args[@]}" -e MC_HOST_local "$MC_IMAGE" stat "local/${key}" >/dev/null 2>&1
+}
+
 data_network() {
   docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}' \
     "$(compose ps -q minio 2>/dev/null)" 2>/dev/null | head -n1

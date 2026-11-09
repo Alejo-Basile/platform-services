@@ -19,26 +19,26 @@
 
 ## 2. Estado real de partida
 
-Auditoría de `main` al 2026-10-27.
+Auditoría actualizada al 2026-11-09.
 
 | Área | Estado | Impacto en S4-P4 |
 |---|---|---|
-| `platform-services` | PR #6 mergeada (`0ca65b9`): arnés con `KNOWN`, `P4_STRICT_RELAY`, `lib.sh` y workflow corregido | Base actualizada del arnés de caos |
-| `infra` | Redis Sentinel y webhook disponibles; `S4-P1-01` mergeado (`b21250a`); sin servicio worker | Caos 3 parcial; caos 2/4 bloqueados |
-| `doc-service` | Reconciliador, relay con backoff, lease, historial y endpoints internos en `main` | Caos 1/3 ejecutables hasta cola |
-| `extraction-worker` | Consumidor, DLQ y `XAUTOCLAIM`; PR #11 (extracción real) y #17 (Mongo/`COMPLETED`) aprobadas, sin mergear | No hay cadena real ni `COMPLETED` |
-| `S4-P2` | Implementación y tests presentes, sin auditoría de cierre | Debe auditarse antes de declarar el caos 1 cerrado |
-| `S4-P1-01` | Escalado horizontal con 2 réplicas **HECHO** (evidencia `infra/docs/evidencias/S4/S4-P1-01-escalado.txt`) | Habilita caos 1 con concurrencia real; limitación: imagen local, deploy GHCR bloqueado |
-| `S4-P1-02/03` | Métricas y alertas de negocio pendientes | No bloquean el arnés, sí el cierre operativo |
+| `platform-services` | PRs #6, #7, #8 mergeadas. PR #9 (artefactos S5 + DRY + hook) en revisión. Pre-commit hook y Makefile con `lint` | Base actualizada del arnés de caos; calidad automatizada |
+| `infra` | Servicio `extraction-worker` en compose con límites (PR #40, `0a120de`); alerta MinIO (PR #41, `690ff6a`); PR #43 (cierre S5-P1) abierto | Caos 2/4 posibles cuando worker esté levantado |
+| `doc-service` | #45 (timeline) cerrado (#56); #55 (relay reintenta) cerrado (#57); contrato de cola con campos planos (#67) | Caos 1/3 mejorados; relay más resiliente |
+| `extraction-worker` | `main` @ `c864f17`: replay DLQ, métricas, reaper (S4-P3-01/02). PRs #31 (corpus PDF hostil) y #32 (Sentinel) abiertos. **Sin Dockerfile en main** | Cadena real pendiente de imagen accesible |
+| `S4-P2` | Implementación y tests presentes; #45 y #55 cerrados | Mejorado; auditoría de cierre pendiente |
+| `S4-P1-01` | Escalado horizontal **HECHO** (evidencia `infra/docs/evidencias/S4/S4-P1-01-escalado.txt`) | Habilita caos 1 con concurrencia real |
+| `S4-P1-02/03` | Métricas de negocio pendientes (rama `feat/s4-p1-02-business-metrics` en doc-service) | No bloquean el arnés |
 | `S3-P4-03` | `BLOQUEADA` por worker y G-C | Bloquea el cierre de `S4-P4-05` |
-| `S4-P3-01..04` | Replay, métricas, `min-idle-time` y drenaje pendientes | Afectan la validez de caos 2/3 completos |
+| `S4-P3-01..04` | Replay, métricas y reaper implementados (commit `c864f17`); drenaje en PR #26 | Caos 2/3 más viables con worker |
 
 ## 3. Gates
 
 | Gate | Criterio | Owner | Estado |
 |---|---|---|---|
-| **G-B — Worker real** | Extracción real, `.txt` en MinIO, `COMPLETED` y servicio en Compose | P3/P1 | Bloqueado |
-| **G-C — Correctitud** | TTL, transiciones, correlación y `/readyz` cerrados | P2 | Parcial |
+| **G-B — Worker real** | Extracción real, `.txt` en MinIO, `COMPLETED` y servicio en Compose | P3/P1 | Parcial — servicio definido en infra, imagen no accesible |
+| **G-C — Correctitud** | TTL, transiciones, correlación y `/readyz` cerrados | P2 | Parcial — #45/#55 cerrados |
 | **S4-P2 — Auditoría** | Tests y código de reconciliación/relay/endpoints verificados contra el DoD | P2/P4 | Pendiente |
 | **S4-P1-01** | 2 réplicas del doc-service y 50/50 mensajes sin duplicados | P1 | Hecha (PR infra #32; imagen local) |
 | **G-E — Caos** | Caos 1/3 parciales verdes y evidencia; caos 2/4 con worker | P4 | Parcial verde (run 40135424950, 40609491183) |
@@ -229,7 +229,11 @@ deploy por imagen GHCR sigue bloqueado.
 | S4-P4-02 | Bloqueada | Completa | Completa | `S4-P4-02` |
 | S4-P4-03 | Parcial ejecutado | Completa | Completa | `S4-P4-03-caos-redis.txt` |
 | S4-P4-04 | Bloqueada | Completa | Completa | `S4-P4-04` |
-| S4-P4-05 | Borrador | Validable | Completa | `S4-P4-05` |
+| S4-P4-05 | Borrador hecho | Validable | Completa | `S4-P4-05-runbook.txt` |
+
+Actualización 2026-11-09: #45 y #55 cerrados en doc-service (mejora G-C);
+infra añadió servicio worker con límites (PR #40) y alertas MinIO (PR #41);
+S4-P3-01/02 implementados en extraction-worker (replay DLQ, métricas).
 
 ## 7. Riesgos
 

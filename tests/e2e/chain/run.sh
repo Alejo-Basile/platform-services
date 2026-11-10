@@ -32,7 +32,7 @@ HTTPS_PORT="$(env_value TRAEFIK_HTTPS_PORT)"; HTTPS_PORT="${HTTPS_PORT:-8543}"
 API_BASE="https://api.localhost:${HTTPS_PORT}"
 MONGO_DATABASE="$(env_value MONGO_DATABASE)"; MONGO_DATABASE="${MONGO_DATABASE:-documents}"
 
-for tool in jq openssl curl docker mongosh mc; do
+for tool in jq openssl curl docker; do
   command -v "$tool" >/dev/null 2>&1 || fail "falta herramienta: $tool"
 done
 require_mc_image || fail "no se pudo obtener imagen mc ($MC_IMAGE)"

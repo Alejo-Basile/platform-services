@@ -16,7 +16,8 @@ fail(){ printf '[load] ERROR: %s\n' "$*" >&2; exit 1; }
 
 command -v k6 >/dev/null 2>&1 || fail "falta k6"
 
-export RUN_ID="s5-p4-01-$(date +%s)"
+RUN_ID="s5-p4-01-$(date +%s)"
+export RUN_ID
 export BASE_URL
 export PRE_VUS="$VUS"
 export MAX_VUS=$((VUS*2))

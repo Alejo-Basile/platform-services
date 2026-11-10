@@ -1,0 +1,150 @@
+# S4-P4-05 — Guía de documentos atascados (BORRADOR)
+
+**Fecha:** 2026-11-09
+**Estado:** BORRADOR — validación real bloqueada por G-B (sin worker)
+**Depende de:** S3-P4-03 (matriz de estados)
+**Autor:** P4
+
+---
+
+## 1. Propósito
+
+Guía operativa para identificar y resolver documentos que quedaron atascados
+en estados no terminales del pipeline. Un documento está "atascado" cuando
+lleva más tiempo del esperado en un estado sin avanzar.
+
+## 2. Estados del pipeline
+
+| Estado | Tipo | Descripción |
+|---|---|---|
+| `PENDING_UPLOAD` | No terminal | Creado, esperando subida del PDF |
+| `UPLOADED` | No terminal | PDF subido a MinIO, esperando encolado |
+| `QUEUED` | No terminal | Mensaje en Redis Streams, esperando worker |
+| `PROCESSING` | No terminal | Worker extrayendo texto |
+| `RETRYING` | No terminal | Extracción falló, esperando reintento |
+| `EXTRACTION_FAILED` | No terminal | Extracción falló, puede necesitar compensación |
+| `COMPENSATING` | No terminal | Ejecutando compensación por fallo |
+| `COMPLETED` | Terminal | Éxito — `.txt` disponible |
+| `FAILED` | Terminal | Fallo definitivo |
+| `REJECTED` | Terminal | Rechazado (PDF inválido, etc.) |
+| `UPLOAD_EXPIRED` | Terminal | Upload vencido sin subida |
+
+## 3. Diagnóstico rápido
+
+### 3.1 Consultar documentos atascados
+
+```bash
+# Documentos no terminales con más de 30 minutos
+docker compose exec -T mongo mongosh --quiet -u root -p "$MONGO_INITDB_ROOT_PASSWORD" \
+  --authenticationDatabase admin documents --eval '
+  db.documents.find({
+    status: { $nin: ["COMPLETED","FAILED","REJECTED","UPLOAD_EXPIRED"] },
+    updated_at: { $lt: new Date(Date.now() - 30*60*1000) }
+  }).forEach(function(d) {
+    print(d._id + " | " + d.status + " | " + d.updated_at + " | " + (d.correlation_id||""));
+  })
+'
+```
+
+### 3.2 Ver historial de un documento
+
+```bash
+docker compose exec -T mongo mongosh --quiet -u root -p "$MONGO_INITDB_ROOT_PASSWORD" \
+  --authenticationDatabase admin documents --eval '
+  var d = db.documents.findOne({_id: "DOCUMENT_ID"});
+  printjson(d.history || []);
+'
+```
+
+### 3.3 Verificar mensaje en Redis Streams
+
+```bash
+docker compose exec -T redis-streams redis-cli -a "$REDIS_PASSWORD" --no-auth-warning \
+  XRANGE stream:pdf-processing - + COUNT 100 | grep DOCUMENT_ID
+```
+
+## 4. Escenarios y resolución
+
+### 4.1 PENDING_UPLOAD atascado
+
+**Causa:** El cliente creó el documento pero nunca subió el PDF.
+
+**Resolución:** El reconciliador marca `UPLOAD_EXPIRED` cuando vence `expires_at`.
+Si `expires_at` ya pasó y no se marcó:
+
+```bash
+# Forzar reconciliación (API_BASE: host público de la API en Traefik)
+curl -X POST "$API_BASE/internal/reconcile" \
+  -H "Authorization: Bearer $INTERNAL_TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+### 4.2 UPLOADED atascado (sin mensaje en stream)
+
+**Causa:** El webhook de MinIO falló o el relay no reencoló tras una caída de Redis.
+
+**Resolución:**
+1. Verificar que el objeto existe en MinIO (`mc stat local/raw-pdfs/<key>`)
+2. Forzar reconciliación (endpoint interno)
+3. Si el relay no reencola (doc-service#55), el reconciliador lo recupera
+
+### 4.3 QUEUED atascado (mensaje en stream, sin worker)
+
+**Causa:** El worker no está levantado o no procesa el mensaje.
+
+**Resolución:**
+1. Verificar worker: `docker compose ps extraction-worker`
+2. Verificar consumer group: `docker compose exec redis-streams redis-cli -a "$PW" XINFO GROUPS stream:pdf-processing`
+3. Verificar PEL (Pending Entries List): `XINFO GROUPS` muestra `pending`
+4. Si el mensaje está en PEL hace tiempo, `XAUTOCLAIM` lo reasigna (lo hace el worker)
+
+### 4.4 PROCESSING atascado
+
+**Causa:** El worker se cayó durante el procesamiento o el job timeout no se disparó.
+
+**Resolución:**
+1. El `WORKER_MIN_IDLE_MS` (600s) + `XAUTOCLAIM` reasigna el mensaje
+2. Verificar que el worker tiene `WORKER_JOB_TIMEOUT_SECS=300` configurado
+3. Si persiste, revisar logs del worker
+
+### 4.5 RETRYING atascado
+
+**Causa:** Reintentos agotados o worker no procesa reintentos.
+
+**Resolución:**
+1. Verificar `WORKER_MAX_ATTEMPTS` (default: 5)
+2. Revisar DLQ: `stream:pdf-processing-dlq`
+3. Si está en DLQ, usar replay del worker (S4-P3-01)
+
+### 4.6 EXTRACTION_FAILED / COMPENSATING atascado
+
+**Causa:** Fallo de extracción sin compensación ejecutada.
+
+**Resolución:**
+1. Revisar logs del worker para el error de extracción
+2. La compensación debería restaurar el estado
+3. Si no se ejecutó, marcar manualmente como `FAILED` (con `failure_reason`)
+
+## 5. Herramientas útiles
+
+| Herramienta | Uso |
+|---|---|
+| `tests/e2e/chain/run.sh` | Validar cadena completa (requiere worker) |
+| `tests/e2e/errors/run.sh` | Probar escenarios de error |
+| `tests/e2e/chaos/run.sh` | Probar resiliencia (caos) |
+| `POST /internal/reconcile` | Forzar reconciliador |
+| `mongosh` | Consultar estado de documentos |
+| `redis-cli` | Verificar stream y consumer groups |
+
+## 6. Prevención
+
+- Monitorear métrica `docservice_docs_non_terminal` (slo-exporter)
+- Alertar si documentos no terminales > umbral por más de 30 min
+- Verificar `/readyz` del worker regularmente
+- Revisar DLQ periódicamente
+
+## 7. Notas
+
+- Este runbook requiere validación con worker real (G-B) para cerrar S4-P4-05
+- La validación debe hacerla una persona distinta de quien lo escribió
+- Evidencia pendiente: `docs/evidencias/S4/S4-P4-05-runbook.txt` + caso resuelto

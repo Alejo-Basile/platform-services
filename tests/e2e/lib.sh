@@ -154,6 +154,17 @@ mongo_get() {
   mongo_eval "var d=db.documents.findOne({_id:'$id'}); print(d&&d.$field?d.$field:'')" | tail -n1
 }
 
+mongo_status() {
+  local id="$1"
+  mongo_eval "var d=db.documents.findOne({_id:'$id'}); print(d?d.status:'')" | tail -n1
+}
+
+mongo_delete() {
+  local id="$1"
+  [[ -n "$id" ]] || return 0
+  mongo_eval "db.documents.deleteOne({_id:'$id'})" >/dev/null 2>&1 || true
+}
+
 minio_exists() {
   local key="$1" user pass network
   local net_args=()

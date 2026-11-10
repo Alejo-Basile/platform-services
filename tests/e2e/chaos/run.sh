@@ -104,29 +104,7 @@ TOTAL_FAIL=0
 TOTAL_BLOCKED=0
 TOTAL_KNOWN=0
 
-mongo_eval() {
-  local js="$1"
-  compose exec -T -e P4_JS="$js" -e P4_DB="$MONGO_DATABASE" mongo sh -c '
-    if [ -r /run/secrets/mongo_initdb_root_password ]; then
-      PW=$(cat /run/secrets/mongo_initdb_root_password)
-    else
-      PW=$MONGO_INITDB_ROOT_PASSWORD
-    fi
-    mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$PW" \
-      --authenticationDatabase admin "$P4_DB" --eval "$P4_JS"
-  ' 2>/dev/null
-}
-
-mongo_status() {
-  local id="$1"
-  mongo_eval "var d=db.documents.findOne({_id:'$id'}); print(d?d.status:'')" | tail -n1
-}
-
-mongo_delete() {
-  local id="$1"
-  [[ -n "$id" ]] || return 0
-  mongo_eval "db.documents.deleteOne({_id:'$id'})" >/dev/null 2>&1 || true
-}
+# mongo_eval, mongo_status y mongo_delete vienen de lib.sh (DRY).
 
 mongo_age_document() {
   local id="$1"

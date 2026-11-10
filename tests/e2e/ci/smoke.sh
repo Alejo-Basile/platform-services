@@ -86,8 +86,14 @@ log "compose config: OK"
 
 if [[ "$MODE" == "ci" ]]; then
   log "levantando servicios del E2E (sin monolito ni observabilidad)"
+  # doc-service corre en modo Sentinel desde S6-P1-01 (SPEC 3.5):
+  # REDIS_SENTINEL_ADDRS apunta a sentinel-1/2/3 y su Ping de arranque
+  # (cmd/api/main.go) hace os.Exit(1) si no puede resolver el master
+  # myprimary. Sin los sentinels el contenedor entra en crash-loop y
+  # /healthz nunca responde.
   compose up -d --build \
     mongo mongo-init redis-streams redis-ratelimit minio minio-init \
+    sentinel-1 sentinel-2 sentinel-3 \
     traefik doc-service minio-notify-init
 fi
 

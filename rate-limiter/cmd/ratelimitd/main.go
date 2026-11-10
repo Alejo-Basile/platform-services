@@ -1,3 +1,4 @@
+// Supported environment variables: LISTEN_ADDR, REDIS_ADDR, REDIS_PASSWORD, REDIS_PASSWORD_FILE.
 // Comando ratelimitd: wrapper HTTP mínimo sobre el núcleo GCRA.
 // En S1 sirve para probar el script con k6; el ForwardAuth completo es S7.
 package main
@@ -11,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -20,7 +22,10 @@ import (
 func main() {
 	addr := env("LISTEN_ADDR", ":8090")
 	redisAddr := env("REDIS_ADDR", "redis-ratelimit:6379")
-	redisPassword := os.Getenv("REDIS_PASSWORD")
+	redisPassword, err := redisPasswordFromEnv()
+	if err != nil {
+		log.Fatalf("redis password: %v", err)
+	}
 
 	client := limiter.NewClient(redisAddr, redisPassword)
 	defer client.Close()
@@ -64,6 +69,21 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(ctx)
+}
+
+func redisPasswordFromEnv() (string, error) {
+	if password := os.Getenv("REDIS_PASSWORD"); password != "" {
+		return password, nil
+	}
+	passwordFile := os.Getenv("REDIS_PASSWORD_FILE")
+	if passwordFile == "" {
+		return "", nil
+	}
+	data, err := os.ReadFile(passwordFile)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(data)), nil
 }
 
 func handleCheck(w http.ResponseWriter, r *http.Request, lim *limiter.Limiter) {

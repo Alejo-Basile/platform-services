@@ -1,0 +1,6 @@
+.git
+**/*_test.go
+**/*_testdata/**
+**/testdata/**
+**/scratch/**
+**/*.tmp

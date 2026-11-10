@@ -1,0 +1,10 @@
+# Config de gitleaks para platform-services.
+# Se auto-descubre como <source>/.gitleaks.toml (orden de precedencia del CLI).
+title = "platform-services gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Falso positivo de generic-api-key: URL local api.localhost en el ejemplo de curl del runbook S4-P4-05 (docs de evidencia, sin credenciales)"
+paths = ['''docs/evidencias/S4/S4-P4-05-runbook\.txt$''']

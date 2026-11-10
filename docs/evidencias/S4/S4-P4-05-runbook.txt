@@ -73,8 +73,8 @@ docker compose exec -T redis-streams redis-cli -a "$REDIS_PASSWORD" --no-auth-wa
 Si `expires_at` ya pasó y no se marcó:
 
 ```bash
-# Forzar reconciliación
-curl -X POST "https://api.localhost:8543/internal/reconcile" \
+# Forzar reconciliación (API_BASE: host público de la API en Traefik)
+curl -X POST "$API_BASE/internal/reconcile" \
   -H "Authorization: Bearer $INTERNAL_TOKEN" \
   -H "Content-Type: application/json"
 ```

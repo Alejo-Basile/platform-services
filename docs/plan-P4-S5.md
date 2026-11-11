@@ -1,20 +1,60 @@
 # Plan P4 — Semana 5 (F3 Worker)
 
 **Owner:** P4 (Integración y Calidad)  
-**Alcance:** `S5-P4-01`, `S5-P4-02`, `S5-P4-03` + arrastre `S3-P4-01`, `S3-P4-02`, `S3-P4-03` + verificaciones P4 del calendario (contract test del resultado, PDFs patológicos, k6 de subida sostenida, comparación p95).  
+**Alcance original (referencia):** `S5-P4-01`, `S5-P4-02`, `S5-P4-03` + arrastre `S3-P4-01`, `S3-P4-02`, `S3-P4-03` + verificaciones P4 del calendario (contract test del resultado, PDFs patológicos, k6 de subida sostenida, comparación p95).
+**Alcance vigente:** solo el sustituto mínimo del recorte acordado (§0.2): smoke k6 de 100 documentos, umbrales k6 de la matriz y 1 run E2E reducido.
 **Fuera de alcance:** implementación directa de P1/P2/P3. P4 verifica y reporta; no se usan mocks.  
-**Premisa:** sin worker real no se simula. G-B es bloqueante.
+**Premisa:** G-B1 y G-B2 están en `main` desde 2026-11-10; sin worker real no se simula.
 
 ## 0. Gates y precondiciones
 
 | Gate | Criterio | Owner | Estado |
 |---|---|---|---|
-| **G-B1** | Merge `extraction-worker#11` → retarget/merge `#17`. `Dockerfile` no-root (multi-stage), usuario no-root, `HEALTHCHECK`. Servicio `extraction-worker` en Compose con `mem_limit`, `cpus`, `pids_limit`, `ulimits.nofile`, `read_only`, `cap_drop`, `security_opt`, secretos, redes y healthcheck. | P3/P1 | Bloqueado |
-| **G-B2** | `/readyz` valida Redis, MinIO, Mongo **y consumer group registrado** (`XINFO GROUPS`), sin competir con permisos del bulkhead. | P3/P1 | Parcial (`#17` no valida grupo) |
-| **G-B3** | `S5-P3-06` prueba de sostenimiento 1000 docs con memoria/descriptores estables. `S5-P3-05` PDFs patológicos/hostiles con timeout duro. | P3 | Pendiente |
+| **G-B1** | `Dockerfile` multi-stage no-root (`USER 10001:10001`) con `HEALTHCHECK` en `extraction-worker/Dockerfile` (main). Servicio `extraction-worker` endurecido en `infra/compose/docker-compose.yml` (~línea 599) con `mem_limit`, `cpus`, `pids_limit`, `ulimits.nofile`, `read_only`, `cap_drop`, `security_opt`, secretos, redes y healthcheck, sobre los límites de infra#40. | P3/P1 | **Completado**: imagen en main; servicio desde `infra#43` (`5e515da`). `extraction-worker#11` y `#17` mergeados. |
+| **G-B2** | `/readyz` valida Redis, MinIO, Mongo **y consumer group registrado** (`XINFO GROUPS`) sobre `stream:pdf-processing`, sin competir con permisos del bulkhead. | P3/P1 | **Completado**: `extraction-worker#38`, commit `a9bd8a2`; `crates/worker/src/http.rs` (~línea 231) exige el grupo `extraction-workers` y responde 503 si falta. |
+| **G-B3** | Sostenimiento y alertas entraron con `extraction-worker#34`; la corrida de 1000 docs de `S5-P3-06` queda diferida (§0.2). `S5-P3-05` PDFs patológicos/hostiles con timeout duro sigue pendiente (P3-05). | P3 | Parcial |
 | **G-B4** | `S5-P2-01`..`S5-P2-04` cerrados. `doc-service#45` (timeline con actores `client`, `minio-webhook`, `worker`, `reconciler`), `doc-service#55` (relay reencola tras caída) resueltos o medidos con `P4_STRICT_RELAY`. | P2 | Parcial |
 | **G-B5** | Prometheus scrapea `extraction-worker`, `redis-exporter`, `minio`. Alertas con runbook real. `MinioDiskHigh` a 70%/85%. `QueueDepthHigh`, `PELBacklog`, `DLQNotEmpty`. | P1 | Parcial (scrape incompleto; runbooks faltantes) |
 | **G-B6** | `S3-P4-01` cadena real verde 10/10 local y CI. | P4 | Bloqueado |
+| **RATE-1** | Rate limit mínimo del SPEC §8: `ratelimitd` (GCRA + Redis + Lua) detrás de ForwardAuth en `/api/v2/*`, con respuesta 429 al exceder el límite. | P4/P1 | **Integrado**: servicio e imagen en `platform-services/main`; Compose y middleware en `infra#44` (`214f124`); probe de gateway 200/429 en §0.1. E2E de documentos sigue bloqueado por auth del webhook (ver evidencia S5). |
+
+### 0.1 Rate limit — versión mínima
+
+| Pieza | Estado | Evidencia |
+|---|---|---|
+| Servicio `ratelimitd` (GCRA + Redis + Lua, tests unitarios y de integración) | Entregado y mergeado | `platform-services/rate-limiter/` (PRs #3/#4/#6); `go test ./...` verde en Go 1.24 |
+| Imagen no-root y secreto Redis por archivo | Entregado y mergeado | `platform-services#10` (`09e9113`, `1b55423`); `rate-limiter/Dockerfile`, `REDIS_PASSWORD_FILE` |
+| Endpoint usado por ForwardAuth (`/check`, clave estática `api-v2`, rate=10/burst=20) | Integrado | `infra#44` (`214f124`), `infra/traefik/dynamic/middlewares.yml` |
+| Servicio `ratelimitd` en Compose | Integrado | `infra#44`, `infra/compose/docker-compose.yml`; `docker compose --profile full up --build ratelimitd` y `/healthz` OK |
+| Middleware ForwardAuth sobre `/api/v2/*` | Integrado | `infra#44`, router `docv2` usa `rate-limit@file` |
+| Verificación de 429 vía Traefik | Verificado | Probe k6: 25 respuestas 200, 75 respuestas 429, 100/100 checks; `docs/evidencias/S5/S5-P4-evidencia-parcial.md` |
+
+**Fallback documentado (tope 30 min):** middleware nativo `RateLimit` de Traefik en el mismo
+`middlewares.yml`, sin código. El conteo es por instancia de Traefik; hoy el Compose tiene una sola
+instancia (SPEC §3.1), así que la limitación es aceptable. Se prefiere el wiring del servicio porque
+ya está escrito y testeado.
+
+### 0.2 Recorte acordado (S5)
+
+| Tarea diferida | Sprint | Motivo del corte | Sustituto mínimo |
+|---|---|---|---|
+| Endurance 24 h (`S5-P4-02`) | S5 | Tiempo de reloj; verificación, no funcionalidad | Diferido |
+| Carga de 1000 documentos (`S5-P4-01`, `S5-P3-06`) | S5 | Verificación de capacidad | Smoke k6 de 100 documentos (P4) |
+| Campaña completa de SLOs (`S5-P4-03`) | S5 | Medición extensa | Umbrales k6 de la matriz (p95 < 500 ms, error < 1%) |
+| Verificaciones `S5-P4-04..07` | S5 | Repetición de evidencia | 1 run E2E reducido + matriz k6 |
+
+La tabla completa de recortes (S0–S10) está en `plan-minimo-funcional.md`, §«Qué se recorta y por
+qué». Lo que no se recorta: lo ya mergeado, el `Dockerfile` del worker, el `/readyz` con consumer
+group, el wiring del rate limit existente y las corridas k6 reducidas con su evidencia.
+
+Riesgos aceptados del recorte:
+
+| Riesgo | Impacto | Aceptación |
+|---|---|---|
+| Rate limit en versión mínima (sin tuning distribuido) | Conteo por instancia si algún día hay varias réplicas de Traefik | Aceptado: hoy hay una sola instancia en Compose; la limitación queda documentada |
+| Sin endurance 24 h | No hay evidencia de estabilidad prolongada | Aceptado; se sustituye por smoke k6 corto |
+| Sin migración de clientes ni apagado | El monolito sigue vivo y el contrato v1 sigue abierto | Aceptado: es el alcance del recorte |
+| Sin alertas completas (G-B5) | Detección manual de incidentes | Aceptado para esta etapa |
 
 ## 1. Arrastre S3 (prerrequisito)
 
@@ -25,6 +65,8 @@
 | **S3-P4-03** | Matriz de estados alcanzables forzando todos los caminos de fallo. Ciclo completo de reconciliación. | 0 documentos en estados no terminales. Todos terminan en `COMPLETED`, `FAILED`, `REJECTED` o `UPLOAD_EXPIRED`. | `docs/evidencias/S3/S3-P4-03-estados.txt` + matriz |
 
 ## 2. S5-P4-01 — Carga de 1000 documentos
+
+**Diferido por el recorte (§0.2).** Sustituto mínimo: smoke k6 de 100 documentos (`tests/e2e/load/run.sh`, `RATE_TARGET=5`). El resto de la sección queda como referencia.
 
 ### Arnés
 - **K6:** `tests/e2e/load/pipeline.js`
@@ -62,6 +104,8 @@
 
 ## 3. S5-P4-03 — SLOs medibles
 
+**Diferido por el recorte (§0.2).** Campaña completa de SLOs; sustituto: umbrales k6 de la matriz (p95 < 500 ms, error < 1%).
+
 ### SLOs propuestos (ratificar con primera corrida)
 1. **Latencia pipeline:** p95 `POST→COMPLETED` < 5 min (alineado con SPEC §15.2).
 2. **Convergencia temporal:** 100 % terminales en < 10 min.
@@ -96,6 +140,8 @@ Crear `platform-services/slo-exporter/` (Go):
 
 ## 4. S5-P4-02 — 24 h sostenidas
 
+**Diferido por el recorte (§0.2).** No hay endurance 24 h; se acepta el riesgo y se sustituye por smoke k6 corto.
+
 **Entorno:** host dedicado (fuera de GitHub Actions). CI limitado a smoke de 1h nocturno.
 
 ### Escenarios
@@ -120,6 +166,8 @@ Crear `platform-services/slo-exporter/` (Go):
 
 ## 5. Verificaciones P4 del calendario
 
+**Diferido por el recorte (§0.2).** `S5-P4-04..07`; sustituto: 1 run E2E reducido + matriz k6.
+
 | Tarea | Descripción | DoD | Evidencia |
 |---|---|---|---|
 | **Contract test del resultado** | Validar contrato terminal (doc), `.txt` existente y legible, `status_history`, `correlation_id`, envelope DLQ, `WorkItem`. | Tests reproducibles; falla ante contrato inválido. | `docs/evidencias/S5/S5-P4-04-contract.txt` |
@@ -131,8 +179,8 @@ Crear `platform-services/slo-exporter/` (Go):
 
 Actualizar `platform-services/.github/workflows/e2e.yml`:
 - Checkout `extraction-worker`.
-- Build imagen worker local cuando exista servicio.
-- Ejecutar `tests/e2e/chain/run.sh` (cuando G-B2 verde).
+- Build imagen worker local (G-B1 en main: `extraction-worker/Dockerfile`).
+- Ejecutar `tests/e2e/chain/run.sh` (G-B2 en main, `a9bd8a2`).
 - Ejecutar `tests/e2e/load/run.sh --smoke` (pequeña corrida) para validar harness.
 - Artefactos: logs, métricas, reportes.
 - `workflow_dispatch` inputs: `load_docs`, `load_vus`, `chaos1_race_runs`.
@@ -142,18 +190,20 @@ Actualizar `platform-services/.github/workflows/e2e.yml`:
 
 | Riesgo | Mitigación |
 |---|---|
-| G-B retrasado | Fase 0 sin ejecutar cadena; plan marcado bloqueante. No mocks. |
+| G-B retrasado | G-B1/G-B2 y wiring P1-04/P1-05 cerrados. Bloqueo residual: webhook MinIO → doc-service responde 401, impidiendo cerrar la cadena E2E y la carga del worker. No mocks. |
 | TTL borra documentos | `DOC_UPLOAD_GRACE_MIN` amplio en prueba; vigilar; considerar índice TTL parcial (P2). |
 | `doc-service#55` relay | Reconciliación cuenta como recuperado; `P4_STRICT_RELAY=1` tras fix. |
 | `doc-service#45` timeline | Usar `completed_at`/`history`; priorizar fix. |
 | Prometheus sin scrape Redis/MinIO/worker | P1 corrige; sin ello alertas NoData. |
 | Sin métricas de negocio | Exportador propio (fase 0) evita depender solo de P2. |
-| 24h infactible en CI | Host dedicado. |
+| 24h infactible en CI | Diferida por el recorte (§0.2); sustituto: smoke k6 corto. |
 | Flakiness k6/polling | Reintentos, timeouts generosos, limpieza por ID, report determinista. |
 
 ## 8. Orden de ejecución
 
-1. **Fase 0 (preparación):** crear plan, arnés chain/load/report, slo-exporter, dashboard/alerts, CI. Todo sin ejecutar contra worker ausente.
+Las fases 2–6 corresponden a los ítems diferidos por el recorte (§0.2) y quedan como referencia. La ejecución vigente es el sustituto mínimo: smoke k6 de 100 documentos, umbrales k6 de la matriz y 1 run E2E reducido.
+
+1. **Fase 0 (preparación):** crear plan, arnés chain/load/report, slo-exporter, dashboard/alerts, CI. Todo sin ejecutar la cadena E2E completa.
 2. **Gate check G-B1..G-B6:** si alguno rojo → parar y reportar bloqueos.
 3. **Fase 2:** S3-P4-01 → S3-P4-02 → S3-P4-03.
 4. **Fase 3:** S5-P4-01 (1000) + reporte.

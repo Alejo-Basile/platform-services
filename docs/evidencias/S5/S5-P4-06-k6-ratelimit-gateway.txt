@@ -1,0 +1,80 @@
+# P4-06 — rate-limit del gateway
+# Fecha UTC: 2026-11-11T01:41:58Z
+# RUN_ID=p4-06-gateway-1794361314-900281
+# Petición bajo el límite: HTTP 200
+
+
+         /\      Grafana   /‾‾/
+    /\  /  \     |\  __   /  /
+   /  \/    \    | |/ /  /   ‾‾\
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/
+
+
+     execution: local
+        script: tests/k6/ratelimit/gateway.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 100 max VUs, 50s max duration (incl. graceful stop):
+              * burst: 100 iterations shared among 100 VUs (maxDuration: 20s, gracefulStop: 30s)
+
+
+running (00.6s), 100/100 VUs, 0 complete and 0 interrupted iterations
+burst   [   0% ] 100 VUs  00.6s/20s  000/100 shared iters
+
+running (01.6s), 095/100 VUs, 5 complete and 0 interrupted iterations
+burst   [   5% ] 100 VUs  01.6s/20s  005/100 shared iters
+
+running (02.6s), 066/100 VUs, 34 complete and 0 interrupted iterations
+burst   [  34% ] 100 VUs  02.6s/20s  034/100 shared iters
+
+
+  █ THRESHOLDS
+
+    allowed_total
+    ✓ 'count>0' count=46
+
+    checks
+    ✓ 'rate==1' rate=100.00%
+
+    denied_total
+    ✓ 'count>0' count=54
+
+    unexpected_status_total
+    ✓ 'count==0' count=0
+
+
+  █ TOTAL RESULTS
+
+    checks_total.......: 100     33.053566/s
+    checks_succeeded...: 100.00% 100 out of 100
+    checks_failed......: 0.00%   0 out of 100
+
+    ✓ gateway returns 200 or 429
+
+    CUSTOM
+    allowed_total..................: 46     15.20464/s
+    denied_total...................: 54     17.848926/s
+    unexpected_status_total........: 0      0/s
+
+    HTTP
+    http_req_duration..............: avg=1.08s min=125.92ms med=1.13s max=2.02s p(90)=1.66s p(95)=1.7s
+      { expected_response:true }...: avg=1.29s min=127.34ms med=1.42s max=2.02s p(90)=1.71s p(95)=1.84s
+    http_req_failed................: 54.00% 54 out of 100
+    http_reqs......................: 100    33.053566/s
+
+    EXECUTION
+    iteration_duration.............: avg=2.1s  min=587.36ms med=2.15s max=2.7s  p(90)=2.65s p(95)=2.67s
+    iterations.....................: 100    33.053566/s
+    vus............................: 66     min=66        max=100
+    vus_max........................: 100    min=100       max=100
+
+    NETWORK
+    data_received..................: 285 kB 94 kB/s
+    data_sent......................: 177 kB 59 kB/s
+
+
+
+
+running (03.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+burst ✓ [ 100% ] 100 VUs  03.0s/20s  100/100 shared iters

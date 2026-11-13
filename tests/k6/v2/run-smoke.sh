@@ -6,7 +6,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_URL="${BASE_URL:-https://api.localhost:8543}"
 RUN_ID="${RUN_ID:-ci-$(date +%s)}"
-export RUN_ID BASE_URL
+# Traefik aplica rate-limit@file (forwardAuth, 10 rps / burst 20) a /api/v2.
+# El smoke corre 1 VU en loop cerrado: sin pausa satura el limite y todos los
+# requests vuelven 429, lo que rompe los thresholds funcionales. La pausa deja
+# el ritmo por debajo del limite; las corridas de carga (run-v2.sh) no la usan.
+SMOKE_SLEEP="${SMOKE_SLEEP:-0.3}"
+export RUN_ID BASE_URL SMOKE_SLEEP
 
 command -v k6 >/dev/null 2>&1 || {
   printf 'k6 no esta instalado.\n' >&2

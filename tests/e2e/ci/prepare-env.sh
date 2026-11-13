@@ -114,6 +114,19 @@ else
   [[ -f "$ENV_FILE" ]] || fail "falta $ENV_FILE; copia .env.example y completa los valores"
 fi
 
+# Traefik corre como usuario no-root y necesita el GID del grupo del socket
+# Docker. Compose interpola la variable aunque el perfil `full` no se levante,
+# asi que debe existir aun para `docker compose config` del smoke.
+if [[ -z "$(env_value DOCKER_GID)" ]]; then
+  docker_gid="$(stat -c '%g' /var/run/docker.sock 2>/dev/null || true)"
+  if [[ -z "$docker_gid" ]]; then
+    docker_gid="$(getent group docker | cut -d: -f3 || true)"
+  fi
+  [[ -n "$docker_gid" ]] || fail "no se pudo resolver el GID del grupo docker"
+  set_env DOCKER_GID "$docker_gid"
+  log "DOCKER_GID=$docker_gid agregado a $ENV_FILE"
+fi
+
 write_secret() {
   local file="$1" key="$2" value
   value="$(env_value "$key")"

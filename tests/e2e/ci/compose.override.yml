@@ -10,3 +10,11 @@ services:
     environment:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?definir en .env}
       MINIO_WEBHOOK_SECRET: ${MINIO_WEBHOOK_SECRET:?definir en .env}
+
+  # `infra` asume que platform-services es un repo hermano (../../platform-services/
+  # rate-limiter), pero en el checkout de CI el repo ES la raiz del workspace y
+  # rate-limiter vive dentro. Los arneses exportan P4_RATELIMITD_BUILD_CONTEXT
+  # con la ruta real; el default mantiene el layout local de repos hermanos.
+  ratelimitd:
+    build:
+      context: ${P4_RATELIMITD_BUILD_CONTEXT:-../../platform-services/rate-limiter}

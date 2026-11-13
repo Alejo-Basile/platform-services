@@ -14,6 +14,11 @@
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLATFORM_ROOT="$(cd "$LIB_DIR/../.." && pwd)"
 
+# rate-limiter vive DENTRO de platform-services: en CI este repo es la raiz del
+# workspace, asi que la ruta relativa que usa infra (repo hermano) no resuelve.
+# Se exporta la ruta absoluta y compose.override.yml la aplica al build.
+export P4_RATELIMITD_BUILD_CONTEXT="${P4_RATELIMITD_BUILD_CONTEXT:-$PLATFORM_ROOT/rate-limiter}"
+
 if [[ -n "${P4_WORKSPACE_ROOT:-}" ]]; then
   WORKSPACE_ROOT="$P4_WORKSPACE_ROOT"
 elif [[ -f "$PLATFORM_ROOT/../infra/compose/docker-compose.yml" ]]; then

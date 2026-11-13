@@ -5,6 +5,10 @@ import exec from 'k6/execution';
 
 const BASE_URL = __ENV.BASE_URL || 'https://api.localhost:8543';
 const FIXTURE = __ENV.FIXTURE || 'tests/fixtures/pdf/baseline-0001.pdf';
+// k6 solo permite `open()` en el init stage; el fixture se abre una vez y se
+// reutiliza en cada VU (es read-only). Antes se abria dentro del VU y k6
+// fallaba con: the "open" function is only available in the init stage.
+const PDF_BYTES = open(FIXTURE, 'b');
 const POLL_INTERVAL = Number(__ENV.POLL_INTERVAL || 2);
 const POLL_MAX = Number(__ENV.POLL_MAX || 300);
 const RUN_ID = __ENV.RUN_ID || `load-${Date.now()}`;
@@ -48,12 +52,14 @@ export default function () {
   const formFields = createJson.form_fields || {};
   const key = formFields.key || '';
   
-  // Build multipart
+  // Build multipart. S3 POST exige que el campo `file` sea el ULTIMO del
+  // body. k6 serializa los campos de un objeto en el orden de insercion, por
+  // eso se insertan primero los metadatos y al final `file`.
   const data = {};
-  Object.keys(formFields).forEach((k) => { data[k] = formFields[k]; });
-  // Attach file - k6 can read file
-  const f = open(FIXTURE, 'b');
-  data['file'] = http.file(f, 'doc.pdf', 'application/pdf');
+  Object.keys(formFields).forEach((k) => {
+    if (k !== 'file') data[k] = formFields[k];
+  });
+  data['file'] = http.file(PDF_BYTES, 'doc.pdf', 'application/pdf');
   
   const u = http.post(uploadUrl, data, { tags: { endpoint: 'upload' }, timeout: '60s' });
   if (!check(u, { 'upload 2xx': (r) => r.status >= 200 && r.status < 300 })) {

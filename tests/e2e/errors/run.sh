@@ -259,7 +259,11 @@ case_redis_down() {
   upload="$(upload_pdf "$body" "$VALID_PDF" "application/pdf")"
   [[ "$upload" =~ ^2[0-9][0-9]$ ]] \
     || { restore_services; bad "upload HTTP $upload"; return 1; }
-  if ! wait_status "$id" "UPLOADED" 30; then
+  # El relay marca UPLOADED->QUEUED antes del XADD (invariante de orden), asi
+  # que con Redis caido el documento puede quedar directamente en QUEUED y no
+  # se observa UPLOADED. Lo que importa aca es que la subida haya sido aceptada
+  # y que el mensaje no se pierda cuando Redis vuelva.
+  if ! wait_status_any "$id" 30 "UPLOADED" "QUEUED"; then
     restore_services
     return 1
   fi

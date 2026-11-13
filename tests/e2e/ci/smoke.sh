@@ -60,6 +60,24 @@ wait_http() {
   return 1
 }
 
+health_status() {
+  local svc="$1" cid
+  cid="$(compose ps -q "$svc" 2>/dev/null | head -n1)"
+  [[ -n "$cid" ]] || return 1
+  docker inspect -f \
+    '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' \
+    "$cid" 2>/dev/null
+}
+
+wait_service_healthy() {
+  local svc="$1" tries="${2:-90}" i
+  for ((i = 1; i <= tries; i++)); do
+    [[ "$(health_status "$svc")" == "healthy" ]] && return 0
+    sleep 2
+  done
+  return 1
+}
+
 for tool in docker curl openssl; do
   command -v "$tool" >/dev/null 2>&1 || fail "falta $tool"
 done
@@ -94,15 +112,26 @@ if [[ "$MODE" == "ci" ]]; then
   compose up -d --build \
     mongo mongo-init redis-streams redis-ratelimit minio minio-init \
     sentinel-1 sentinel-2 sentinel-3 \
-    traefik doc-service minio-notify-init
+    ratelimitd traefik doc-service minio-notify-init
 fi
 
+# Traefik aplica `rate-limit@file` (forwardAuth a ratelimitd:8090) a TODO
+# /api/v2. Si ratelimitd no esta arriba, el gateway devuelve 500 antes de
+# llegar a doc-service; /healthz no pasa por el middleware y por eso no lo
+# detecta (incidente PR #14).
+wait_service_healthy ratelimitd 90 \
+  || fail "ratelimitd no quedo healthy; /api/v2 respondera 500 en el gateway"
 wait_http "doc-service /healthz" "$API_BASE/healthz" \
   "api.localhost:${HTTPS_PORT}:127.0.0.1" 90 \
   || fail "doc-service no respondio /healthz"
 compose exec -T doc-service wget -qO- http://localhost:8080/readyz \
   | grep -q '"status":"ready"' || fail "doc-service /readyz no esta listo"
 log "doc-service /readyz: ready"
+# Cadena completa por el gateway: valida el forwardAuth de ratelimitd ademas
+# del router de doc-service (una prueba a /healthz no atraviesa el middleware).
+wait_http "doc-service /api/v2 via gateway" "$API_BASE/api/v2/documents" \
+  "api.localhost:${HTTPS_PORT}:127.0.0.1" 90 \
+  || fail "el gateway no llego a doc-service en /api/v2 (revisa ratelimitd/rate-limit)"
 wait_http "MinIO health" "$S3_BASE/minio/health/live" \
   "s3.localhost:${HTTPS_PORT}:127.0.0.1" 90 \
   || fail "MinIO no respondio health"

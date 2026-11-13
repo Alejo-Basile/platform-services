@@ -130,6 +130,25 @@ wait_status() {
   return 1
 }
 
+# wait_status_any <id> <tries> <status...>
+# Acepta cualquiera de los estados indicados. Necesario cuando el sistema puede
+# avanzar por mas de un estado intermedio antes de que el test lo observe.
+wait_status_any() {
+  local id="$1" tries="$2" status="" expected i
+  shift 2
+  local expected_list=("$@")
+  for ((i = 1; i <= tries; i++)); do
+    status="$(mongo_status "$id")"
+    for expected in "${expected_list[@]}"; do
+      [[ "$status" == "$expected" ]] && return 0
+    done
+    sleep 1
+  done
+  printf '  estado final: %s (esperado: %s)\n' \
+    "${status:-MISSING}" "${expected_list[*]}" >&2
+  return 1
+}
+
 wait_http() {
   local url="$1" resolve="$2" tries="${3:-60}" i
   for ((i = 1; i <= tries; i++)); do

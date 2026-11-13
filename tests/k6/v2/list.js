@@ -1,7 +1,11 @@
 import http from 'k6/http';
-import { check } from 'k6';
+import { check, sleep } from 'k6';
 
 const BASE_URL = __ENV.BASE_URL || 'https://api.localhost:8543';
+// Pausa entre iteraciones del smoke: mantiene el ritmo por debajo del
+// forwardAuth rate-limit (10 rps / burst 20) de Traefik. Las corridas de carga
+// (run-v2.sh) no la definen y conservan el ritmo sin pausa.
+const SMOKE_SLEEP = Number(__ENV.SMOKE_SLEEP || 0);
 
 export const options = {
   insecureSkipTLSVerify: true,
@@ -36,4 +40,6 @@ export default function () {
     'list documents': (r) => Array.isArray(r.json('documents')),
     'list has_more boolean': (r) => typeof r.json('has_more') === 'boolean',
   });
+
+  sleep(SMOKE_SLEEP);
 }

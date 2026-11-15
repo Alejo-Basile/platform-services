@@ -1,0 +1,51 @@
+# Tarea programada diferida a S8-P4-03 (T7): agregar `schedule` aca.
+name: parity
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - "tests/parity/**"
+      - ".github/workflows/parity.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tests/parity/**"
+  workflow_dispatch:
+
+concurrency:
+  group: parity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Tests del normalizador y comparador
+        run: python3 -m unittest discover tests/parity -v
+
+      - name: Reporte de paridad
+        run: |
+          mkdir -p artifacts
+          python3 tests/parity/report.py \
+            --fixtures tests/parity/fixtures \
+            --report artifacts/parity-report.json \
+            --threshold 99.9
+
+      - name: Subir reporte versionado
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-report-${{ github.run_id }}
+          path: artifacts/parity-report.json
+          if-no-files-found: ignore
+          retention-days: 30

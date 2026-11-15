@@ -1,0 +1,3 @@
+Factura
+Número: 123
+Total: 100

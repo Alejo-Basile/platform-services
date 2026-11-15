@@ -1,0 +1,5 @@
+{
+  "corpus": true,
+  "expected_verdict": "MATCH_WITH_DIFF",
+  "drop_page_numbers": true
+}

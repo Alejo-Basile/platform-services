@@ -44,10 +44,10 @@ Negative check: the workflow asserts test "$user" = "10001:10001" (exact match).
 6) CI
 Workflow: ci.yml
 Job: rate-limiter
-Run ID: n/a (pending PR run, owner action)
-URL: n/a (pending PR run, owner action)
-Conclusion: n/a (local preflight only)
-Checks del PR (gh pr checks): n/a (pending PR run, owner action)
+Run ID: 43682024904
+URL: https://github.com/Alejo-Basile/platform-services/actions/runs/43682024904
+Conclusion: success
+Checks del PR (gh pr checks): gitleaks pass, lint pass, openapi pass, rate-limiter pass n/a (pending PR run, owner action)
 
 7) Limitaciones
 - El test de integracion se omitio: REDIS_ADDR no definido. Este CI no valida Lua contra Redis.

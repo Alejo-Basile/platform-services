@@ -1,14 +1,14 @@
 # P4-06 — rate-limit del gateway
-# Fecha UTC: 2026-11-11T01:41:58Z
-# RUN_ID=p4-06-gateway-1794361314-900281
+# Fecha UTC: 2026-11-13T00:32:02Z
+# RUN_ID=p4-06-gateway-1794529919-370791
 # Petición bajo el límite: HTTP 200
 
 
-         /\      Grafana   /‾‾/
-    /\  /  \     |\  __   /  /
-   /  \/    \    | |/ /  /   ‾‾\
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
   /          \   |   (  |  (‾)  |
- / __________ \  |_|\_\  \_____/
+ / __________ \  |_|\_\  \_____/ 
 
 
      execution: local
@@ -22,59 +22,59 @@
 running (00.6s), 100/100 VUs, 0 complete and 0 interrupted iterations
 burst   [   0% ] 100 VUs  00.6s/20s  000/100 shared iters
 
-running (01.6s), 095/100 VUs, 5 complete and 0 interrupted iterations
-burst   [   5% ] 100 VUs  01.6s/20s  005/100 shared iters
+running (01.6s), 100/100 VUs, 0 complete and 0 interrupted iterations
+burst   [   0% ] 100 VUs  01.6s/20s  000/100 shared iters
 
-running (02.6s), 066/100 VUs, 34 complete and 0 interrupted iterations
-burst   [  34% ] 100 VUs  02.6s/20s  034/100 shared iters
+running (02.6s), 100/100 VUs, 0 complete and 0 interrupted iterations
+burst   [   0% ] 100 VUs  02.6s/20s  000/100 shared iters
 
 
-  █ THRESHOLDS
+  █ THRESHOLDS 
 
     allowed_total
-    ✓ 'count>0' count=46
+    ✓ 'count>0' count=32
 
     checks
     ✓ 'rate==1' rate=100.00%
 
     denied_total
-    ✓ 'count>0' count=54
+    ✓ 'count>0' count=68
 
     unexpected_status_total
     ✓ 'count==0' count=0
 
 
-  █ TOTAL RESULTS
+  █ TOTAL RESULTS 
 
-    checks_total.......: 100     33.053566/s
+    checks_total.......: 100     29.54523/s
     checks_succeeded...: 100.00% 100 out of 100
     checks_failed......: 0.00%   0 out of 100
 
     ✓ gateway returns 200 or 429
 
     CUSTOM
-    allowed_total..................: 46     15.20464/s
-    denied_total...................: 54     17.848926/s
+    allowed_total..................: 32     9.454474/s
+    denied_total...................: 68     20.090756/s
     unexpected_status_total........: 0      0/s
 
     HTTP
-    http_req_duration..............: avg=1.08s min=125.92ms med=1.13s max=2.02s p(90)=1.66s p(95)=1.7s
-      { expected_response:true }...: avg=1.29s min=127.34ms med=1.42s max=2.02s p(90)=1.71s p(95)=1.84s
-    http_req_failed................: 54.00% 54 out of 100
-    http_reqs......................: 100    33.053566/s
+    http_req_duration..............: avg=1.59s min=516.1ms med=1.54s max=3.24s p(90)=2.61s p(95)=2.81s
+      { expected_response:true }...: avg=2.22s min=516.1ms med=2.27s max=3.24s p(90)=2.9s  p(95)=3.09s
+    http_req_failed................: 68.00% 68 out of 100
+    http_reqs......................: 100    29.54523/s
 
     EXECUTION
-    iteration_duration.............: avg=2.1s  min=587.36ms med=2.15s max=2.7s  p(90)=2.65s p(95)=2.67s
-    iterations.....................: 100    33.053566/s
-    vus............................: 66     min=66        max=100
+    iteration_duration.............: avg=3.15s min=2.66s   med=3.15s max=3.36s p(90)=3.32s p(95)=3.35s
+    iterations.....................: 100    29.54523/s
+    vus............................: 100    min=100       max=100
     vus_max........................: 100    min=100       max=100
 
     NETWORK
-    data_received..................: 285 kB 94 kB/s
-    data_sent......................: 177 kB 59 kB/s
+    data_received..................: 286 kB 85 kB/s
+    data_sent......................: 181 kB 53 kB/s
 
 
 
 
-running (03.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
-burst ✓ [ 100% ] 100 VUs  03.0s/20s  100/100 shared iters
+running (03.4s), 000/100 VUs, 100 complete and 0 interrupted iterations
+burst ✓ [ 100% ] 100 VUs  03.4s/20s  100/100 shared iters

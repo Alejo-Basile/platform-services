@@ -4,7 +4,7 @@
 - **Owner:** P4 (Integration & Quality).
 - **Fecha de ejecución:** 24/10/2026, 16:58–17:05 (UTC-3).
 - **Estado:** **HECHA con limitaciones declaradas**. La cadena completa queda **BLOQUEADA** hasta G-B (worker real).
-- **Evidencia cruda:** `benchmarks/v2/*.json.gz`, `benchmarks/v2/*-summary.json`, `benchmarks/v2/resultados.csv` y `docs/evidencias/S2/S2-P4-02-k6-*`.
+- **Evidencia versionada:** `benchmarks/v2/*-summary.json`, `benchmarks/v2/resultados.csv` y `docs/evidencias/S2/S2-P4-02-k6-*`. Los `benchmarks/v2/*.json.gz` (puntos crudos, ~8 MB por tanda) se excluyen de git (ver `.gitignore`) y se publican como artefactos del workflow o assets de un release.
 
 ## 1. Objetivo y alcance
 
@@ -137,7 +137,7 @@ tests/k6/v2/run-smoke.sh
 
 | Archivo | Contenido |
 |---|---|
-| `benchmarks/v2/{scenario}-run{1,2,3}.json.gz` | puntos crudos de k6 |
+| `benchmarks/v2/{scenario}-run{1,2,3}.json.gz` | puntos crudos de k6 (no versionado; artefacto de workflow) |
 | `benchmarks/v2/{scenario}-run{1,2,3}-summary.json` | resumen de k6 |
 | `benchmarks/v2/resultados.csv` | tabla consolidada con p99 |
 | `benchmarks/v2/direct-health-summary.json` | health directo al doc-service (sin Traefik) |

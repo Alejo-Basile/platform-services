@@ -86,7 +86,7 @@ run_once(){
   [[ -n "$txt_ref" ]] || { bad "txt_ref vacío"; return 1; }
   
   # Verificar .txt existe
-  minio_exists "$txt_ref" || { bad ".txt no existe: $txt_ref"; return 1; }
+  minio_exists "extracted-txt/$txt_ref" || { bad ".txt no existe: extracted-txt/$txt_ref"; return 1; }
   
   # Verificar descarga
   local dl

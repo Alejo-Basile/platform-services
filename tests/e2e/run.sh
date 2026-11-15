@@ -226,11 +226,22 @@ happy_once() {
   local status="" i
   for ((i = 1; i <= 30; i++)); do
     status="$(mongo_status "$doc_id")"
-    [[ "$status" == "UPLOADED" ]] && break
+    case "$status" in
+      UPLOADED|QUEUED|PROCESSING|RETRYING) ;;
+      COMPLETED|FAILED|REJECTED|UPLOAD_EXPIRED) break ;;
+      *) ;;
+    esac
     sleep 1
   done
+  if [[ "$status" == "COMPLETED" ]]; then
+    log "run $n: OK document_id=$doc_id status=COMPLETED"
+    mongo_delete "$doc_id"
+    minio_delete "$object_key"
+    minio_delete "extracted-txt/${doc_id}.txt"
+    return 0
+  fi
   if [[ "$status" != "UPLOADED" ]]; then
-    log "run $n: estado final $status (se esperaba UPLOADED)"
+    log "run $n: estado final $status (se esperaba UPLOADED o COMPLETED)"
     mongo_delete "$doc_id"
     minio_delete "$object_key"
     return 1
@@ -244,6 +255,14 @@ happy_once() {
   done
   xlen="$(stream_length)"
   if [[ -z "$entry" ]]; then
+    status="$(mongo_status "$doc_id")"
+    if [[ "$status" == "COMPLETED" ]]; then
+      log "run $n: OK document_id=$doc_id status=COMPLETED (mensaje ya consumido)"
+      mongo_delete "$doc_id"
+      minio_delete "$object_key"
+      minio_delete "extracted-txt/${doc_id}.txt"
+      return 0
+    fi
     log "run $n: no se encontró el mensaje en $REDIS_STREAM_KEY"
     mongo_delete "$doc_id"
     minio_delete "$object_key"

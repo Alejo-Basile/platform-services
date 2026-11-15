@@ -1,7 +1,7 @@
 # Makefile para platform-services (P4).
 # Targets de calidad que replican el CI.
 
-.PHONY: lint shellcheck yamllint syntax test-e2e-smoke
+.PHONY: lint shellcheck yamllint syntax test-e2e-smoke test-rate-limiter
 
 lint: shellcheck yamllint syntax
 
@@ -23,3 +23,8 @@ syntax:
 
 test-e2e-smoke:
 	./tests/e2e/run.sh smoke
+
+# Rate limiter (Go): paridad local del job `rate-limiter` de ci.yml.
+test-rate-limiter:
+	cd rate-limiter && go vet ./... && go test ./...
+	@echo "rate-limiter OK"

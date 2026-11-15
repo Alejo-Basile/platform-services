@@ -1,7 +1,11 @@
 import http from 'k6/http';
-import { check } from 'k6';
+import { check, sleep } from 'k6';
 
 const BASE_URL = __ENV.BASE_URL || 'https://api.localhost:8543';
+// Pausa entre iteraciones del smoke: mantiene el ritmo por debajo del
+// forwardAuth rate-limit (10 rps / burst 20) de Traefik. Las corridas de carga
+// (run-v2.sh) no la definen y conservan el ritmo sin pausa.
+const SMOKE_SLEEP = Number(__ENV.SMOKE_SLEEP || 0);
 const RUN_ID = __ENV.RUN_ID || 'local';
 
 export const options = {
@@ -48,4 +52,6 @@ export default function () {
     'state document_id': (r) => r.json('document_id') === id,
     'state PENDING_UPLOAD': (r) => r.json('status') === 'PENDING_UPLOAD',
   });
+
+  sleep(SMOKE_SLEEP);
 }

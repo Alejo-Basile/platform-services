@@ -1,13 +1,17 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import { Counter } from 'k6/metrics';
 import { SharedArray } from 'k6/data';
 import exec from 'k6/execution';
 
 const BASE_URL = __ENV.BASE_URL || 'https://api.localhost:8543';
-const FIXTURE = __ENV.FIXTURE || 'tests/fixtures/pdf/baseline-0001.pdf';
+const FIXTURE = __ENV.FIXTURE || '../../fixtures/pdf/baseline-0001.pdf';
 const POLL_INTERVAL = Number(__ENV.POLL_INTERVAL || 2);
 const POLL_MAX = Number(__ENV.POLL_MAX || 300);
 const RUN_ID = __ENV.RUN_ID || `load-${Date.now()}`;
+const EXPECTED_TERMINAL = Number(__ENV.EXPECTED_TERMINAL || 4);
+const terminalDocuments = new Counter('terminal_documents');
+const TERMINAL_STATES = ['COMPLETED', 'FAILED', 'REJECTED', 'UPLOAD_EXPIRED'];
 
 export const options = {
   insecureSkipTLSVerify: true,
@@ -29,6 +33,8 @@ export const options = {
   thresholds: {
     http_req_failed: ['rate<0.01'],
     checks: ['rate>0.99'],
+    terminal_documents: [`count>=${EXPECTED_TERMINAL}`],
+    'checks{check:terminal_status}': ['rate==1'],
   },
 };
 
@@ -71,7 +77,7 @@ export default function () {
       try {
         const j = s.json();
         status = j.status || status;
-        if (['COMPLETED', 'FAILED', 'REJECTED', 'UPLOAD_EXPIRED'].includes(status)) {
+        if (TERMINAL_STATES.includes(status)) {
           terminal = true;
           terminalAt = Date.now();
           break;
@@ -79,6 +85,11 @@ export default function () {
       } catch (e) {}
     }
     sleep(POLL_INTERVAL);
+  }
+
+  check(terminal, { terminal_status: (v) => v === true });
+  if (terminal) {
+    terminalDocuments.add(1);
   }
   
   console.log(JSON.stringify({

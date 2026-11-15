@@ -1,7 +1,11 @@
 import http from 'k6/http';
-import { check } from 'k6';
+import { check, sleep } from 'k6';
 
 const BASE_URL = __ENV.BASE_URL || 'https://api.localhost:8543';
+// Pausa entre iteraciones del smoke: mantiene el ritmo por debajo del
+// forwardAuth rate-limit (10 rps / burst 20) de Traefik. Las corridas de carga
+// (run-v2.sh) no la definen y conservan el ritmo sin pausa.
+const SMOKE_SLEEP = Number(__ENV.SMOKE_SLEEP || 0);
 const RUN_ID = __ENV.RUN_ID || 'local';
 
 export const options = {
@@ -45,4 +49,6 @@ export default function () {
     'create form_fields': (r) => Boolean(r.json('form_fields.key')),
     'create expires_at': (r) => Boolean(r.json('expires_at')),
   });
+
+  sleep(SMOKE_SLEEP);
 }

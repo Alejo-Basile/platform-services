@@ -14,6 +14,11 @@
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLATFORM_ROOT="$(cd "$LIB_DIR/../.." && pwd)"
 
+# rate-limiter vive DENTRO de platform-services: en CI este repo es la raiz del
+# workspace, asi que la ruta relativa que usa infra (repo hermano) no resuelve.
+# Se exporta la ruta absoluta y compose.override.yml la aplica al build.
+export P4_RATELIMITD_BUILD_CONTEXT="${P4_RATELIMITD_BUILD_CONTEXT:-$PLATFORM_ROOT/rate-limiter}"
+
 if [[ -n "${P4_WORKSPACE_ROOT:-}" ]]; then
   WORKSPACE_ROOT="$P4_WORKSPACE_ROOT"
 elif [[ -f "$PLATFORM_ROOT/../infra/compose/docker-compose.yml" ]]; then
@@ -127,6 +132,25 @@ wait_status() {
     sleep 1
   done
   printf '  estado final: %s (esperado %s)\n' "${status:-MISSING}" "$expected" >&2
+  return 1
+}
+
+# wait_status_any <id> <tries> <status...>
+# Acepta cualquiera de los estados indicados. Necesario cuando el sistema puede
+# avanzar por mas de un estado intermedio antes de que el test lo observe.
+wait_status_any() {
+  local id="$1" tries="$2" status="" expected i
+  shift 2
+  local expected_list=("$@")
+  for ((i = 1; i <= tries; i++)); do
+    status="$(mongo_status "$id")"
+    for expected in "${expected_list[@]}"; do
+      [[ "$status" == "$expected" ]] && return 0
+    done
+    sleep 1
+  done
+  printf '  estado final: %s (esperado: %s)\n' \
+    "${status:-MISSING}" "${expected_list[*]}" >&2
   return 1
 }
 

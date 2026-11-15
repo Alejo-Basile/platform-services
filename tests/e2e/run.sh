@@ -277,7 +277,9 @@ happy() {
   REDIS_STREAM_KEY="$(env_value REDIS_STREAM_KEY stream:pdf-processing)"
   export MONGO_APP_USER MONGO_APP_PASSWORD REDIS_STREAMS_PASSWORD REDIS_STREAM_KEY
 
-  local required=(mongo redis-streams redis-ratelimit minio traefik monolito doc-service)
+  # ratelimitd es obligatorio: Traefik aplica rate-limit@file (forwardAuth) a
+  # /api/v2 y sin el gateway responde 500 antes de llegar a doc-service.
+  local required=(mongo redis-streams redis-ratelimit minio traefik monolito doc-service ratelimitd)
   INIT_SERVICES=(mongo-init minio-init minio-notify-init)
   start_if_needed "${required[@]}"
 

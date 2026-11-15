@@ -86,10 +86,21 @@ func redisPasswordFromEnv() (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
-func handleCheck(w http.ResponseWriter, r *http.Request, lim *limiter.Limiter) {
-	key := r.URL.Query().Get("key")
-	if key == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "key requerida"})
+// rateChecker abstrae el núcleo GCRA para poder testear el handler sin Redis.
+type rateChecker interface {
+	Check(context.Context, string, float64, float64) (limiter.Decision, error)
+}
+
+func handleCheck(w http.ResponseWriter, r *http.Request, lim rateChecker) {
+	if exemptPath(r) {
+		writeJSON(w, http.StatusOK, map[string]any{"allowed": true, "exempted": true})
+		return
+	}
+
+	scope, ok := resolveScope(r)
+	if !ok {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "scope requerido (scope o key)"})
+
 		return
 	}
 	rate, err := floatParam(r, "rate", 10)
@@ -103,10 +114,12 @@ func handleCheck(w http.ResponseWriter, r *http.Request, lim *limiter.Limiter) {
 		return
 	}
 
+	key := rateLimitKey(scope, clientIdentity(r))
+
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 
-	decision, err := lim.Check(ctx, "rl:"+key, rate, burst)
+	decision, err := lim.Check(ctx, key, rate, burst)
 	if err != nil {
 		// Fail-open controlado (ADR-0005): degradar la protección, no la API.
 		w.Header().Set("X-RateLimit-Degraded", "true")

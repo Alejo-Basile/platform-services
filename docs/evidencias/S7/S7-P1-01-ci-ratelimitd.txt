@@ -1,0 +1,55 @@
+S7-P1-01 - CI del rate-limiter
+Fecha (UTC): 2026-11-15T04:21:51Z
+Commit (platform-services): 9a89c8bca56902e8be80f2ab2ff6b3bb3696e107
+Rama: feat/k6-terminal-assertion
+Go local / Go del modulo: go1.24.4 linux/amd64 / go 1.24.0
+Runner / imagen del runner: local host, Docker 29.9.2 (BuildKit). CI target: ubuntu-latest (GitHub-hosted).
+
+1) go vet ./...
+$ go vet ./...
+<no output, exit 0>
+
+2) go test ./...
+$ go test ./...
+ok  	github.com/Alejo-Basile/platform-services/rate-limiter/cmd/ratelimitd	(cached)
+ok  	github.com/Alejo-Basile/platform-services/rate-limiter/internal/limiter	(cached)
+
+3) Integracion sin Redis (debe ser SKIP)
+$ go test -count=1 -run TestGCRAAgainstRedis -v ./internal/limiter
+=== RUN   TestGCRAAgainstRedis
+    integration_test.go:17: REDIS_ADDR no definido: test de integración omitido
+--- SKIP: TestGCRAAgainstRedis (0.00s)
+PASS
+ok  	github.com/Alejo-Basile/platform-services/rate-limiter/internal/limiter	0.002s
+
+4) Target de Makefile
+$ make -C platform-services test-rate-limiter
+make: Entering directory '/home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services'
+cd rate-limiter && go vet ./... && go test ./...
+ok  	github.com/Alejo-Basile/platform-services/rate-limiter/cmd/ratelimitd	(cached)
+ok  	github.com/Alejo-Basile/platform-services/rate-limiter/internal/limiter	(cached)
+rate-limiter OK
+make: Leaving directory '/home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services'
+
+5) Imagen
+$ docker build -t ratelimitd:s7-p1-01 platform-services/rate-limiter
+#16 naming to docker.io/library/ratelimitd:s7-p1-01 done
+$ docker image inspect -f '{{.Config.User}}' ratelimitd:s7-p1-01
+10001:10001
+$ docker run --rm --entrypoint id ratelimitd:s7-p1-01 -u
+10001
+Digest (sha256): sha256:97b15ef982471eb7d1111bdfb1f9486dd4392625a902d873da1305da2d4d2151
+Negative check: the workflow asserts test "$user" = "10001:10001" (exact match). Simulating user="root" prints "usuario inesperado: root" and exits 1, so the job fails on a non-conforming image.
+
+6) CI
+Workflow: ci.yml
+Job: rate-limiter
+Run ID: 43682024904
+URL: https://github.com/Alejo-Basile/platform-services/actions/runs/43682024904
+Conclusion: success
+Checks del PR (gh pr checks): gitleaks pass, lint pass, openapi pass, rate-limiter pass n/a (pending PR run, owner action)
+
+7) Limitaciones
+- El test de integracion se omitio: REDIS_ADDR no definido. Este CI no valida Lua contra Redis.
+- The job does not start a Redis service container; that is out of scope for S7-P1-01.
+- Image build and user checks were run locally; the real GitHub Actions run is pending the owner's PR.

@@ -61,3 +61,42 @@ func TestGCRAAgainstRedis(t *testing.T) {
 		t.Fatalf("la clave debe tener TTL, ttl=%s", ttl)
 	}
 }
+
+// TestIndependentKeysAgainstRedis verifica que claves distintas tienen
+// cubetas independientes. Se salta si REDIS_ADDR no está definido.
+func TestIndependentKeysAgainstRedis(t *testing.T) {
+	addr := os.Getenv("REDIS_ADDR")
+	if addr == "" {
+		t.Skip("REDIS_ADDR no definido: test de integración omitido")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	client := NewClient(addr, os.Getenv("REDIS_PASSWORD"))
+	defer client.Close()
+	if err := client.Ping(ctx).Err(); err != nil {
+		t.Fatalf("ping Redis: %v", err)
+	}
+
+	base := time.Now().UnixNano()
+	keyA := fmt.Sprintf("rl:test:a:%d", base)
+	keyB := fmt.Sprintf("rl:test:b:%d", base)
+	defer client.Del(ctx, keyA, keyB)
+
+	lim := New(client)
+
+	if first, err := lim.Check(ctx, keyA, 0.1, 1); err != nil || !first.Allowed {
+		t.Fatalf("primer check A: allowed=%v err=%v", first.Allowed, err)
+	}
+	if second, err := lim.Check(ctx, keyA, 0.1, 1); err != nil {
+		t.Fatalf("segundo check A: %v", err)
+	} else if second.Allowed {
+		t.Fatalf("la clave A debe agotarse")
+	}
+	if other, err := lim.Check(ctx, keyB, 0.1, 1); err != nil {
+		t.Fatalf("check B: %v", err)
+	} else if !other.Allowed {
+		t.Fatalf("la clave B debe tener su propia cubeta")
+	}
+}

@@ -15,6 +15,9 @@ import (
 //go:embed gcra.lua
 var gcraScript string
 
+//go:embed gcra_multi.lua
+var gcraMultiScript string
+
 // Decision es el resultado de una comprobación de rate limit.
 type Decision struct {
 	Allowed    bool
@@ -31,13 +34,18 @@ type State struct {
 
 // Limiter ejecuta el script GCRA contra Redis.
 type Limiter struct {
-	client *redis.Client
-	script *redis.Script
+	client      *redis.Client
+	script      *redis.Script
+	multiScript *redis.Script
 }
 
 // New crea un Limiter sobre un cliente Redis ya configurado.
 func New(client *redis.Client) *Limiter {
-	return &Limiter{client: client, script: redis.NewScript(gcraScript)}
+	return &Limiter{
+		client:      client,
+		script:      redis.NewScript(gcraScript),
+		multiScript: redis.NewScript(gcraMultiScript),
+	}
 }
 
 // NewClient crea el cliente Redis usado por el rate limiter.
@@ -62,6 +70,57 @@ func (l *Limiter) Check(ctx context.Context, key string, rate, burst float64) (D
 	}
 
 	res, err := l.script.Run(ctx, l.client, []string{key}, rate, burst).Result()
+	if err != nil {
+		return Decision{}, err
+	}
+
+	values, ok := res.([]interface{})
+	if !ok || len(values) != 3 {
+		return Decision{}, fmt.Errorf("respuesta inesperada del script: %T", res)
+	}
+
+	allowed, err := toInt64(values[0])
+	if err != nil {
+		return Decision{}, err
+	}
+	remaining, err := toInt64(values[1])
+	if err != nil {
+		return Decision{}, err
+	}
+	retryAfter, err := toInt64(values[2])
+	if err != nil {
+		return Decision{}, err
+	}
+
+	return Decision{
+		Allowed:    allowed == 1,
+		Remaining:  remaining,
+		RetryAfter: retryAfter,
+	}, nil
+}
+
+// CheckAll evalúa todos los límites en un único EVAL atómico. Si alguna clave
+// rechaza, ninguna consume cuota (ver gcra_multi.lua).
+func (l *Limiter) CheckAll(ctx context.Context, limits []Limit) (Decision, error) {
+	if len(limits) == 0 {
+		return Decision{}, fmt.Errorf("se requiere al menos un límite")
+	}
+
+	keys := make([]string, len(limits))
+	args := make([]interface{}, 0, 1+2*len(limits))
+	args = append(args, len(limits))
+	for i, limit := range limits {
+		if err := validateLimitSpec(LimitSpec{Rate: limit.Rate, Burst: limit.Burst}); err != nil {
+			return Decision{}, err
+		}
+		if limit.Key == "" {
+			return Decision{}, fmt.Errorf("key requerida")
+		}
+		keys[i] = limit.Key
+		args = append(args, limit.Rate, limit.Burst)
+	}
+
+	res, err := l.multiScript.Run(ctx, l.client, keys, args...).Result()
 	if err != nil {
 		return Decision{}, err
 	}

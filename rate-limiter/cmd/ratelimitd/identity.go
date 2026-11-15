@@ -3,7 +3,6 @@ package main
 import (
 	"net"
 	"net/http"
-	"path"
 	"strings"
 )
 
@@ -12,9 +11,6 @@ const (
 	unknownID    = "unknown"
 	defaultScope = "default"
 )
-
-// exemptPrefixes son las rutas internas que no consumen cuota.
-var exemptPrefixes = []string{"/internal", "/healthz", "/metrics"}
 
 // resolveScope obtiene el scope desde `scope` (preferido) o el legado `key`.
 // Devuelve false cuando ninguno está presente.
@@ -100,29 +96,4 @@ func remoteIP(addr string) net.IP {
 // rateLimitKey arma la clave Redis exacta `rl:{scope}:{identity}`.
 func rateLimitKey(scope, identity string) string {
 	return "rl:" + scope + ":" + identity
-}
-
-// exemptPath indica si X-Forwarded-Uri apunta a una ruta interna. Sin el
-// header no hay exención.
-func exemptPath(r *http.Request) bool {
-	uri := r.Header.Get("X-Forwarded-Uri")
-	if uri == "" {
-		return false
-	}
-	if i := strings.IndexAny(uri, "?#"); i >= 0 {
-		uri = uri[:i]
-	}
-	if uri == "" {
-		return false
-	}
-	if !strings.HasPrefix(uri, "/") {
-		uri = "/" + uri
-	}
-	uri = path.Clean(uri)
-	for _, prefix := range exemptPrefixes {
-		if uri == prefix || strings.HasPrefix(uri, prefix+"/") {
-			return true
-		}
-	}
-	return false
 }

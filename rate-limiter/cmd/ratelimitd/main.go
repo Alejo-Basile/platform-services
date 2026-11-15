@@ -45,6 +45,7 @@ func main() {
 	mux.HandleFunc("/check", func(w http.ResponseWriter, r *http.Request) {
 		handleCheck(w, r, lim)
 	})
+	mux.HandleFunc("/metrics", handleMetrics)
 
 	srv := &http.Server{
 		Addr:              addr,
@@ -122,6 +123,8 @@ func handleCheck(w http.ResponseWriter, r *http.Request, lim rateChecker) {
 	decision, err := lim.Check(ctx, key, rate, burst)
 	if err != nil {
 		// Fail-open controlado (ADR-0005): degradar la protección, no la API.
+		setRedisUp(false)
+		incMetric("degraded")
 		w.Header().Set("X-RateLimit-Degraded", "true")
 		writeJSON(w, http.StatusOK, map[string]any{
 			"allowed":  true,
@@ -130,14 +133,18 @@ func handleCheck(w http.ResponseWriter, r *http.Request, lim rateChecker) {
 		return
 	}
 
+	setRedisUp(true)
+
 	w.Header().Set("X-RateLimit-Remaining", strconv.FormatInt(decision.Remaining, 10))
 	if decision.Allowed {
+		incMetric("allowed")
 		writeJSON(w, http.StatusOK, map[string]any{
 			"allowed":   true,
 			"remaining": decision.Remaining,
 		})
 		return
 	}
+	incMetric("denied")
 
 	w.Header().Set("Retry-After", strconv.FormatInt(decision.RetryAfter, 10))
 	w.Header().Set("X-RateLimit-Retry-After", strconv.FormatInt(decision.RetryAfter, 10))

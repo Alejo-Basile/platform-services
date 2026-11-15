@@ -1,0 +1,13 @@
+UTC: 2026-11-15T19:41:11Z
+commands:
+  curl -sk -H 'Host: api.localhost' https://127.0.0.1:8543/api/v2/documents ...
+  docker compose ... exec -T ratelimitd wget -qO- http://127.0.0.1:8090/metrics
+---
+# HELP ratelimit_requests_total Rate limit decisions issued by the ForwardAuth wrapper.
+# TYPE ratelimit_requests_total counter
+ratelimit_requests_total{decision="allowed"} 3
+ratelimit_requests_total{decision="denied"} 0
+ratelimit_requests_total{decision="degraded"} 0
+# HELP ratelimit_redis_up 1 when the last Redis check succeeded, 0 when the wrapper served fail-open.
+# TYPE ratelimit_redis_up gauge
+ratelimit_redis_up 1

@@ -21,7 +21,7 @@ Objetivo: ejecutar las tareas P4 factibles según `doc-service/docs/pasos-inicia
 |----|------|---------|------|--------|--------|
 | T1 | S1 | Commitear WIP PR#4 #1-#3 en work-units | inline (parent, git) | hecho | `6e3cd03`, `2757b46`, `a47f838` |
 | T2 | S2 | Correcciones #4-#8 (higiene CI, imágenes, prepare-env, docs, binarios) | delegated writer | hecho (#4-#7 ya aplicadas en `0ca65b9`; #8 aplicada) | `e78b83c` |
-| T3 | S3, S5 | rate-limiter: hardening S7-P4-03/05 sobre base remota `/check` (PR#16) | delegated writer | en rework (commits previos descartados por redundancia — ver L6; backup en `backup/p4-pre-rework`) | descartados `32e9b0e`, `306f9c4`, `c896bb1`; nuevo work-unit pendiente |
+| T3 | S3, S5 | rate-limiter: hardening S7-P4-03/05 sobre base remota `/check` (PR#16) | delegated writer | hecho a nivel código + DoD en vivo (L8); review nativo congelado por región del modelo | `7bd963a`, `efaa8e4` |
 | T4 | S4 | Runner k6 de verificación de límite (10 corridas, 0 desviaciones) | delegated writer | hecho (falta ejecución T9) | `309fa3c` |
 | T5 | S6 | Script normalización/comparación de texto + fixtures + CI | delegated writer | hecho (falta corpus real T6) | `11947d1` |
 | T6 | S7 | Corpus sintético + replay contra stack nuevo | delegado (ola 2) | pendiente | — |
@@ -48,3 +48,5 @@ Objetivo: ejecutar las tareas P4 factibles según `doc-service/docs/pasos-inicia
   - Bug del arnés de cadena corregido: `check_worker` consultaba `compose ps` sin `--profile full` y el worker quedaba invisible; una corrida de cadena pasó 1/1 a `COMPLETED` con `.txt` y descarga.
   - Incidente de entorno: el consumer del worker había muerto por DNS transitorio al arrancar (contenedor "healthy" pero sin consumir). Se reinició y procesó la cola; queda como observación de resiliencia para S5/S6.
   - `infra` queda con cambios locales sin commitear (wiring S7-P4-05 + fixes E2E previos); commit y PR son decisión humana.
+
+- **L9** (2026-11-16, F0 ejecutado): `origin/main` (`e76bba2`) fusionado en `feat/p4-k6-gateway-runner` (merge `352ab41`). Conflictos add/add en `tests/k6/ratelimit/gateway.js` y `run-gateway.sh`: se resolvió a favor de la versión de main (runner versionado de PR#17), mismo criterio que la reconciliación del rate-limiter. `metrics_test.go` de main llamaba `handleCheck` sin `policy`; actualizado a la firma post-hardening (`0209274`). Verificación posterior al merge: `go test ./...` verde, `make lint` verde, parity unittest verde, imagen `ratelimitd:p4-04` reconstruida con `/metrics` operativo, exención del webhook vigente y `RUNS=1` del verificador de límite sin desviación. Rama: 17 commits sobre `origin/main`, 0 detrás. Push, PR y la decisión del review nativo quedan pendientes de autorización humana.

@@ -39,6 +39,31 @@ assert_eq 'tasa fraccionaria se trunca' \
 assert_eq 'TOTAL menor que burst => pasan todas' \
   '5' "$(limits_expected_allowed 20 10 0 5)"
 
+# limits_expected_paced: capacidad GCRA durante una carga pautada de D ms.
+# Con arribos uniformes a una tasa mayor que el límite, el máximo teórico es
+# burst + rate * D (topeado en el total disparado).
+assert_eq 'pautado 4 s a 10 rps => burst 20 + 40' \
+  '60' "$(limits_expected_paced 20 10 4000 100)"
+assert_eq 'pautado se topea en TOTAL_REQUESTS' \
+  '50' "$(limits_expected_paced 20 10 10000 50)"
+assert_eq 'pautado con tasa fraccionaria trunca' \
+  '15' "$(limits_expected_paced 10 5 1000 100)"
+assert_eq 'pautado sin duración => solo el burst' \
+  '20' "$(limits_expected_paced 20 10 0 100)"
+
+# limits_deviation_tolerant: igual que limits_deviation pero admite jitter de
+# borde (GCRA evalúa en tiempo real) dentro de una tolerancia en tokens.
+assert_eq 'tolerancia 1: allowed dentro del borde no es desviación' \
+  '0' "$(limits_deviation_tolerant 61 60 39 40 0 1)"
+assert_eq 'tolerancia 1: allowed por debajo del borde es desviación' \
+  '1' "$(limits_deviation_tolerant 58 60 42 40 0 1)"
+assert_eq 'tolerancia 1: denied fuera del borde es desviación' \
+  '1' "$(limits_deviation_tolerant 60 60 37 40 0 1)"
+assert_eq 'tolerancia 1: un estado inesperado siempre desvía' \
+  '1' "$(limits_deviation_tolerant 60 60 40 40 1 1)"
+assert_eq 'tolerancia 1: contador ausente siempre desvía' \
+  '1' "$(limits_deviation_tolerant -1 60 40 40 0 1)"
+
 # limits_deviation: 0 cuando todos los contadores cuadran.
 assert_eq 'sin desviación cuando allowed y denied cuadran' \
   '0' "$(limits_deviation 32 32 68 68 0)"

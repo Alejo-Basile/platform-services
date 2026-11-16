@@ -35,6 +35,56 @@ limits_expected_allowed() {
     }'
 }
 
+# limits_expected_paced BURST RATE DURATION_MS TOTAL
+#
+# Máximo teórico de peticiones que pasan con arribos pautados durante
+# DURATION_MS a una tasa superior al límite: el bucket arranca lleno (BURST) y
+# repone RATE tokens por segundo durante toda la ventana. Se usa en lugar de
+# limites_expected_allowed cuando k6 controla el espaciado de los arribos: así
+# la ventana observada es la del escenario y no depende de cuándo el gateway
+# alcanzó a evaluar cada petición.
+limits_expected_paced() {
+  local burst="$1" rate="$2" duration_ms="$3" total="$4"
+  awk -v burst="$burst" -v rate="$rate" -v duration_ms="$duration_ms" -v total="$total" '
+    BEGIN {
+      allowed = int(burst + rate * duration_ms / 1000.0)
+      if (allowed > total) allowed = total
+      if (allowed < 0) allowed = 0
+      printf "%d", allowed
+    }'
+}
+
+# limits_deviation_tolerant ALLOWED EXPECTED_ALLOWED DENIED EXPECTED_DENIED UNEXPECTED TOL
+#
+# Igual que limits_deviation pero admite jitter de borde: GCRA evalúa contra el
+# reloj real, así que una corrida pautada puede diferir en ±TOL tokens según
+# dónde caiga el último arribo respecto de la reposición. Un estado inesperado
+# o un contador ausente (-1) nunca se toleran.
+limits_deviation_tolerant() {
+  local allowed expected_allowed denied expected_denied unexpected tol
+  allowed="$(limits_integer_or "$1" -1)"
+  expected_allowed="$(limits_integer_or "$2" -1)"
+  denied="$(limits_integer_or "$3" -1)"
+  expected_denied="$(limits_integer_or "$4" -1)"
+  unexpected="$(limits_integer_or "$5" -1)"
+  tol="$(limits_integer_or "$6" 0)"
+
+  if ((allowed < 0 || denied < 0 || unexpected != 0)); then
+    printf '1'
+    return
+  fi
+  local allowed_diff=$((allowed - expected_allowed))
+  local denied_diff=$((denied - expected_denied))
+  ((allowed_diff < 0)) && allowed_diff=$((-allowed_diff))
+  ((denied_diff < 0)) && denied_diff=$((-denied_diff))
+
+  if ((allowed_diff > tol || denied_diff > tol)); then
+    printf '1'
+  else
+    printf '0'
+  fi
+}
+
 # limits_deviation ALLOWED EXPECTED_ALLOWED DENIED EXPECTED_DENIED UNEXPECTED
 #
 # "0" si la corrida pasó exactamente el límite esperado (allowed y denied

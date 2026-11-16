@@ -1,0 +1,80 @@
+# S7-P4-05 — exención del webhook interno (evidencia en vivo)
+
+- **Fecha:** 16/11/2026 (UTC-3).
+- **Stack:** Compose `infra` con `ratelimitd:p4-04` reconstruido desde
+  `platform-services@efaa8e4`.
+
+## DoD verificado
+
+> Las llamadas del webhook no consumen cuota de ningún cliente y no se pueden eludir.
+
+## Wiring necesario (infra)
+
+El binario ya implementaba la política, pero el servicio no recibía el token.
+Se agregó en `infra/compose/docker-compose.yml`:
+
+```yaml
+ratelimitd:
+  secrets: [redis_ratelimit_password, minio_webhook_secret]
+  environment:
+    RL_WEBHOOK_TOKEN_FILE: /run/secrets/minio_webhook_secret
+    RL_WEBHOOK_PATH: ${DOC_SERVICE_WEBHOOK_PATH:-/internal/storage/events}
+```
+
+y `X-RateLimit-Exempt` en `authResponseHeaders` de
+`infra/traefik/dynamic/middlewares.yml` para propagar la decisión.
+
+MinIO inyecta `Authorization: Bearer <secreto>` cuando `auth_token` es una sola
+palabra (`infra/compose/minio/init-notifications.sh`); `validWebhookToken`
+compara en tiempo constante después de quitar el prefijo `Bearer `.
+
+## A) Comparación de consumo (misma identidad y scope)
+
+```bash
+docker exec infra-ratelimitd-1 sh -c '
+  ID=203.0.113.10; T=$(cat /run/secrets/minio_webhook_secret);
+  for i in $(seq 1 10); do
+    wget -qO- --header="X-Forwarded-For: $ID" \
+      --header="X-Forwarded-Method: POST" \
+      --header="X-Forwarded-Uri: /internal/storage/events" \
+      --header="Authorization: Bearer $T" \
+      "http://localhost:8090/check?scope=probe3&rate=10&burst=20" >/dev/null 2>&1;
+  done;
+  wget -qO- --header="X-Forwarded-For: $ID" \
+    --header="X-Forwarded-Uri: /api/v2/documents" \
+    "http://localhost:8090/check?scope=probe3&rate=10&burst=20"'
+```
+
+Con token válido, tras 10 llamadas al webhook la sonda posterior ve el bucket
+lleno: `{"allowed":true,"remaining":19}`.
+
+Control sin token, misma secuencia:
+
+```bash
+# 10 llamadas a /internal/storage/events sin Authorization
+# sonda posterior:
+{"allowed":true,"remaining":11}
+```
+
+Diez llamadas sin token consumen cuota (19 → 11 por reposición durante la
+secuencia); diez con token **no consumen nada**.
+
+## B) No eludible por path no canónico
+
+| `X-Forwarded-Uri` (con token válido) | Respuesta | Exento |
+|---|---|---|
+| `/internal/storage/events` | `{"allowed":true,"exempted":true}` | Sí |
+| `/internal/../api/v2/documents` | `{"allowed":true,"remaining":19}` | **No** |
+| `/internal/../internal/storage/events` | `{"allowed":true,"remaining":18}` | **No** |
+| `/healthz` | `{"allowed":true,"exempted":true}` | Sí |
+| `/metrics` | `{"allowed":true,"exempted":true}` | Sí |
+
+La forma canónica del path decide la exención: un traversal con token no gana la
+exención y se limita normalmente (`policy.go` → `isCanonicalPath`).
+
+## Notas
+
+- El webhook real MinIO → doc-service va por la red `data`, no por Traefik; la
+  verificación se hace contra `ratelimitd` con los encabezados que envía
+  ForwardAuth, que es donde vive la política.
+- El token no se imprime en esta evidencia.

@@ -1,0 +1,43 @@
+# S7-P4-03 — límites por ruta en el gateway (evidencia en vivo)
+
+- **Fecha:** 16/11/2026 (UTC-3).
+- **Stack:** Compose `infra` con `ratelimitd:p4-04` reconstruido desde
+  `platform-services@efaa8e4` y `doc-service:local` desde `doc-service@722bae2`.
+- **Límites efectivos:** global `rate=10/s burst=20` (middleware Traefik);
+  ruta sensible `POST /api/v2/documents` = `5:10` (`RL_SENSITIVE_ROUTES` por default).
+
+## DoD verificado
+
+> Un cliente que satura un endpoint sensible recibe 429 antes de llegar al doc-service.
+
+## Comando
+
+```bash
+seq 1 40 | xargs -P40 -I{} sh -c 'curl -sk -o /dev/null -w "%{http_code}\n" \
+  -m 20 -X POST https://api.localhost:8543/api/v2/documents \
+  -H "Content-Type: application/json" -H "X-Correlation-Id: s7p4-03-{}" \
+  -d "{\"idempotency_key\":\"s7p4-03-{}\",\"size_bytes\":1}"' \
+  | sort | uniq -c
+docker logs infra-doc-service-1 2>&1 | grep 's7p4-03-' | grep -o 's7p4-03-[0-9]*' | sort -u | wc -l
+```
+
+## Resultado observado
+
+```
+14 201     # permitidas por el limitador
+26 429     # rechazadas en el gateway
+14         # correlaciones distintas que llegaron al doc-service
+```
+
+Las 26 rechazadas nunca alcanzaron el doc-service: la cantidad de
+`correlation_id` distintos en sus logs (14) coincide exactamente con las 201.
+El límite de la ruta sensible se aplica antes del proxy.
+
+## Notas
+
+- La sonda de encabezados confirma el límite por ruta: `POST /api/v2/documents`
+  devuelve `x-ratelimit-remaining: 9` con bucket lleno, mientras
+  `GET /api/v2/documents/{id}` devuelve `19` (solo límite global).
+- El conteo exacto de permitidas depende del tiempo de evaluación del limitador
+  bajo concurrencia; el DoD no exige un número fijo, sino que el exceso se
+  rechace en el gateway y no llegue al servicio.

@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Verificación de límite del gateway (S7-P4-04 / spec S4).
 #
-# Dispara TOTAL_REQUESTS peticiones en ráfaga por corrida y comprueba que
-# exactamente el límite esperado pase (200) y el resto se rechace (429).
-# Ejecuta RUNS corridas y reporta desviaciones por corrida y total; con los
-# defaults (RUNS=10) evalúa el DoD "0 desviaciones en 10 ejecuciones".
+# Dispara peticiones a una tasa pautada durante una ventana fija y comprueba
+# que pasen (200) exactamente las que permite el límite GCRA (burst + rate *
+# duración) y el resto se rechace (429). Ejecuta RUNS corridas y reporta
+# desviaciones por corrida y total; con los defaults (RUNS=10) evalúa el DoD
+# "0 desviaciones en 10 ejecuciones".
 #
 # Uso:
 #   ./tests/k6/ratelimit/run-limit-verification.sh
-#   RUNS=1 TOTAL_REQUESTS=100 ./tests/k6/ratelimit/run-limit-verification.sh
+#   RUNS=1 ATTACK_RATE=20 DURATION_MS=10000 ./tests/k6/ratelimit/run-limit-verification.sh
 #   ./tests/k6/ratelimit/run-limit-verification.sh --help
 #
 # Interfaz (variables de entorno):
@@ -17,16 +18,22 @@
 #   DOC_ID              opcional; si falta se crea un documento de prueba
 #   RUN_ID              prefijo de trazabilidad (default p4-04-<epoch>-<pid>)
 #   RUNS                corridas a ejecutar (default 10)
-#   TOTAL_REQUESTS      peticiones por corrida (default 100)
-#   VUS                 VUs concurrentes (default = TOTAL_REQUESTS)
+#   ATTACK_RATE         arribos por segundo que dispara k6 (default 20)
+#   DURATION_MS         ventana del escenario en ms (default 10000)
+#   TOTAL_REQUESTS      tope de peticiones esperadas (default ATTACK_RATE*DURATION/1000)
+#   PRE_VUS             VUs preasignados (default max(20, ATTACK_RATE*3))
 #   EXPECTED_RATE       rps del límite (default 10)
 #   EXPECTED_BURST      burst del límite (default 20)
-#   EXPECTED_WINDOW_MS  si se fija, ignora la ventana medida por k6
+#   TOLERANCE           jitter admitido en tokens por borde (default 2)
 #   REFILL_WAIT_S       espera para rellenar el bucket antes de cada corrida
 #                       (default 3)
 #   OUT_DIR             directorio de evidencia (default docs/evidencias/S7)
 #
-# Salida: bloque por corrida (allowed/denied/unexpected/ventana/desviación) +
+# La carga es pautada (constant-arrival-rate) a ATTACK_RATE durante
+# DURATION_MS: el máximo teórico que pasa es burst + rate * duración. Así el
+# esperado no depende de cuándo el gateway alcanzó a evaluar cada petición.
+#
+# Salida: bloque por corrida (allowed/denied/unexpected/dropped/desviación) +
 # resumen total. Exit 0 si el total de desvíos es 0; exit 1 si alguna corrida
 # se desvió o falta una herramienta. El detalle crudo de k6 queda en
 # $OUT_DIR/S7-P4-04-k6-limit-verification-k6.log.
@@ -44,11 +51,13 @@ usage() {
   printf '  SCENARIO_PATH=%s\n' '/api/v2/documents'
   printf '  DOC_ID=<opcional; se crea si falta>\n'
   printf '  RUNS=%s\n' '10'
-  printf '  TOTAL_REQUESTS=%s\n' '100'
-  printf '  VUS=<default TOTAL_REQUESTS>\n'
+  printf '  ATTACK_RATE=%s\n' '20'
+  printf '  DURATION_MS=%s\n' '10000'
+  printf '  TOTAL_REQUESTS=<default ATTACK_RATE*DURATION/1000>\n'
+  printf '  PRE_VUS=<default max(20, ATTACK_RATE*3)>\n'
   printf '  EXPECTED_RATE=%s\n' '10'
   printf '  EXPECTED_BURST=%s\n' '20'
-  printf '  EXPECTED_WINDOW_MS=<opcional; default ventana medida>\n'
+  printf '  TOLERANCE=%s\n' '2'
   printf '  REFILL_WAIT_S=%s\n' '3'
   printf '  OUT_DIR=%s\n' 'docs/evidencias/S7'
 }
@@ -70,23 +79,34 @@ BASE_URL="${BASE_URL:-https://api.localhost:8543}"
 SCENARIO_PATH="${SCENARIO_PATH:-/api/v2/documents}"
 DOC_ID="${DOC_ID:-}"
 RUN_ID="${RUN_ID:-p4-04-$(date +%s)-$$}"
-TOTAL_REQUESTS="${TOTAL_REQUESTS:-100}"
-VUS="${VUS:-$TOTAL_REQUESTS}"
+ATTACK_RATE="${ATTACK_RATE:-20}"
+DURATION_MS="${DURATION_MS:-10000}"
+TOTAL_REQUESTS="${TOTAL_REQUESTS:-$((ATTACK_RATE * DURATION_MS / 1000))}"
+PRE_VUS="${PRE_VUS:-$((ATTACK_RATE * 3 > 20 ? ATTACK_RATE * 3 : 20))}"
 RUNS="${RUNS:-10}"
 EXPECTED_RATE="${EXPECTED_RATE:-10}"
 EXPECTED_BURST="${EXPECTED_BURST:-20}"
-EXPECTED_WINDOW_MS="${EXPECTED_WINDOW_MS:-}"
+TOLERANCE="${TOLERANCE:-2}"
 REFILL_WAIT_S="${REFILL_WAIT_S:-3}"
 OUT_DIR="${OUT_DIR:-$PLATFORM_ROOT/docs/evidencias/S7}"
 
 if ! [[ "$RUNS" =~ ^[1-9][0-9]*$ ]]; then
   RUNS=10
 fi
-if ! [[ "$TOTAL_REQUESTS" =~ ^[1-9][0-9]*$ ]]; then
-  TOTAL_REQUESTS=100
+if ! [[ "$ATTACK_RATE" =~ ^[1-9][0-9]*$ ]]; then
+  ATTACK_RATE=20
 fi
-if ! [[ "$VUS" =~ ^[1-9][0-9]*$ ]]; then
-  VUS="$TOTAL_REQUESTS"
+if ! [[ "$DURATION_MS" =~ ^[1-9][0-9]*$ ]]; then
+  DURATION_MS=10000
+fi
+if ! [[ "$TOTAL_REQUESTS" =~ ^[1-9][0-9]*$ ]]; then
+  TOTAL_REQUESTS=$((ATTACK_RATE * DURATION_MS / 1000))
+fi
+if ! [[ "$PRE_VUS" =~ ^[1-9][0-9]*$ ]]; then
+  PRE_VUS=20
+fi
+if ! [[ "$TOLERANCE" =~ ^[0-9]+$ ]]; then
+  TOLERANCE=2
 fi
 
 for command_name in awk curl jq k6; do
@@ -138,10 +158,10 @@ deviating_runs=''
 {
   printf '# S7-P4-04 — verificación de límite del gateway\n'
   printf '# Fecha UTC: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  printf '# RUN_ID=%s RUNS=%s TOTAL_REQUESTS=%s VUS=%s\n' \
-    "$RUN_ID" "$RUNS" "$TOTAL_REQUESTS" "$VUS"
-  printf '# Límite esperado: rate=%s/s burst=%s (REFILL_WAIT_S=%s)\n' \
-    "$EXPECTED_RATE" "$EXPECTED_BURST" "$REFILL_WAIT_S"
+  printf '# RUN_ID=%s RUNS=%s ATTACK_RATE=%s/s DURATION_MS=%s TOTAL_REQUESTS=%s PRE_VUS=%s\n' \
+    "$RUN_ID" "$RUNS" "$ATTACK_RATE" "$DURATION_MS" "$TOTAL_REQUESTS" "$PRE_VUS"
+  printf '# Límite esperado: rate=%s/s burst=%s TOLERANCE=%s (REFILL_WAIT_S=%s)\n' \
+    "$EXPECTED_RATE" "$EXPECTED_BURST" "$TOLERANCE" "$REFILL_WAIT_S"
   printf '# BASE_URL=%s SCENARIO_PATH=%s DOC_ID=%s\n\n' \
     "$BASE_URL" "$SCENARIO_PATH" "$DOC_ID"
 
@@ -154,38 +174,41 @@ deviating_runs=''
     k6_rc=0
     RUN_ID="${RUN_ID}-run${run}" \
       BASE_URL="$BASE_URL" SCENARIO_PATH="$SCENARIO_PATH" DOC_ID="$DOC_ID" \
-      TOTAL_REQUESTS="$TOTAL_REQUESTS" VUS="$VUS" \
+      ATTACK_RATE="$ATTACK_RATE" DURATION="${DURATION_MS}ms" PRE_VUS="$PRE_VUS" \
       k6 run --summary-export "$summary" "$SCRIPT_DIR/limit-verification.js" \
       >> "$RAW" 2>&1 || k6_rc=$?
 
+    # k6 v2 exporta los contadores planos (.count); versiones viejas los
+    # anidaban en .values.count. Soportar ambos evita el -1 silencioso.
     summary_values=''
     if [[ -s "$summary" ]]; then
       summary_values="$(jq -r '[
-        (.metrics.allowed_total.values.count // -1 | floor),
-        (.metrics.denied_total.values.count // -1 | floor),
-        (.metrics.unexpected_status_total.values.count // -1 | floor),
-        (.metrics.request_start_offset_ms.values.min // 0),
-        (.metrics.request_end_offset_ms.values.max // 0)
+        (.metrics.allowed_total.count // .metrics.allowed_total.values.count // -1 | floor),
+        (.metrics.denied_total.count // .metrics.denied_total.values.count // -1 | floor),
+        (.metrics.unexpected_status_total.count // .metrics.unexpected_status_total.values.count // -1 | floor),
+        (.metrics.dropped_iterations.count // .metrics.dropped_iterations.values.count // 0 | floor)
       ] | @tsv' "$summary" 2>/dev/null || true)"
     fi
-    [[ -n "$summary_values" ]] || summary_values=$'-1\t-1\t-1\t0\t0'
-    IFS=$'\t' read -r allowed denied unexpected start_min end_max <<<"$summary_values"
+    [[ -n "$summary_values" ]] || summary_values=$'-1\t-1\t-1\t0'
+    IFS=$'\t' read -r allowed denied unexpected dropped <<<"$summary_values"
 
     allowed="$(limits_integer_or "$allowed" -1)"
     denied="$(limits_integer_or "$denied" -1)"
     unexpected="$(limits_integer_or "$unexpected" -1)"
-    window_ms="$(awk -v a="$start_min" -v b="$end_max" \
-      'BEGIN { ms = b - a; if (ms < 0) ms = 0; printf "%d", ms }')"
-    if [[ "$EXPECTED_WINDOW_MS" =~ ^[0-9]+$ ]]; then
-      window_ms="$EXPECTED_WINDOW_MS"
-    fi
+    dropped="$(limits_integer_or "$dropped" 0)"
 
-    expected_allowed="$(limits_expected_allowed \
-      "$EXPECTED_BURST" "$EXPECTED_RATE" "$window_ms" "$TOTAL_REQUESTS")"
-    expected_denied=$((TOTAL_REQUESTS - expected_allowed))
-    deviation="$(limits_deviation \
-      "$allowed" "$expected_allowed" "$denied" "$expected_denied" "$unexpected")"
-    if ((k6_rc != 0)); then
+    # k6 emite un arribo por período más el inicial (rate*duración + 1), así
+    # que el total observado es la referencia para el esperado de denied.
+    observed_total=$((allowed + denied + unexpected))
+    if ((observed_total <= 0)); then
+      observed_total="$TOTAL_REQUESTS"
+    fi
+    expected_allowed="$(limits_expected_paced \
+      "$EXPECTED_BURST" "$EXPECTED_RATE" "$DURATION_MS" "$observed_total")"
+    expected_denied=$((observed_total - expected_allowed))
+    deviation="$(limits_deviation_tolerant \
+      "$allowed" "$expected_allowed" "$denied" "$expected_denied" "$unexpected" "$TOLERANCE")"
+    if ((k6_rc != 0 || dropped != 0)); then
       deviation=1
     fi
 
@@ -194,9 +217,9 @@ deviating_runs=''
       deviating_runs="${deviating_runs:+$deviating_runs,}$run"
     fi
 
-    printf 'run %d/%d allowed=%s expected_allowed=%s denied=%s expected_denied=%s unexpected=%s window_ms=%s k6_rc=%s deviation=%s\n' \
+    printf 'run %d/%d allowed=%s expected_allowed=%s denied=%s expected_denied=%s unexpected=%s dropped=%s tolerance=%s k6_rc=%s deviation=%s\n' \
       "$run" "$RUNS" "$allowed" "$expected_allowed" "$denied" \
-      "$expected_denied" "$unexpected" "$window_ms" "$k6_rc" "$deviation"
+      "$expected_denied" "$unexpected" "$dropped" "$TOLERANCE" "$k6_rc" "$deviation"
   done
 
   printf '\ntotal_runs=%s total_deviations=%s\n' "$RUNS" "$total_deviations"

@@ -14,140 +14,260 @@
               * health: Up to 10 looping VUs for 45s over 3 stages (gracefulRampDown: 5s, gracefulStop: 30s)
 
 
-running (01.0s), 01/10 VUs, 84 complete and 0 interrupted iterations
+running (01.0s), 01/10 VUs, 423 complete and 0 interrupted iterations
 health   [   2% ] 01/10 VUs  01.0s/45.0s
 
-running (02.0s), 02/10 VUs, 203 complete and 0 interrupted iterations
+running (02.0s), 02/10 VUs, 966 complete and 0 interrupted iterations
 health   [   4% ] 02/10 VUs  02.0s/45.0s
 
-running (03.0s), 03/10 VUs, 344 complete and 0 interrupted iterations
+running (03.0s), 03/10 VUs, 1533 complete and 0 interrupted iterations
 health   [   7% ] 03/10 VUs  03.0s/45.0s
 
-running (04.0s), 04/10 VUs, 499 complete and 0 interrupted iterations
+running (04.0s), 04/10 VUs, 2026 complete and 0 interrupted iterations
 health   [   9% ] 04/10 VUs  04.0s/45.0s
 
-running (05.0s), 05/10 VUs, 663 complete and 0 interrupted iterations
+running (05.0s), 05/10 VUs, 2813 complete and 0 interrupted iterations
 health   [  11% ] 05/10 VUs  05.0s/45.0s
 
-running (06.0s), 06/10 VUs, 728 complete and 0 interrupted iterations
+running (06.0s), 06/10 VUs, 3798 complete and 0 interrupted iterations
 health   [  13% ] 06/10 VUs  06.0s/45.0s
 
-running (07.0s), 07/10 VUs, 859 complete and 0 interrupted iterations
+running (07.0s), 07/10 VUs, 4816 complete and 0 interrupted iterations
 health   [  16% ] 07/10 VUs  07.0s/45.0s
 
-running (08.0s), 08/10 VUs, 1029 complete and 0 interrupted iterations
+running (08.0s), 08/10 VUs, 5619 complete and 0 interrupted iterations
 health   [  18% ] 08/10 VUs  08.0s/45.0s
 
-running (09.0s), 09/10 VUs, 1220 complete and 0 interrupted iterations
+running (09.0s), 09/10 VUs, 6347 complete and 0 interrupted iterations
 health   [  20% ] 09/10 VUs  09.0s/45.0s
 
-running (10.0s), 09/10 VUs, 1390 complete and 0 interrupted iterations
+running (10.0s), 09/10 VUs, 7150 complete and 0 interrupted iterations
 health   [  22% ] 09/10 VUs  10.0s/45.0s
 
-running (11.2s), 10/10 VUs, 1584 complete and 0 interrupted iterations
-health   [  25% ] 10/10 VUs  11.2s/45.0s
+running (11.0s), 10/10 VUs, 7919 complete and 0 interrupted iterations
+health   [  24% ] 10/10 VUs  11.0s/45.0s
 
-running (12.0s), 10/10 VUs, 1686 complete and 0 interrupted iterations
+running (12.0s), 10/10 VUs, 8696 complete and 0 interrupted iterations
 health   [  27% ] 10/10 VUs  12.0s/45.0s
 
-running (13.0s), 10/10 VUs, 1844 complete and 0 interrupted iterations
+running (13.0s), 10/10 VUs, 9848 complete and 0 interrupted iterations
 health   [  29% ] 10/10 VUs  13.0s/45.0s
 
-running (14.0s), 10/10 VUs, 2061 complete and 0 interrupted iterations
+running (14.0s), 10/10 VUs, 10626 complete and 0 interrupted iterations
 health   [  31% ] 10/10 VUs  14.0s/45.0s
 
-running (15.0s), 10/10 VUs, 2269 complete and 0 interrupted iterations
+running (15.0s), 10/10 VUs, 11428 complete and 0 interrupted iterations
 health   [  33% ] 10/10 VUs  15.0s/45.0s
 
-running (16.0s), 10/10 VUs, 2479 complete and 0 interrupted iterations
+running (16.0s), 10/10 VUs, 12683 complete and 0 interrupted iterations
 health   [  36% ] 10/10 VUs  16.0s/45.0s
 
-running (17.0s), 10/10 VUs, 2642 complete and 0 interrupted iterations
+running (17.0s), 10/10 VUs, 13773 complete and 0 interrupted iterations
 health   [  38% ] 10/10 VUs  17.0s/45.0s
 
-running (18.0s), 10/10 VUs, 2763 complete and 0 interrupted iterations
+running (18.0s), 10/10 VUs, 15021 complete and 0 interrupted iterations
 health   [  40% ] 10/10 VUs  18.0s/45.0s
 
-running (19.0s), 10/10 VUs, 2901 complete and 0 interrupted iterations
+running (19.0s), 10/10 VUs, 16127 complete and 0 interrupted iterations
 health   [  42% ] 10/10 VUs  19.0s/45.0s
 
-running (20.0s), 10/10 VUs, 3101 complete and 0 interrupted iterations
+running (20.0s), 10/10 VUs, 17314 complete and 0 interrupted iterations
 health   [  44% ] 10/10 VUs  20.0s/45.0s
 
-running (21.0s), 10/10 VUs, 3323 complete and 0 interrupted iterations
+running (21.0s), 10/10 VUs, 18399 complete and 0 interrupted iterations
 health   [  47% ] 10/10 VUs  21.0s/45.0s
 
-running (22.0s), 10/10 VUs, 3539 complete and 0 interrupted iterations
+running (22.0s), 10/10 VUs, 19230 complete and 0 interrupted iterations
 health   [  49% ] 10/10 VUs  22.0s/45.0s
 
-running (23.0s), 10/10 VUs, 3747 complete and 0 interrupted iterations
-health   [  51% ] 10/10 VUs  23.0s/45.0s
+running (23.1s), 10/10 VUs, 19823 complete and 0 interrupted iterations
+health   [  51% ] 10/10 VUs  23.1s/45.0s
 
-running (24.0s), 10/10 VUs, 3930 complete and 0 interrupted iterations
+running (24.0s), 10/10 VUs, 20432 complete and 0 interrupted iterations
 health   [  53% ] 10/10 VUs  24.0s/45.0s
 
-running (25.0s), 10/10 VUs, 4089 complete and 0 interrupted iterations
+running (25.0s), 10/10 VUs, 20943 complete and 0 interrupted iterations
 health   [  56% ] 10/10 VUs  25.0s/45.0s
 
-running (26.0s), 10/10 VUs, 4274 complete and 0 interrupted iterations
+running (26.0s), 10/10 VUs, 21581 complete and 0 interrupted iterations
 health   [  58% ] 10/10 VUs  26.0s/45.0s
 
-running (27.0s), 10/10 VUs, 4484 complete and 0 interrupted iterations
+running (27.0s), 10/10 VUs, 22893 complete and 0 interrupted iterations
 health   [  60% ] 10/10 VUs  27.0s/45.0s
 
-running (28.0s), 10/10 VUs, 4680 complete and 0 interrupted iterations
+running (28.0s), 10/10 VUs, 24001 complete and 0 interrupted iterations
 health   [  62% ] 10/10 VUs  28.0s/45.0s
 
-running (29.0s), 10/10 VUs, 4858 complete and 0 interrupted iterations
+running (29.0s), 10/10 VUs, 24969 complete and 0 interrupted iterations
 health   [  64% ] 10/10 VUs  29.0s/45.0s
 
-running (30.0s), 10/10 VUs, 4990 complete and 0 interrupted iterations
+running (30.0s), 10/10 VUs, 25645 complete and 0 interrupted iterations
 health   [  67% ] 10/10 VUs  30.0s/45.0s
 
-running (31.0s), 10/10 VUs, 5167 complete and 0 interrupted iterations
+running (31.0s), 10/10 VUs, 26501 complete and 0 interrupted iterations
 health   [  69% ] 10/10 VUs  31.0s/45.0s
 
-running (32.0s), 10/10 VUs, 5366 complete and 0 interrupted iterations
+running (32.0s), 10/10 VUs, 27481 complete and 0 interrupted iterations
 health   [  71% ] 10/10 VUs  32.0s/45.0s
 
-running (33.0s), 10/10 VUs, 5571 complete and 0 interrupted iterations
+running (33.0s), 10/10 VUs, 28433 complete and 0 interrupted iterations
 health   [  73% ] 10/10 VUs  33.0s/45.0s
 
-running (34.0s), 10/10 VUs, 5786 complete and 0 interrupted iterations
+running (34.0s), 10/10 VUs, 29428 complete and 0 interrupted iterations
 health   [  76% ] 10/10 VUs  34.0s/45.0s
 
-running (35.0s), 10/10 VUs, 5989 complete and 0 interrupted iterations
+running (35.0s), 10/10 VUs, 30389 complete and 0 interrupted iterations
 health   [  78% ] 10/10 VUs  35.0s/45.0s
 
-running (36.0s), 10/10 VUs, 6195 complete and 0 interrupted iterations
+running (36.0s), 10/10 VUs, 31351 complete and 0 interrupted iterations
 health   [  80% ] 10/10 VUs  36.0s/45.0s
 
-running (37.0s), 10/10 VUs, 6413 complete and 0 interrupted iterations
+running (37.0s), 10/10 VUs, 32095 complete and 0 interrupted iterations
 health   [  82% ] 10/10 VUs  37.0s/45.0s
 
-running (38.0s), 10/10 VUs, 6598 complete and 0 interrupted iterations
+running (38.0s), 10/10 VUs, 32866 complete and 0 interrupted iterations
 health   [  84% ] 10/10 VUs  38.0s/45.0s
 
-running (39.0s), 10/10 VUs, 6783 complete and 0 interrupted iterations
-health   [  87% ] 10/10 VUs  39.0s/45.0s
+running (39.3s), 10/10 VUs, 33561 complete and 0 interrupted iterations
+health   [  87% ] 10/10 VUs  39.3s/45.0s
 
-running (40.0s), 10/10 VUs, 6973 complete and 0 interrupted iterations
+running (40.0s), 10/10 VUs, 33820 complete and 0 interrupted iterations
 health   [  89% ] 10/10 VUs  40.0s/45.0s
 
-running (41.0s), 09/10 VUs, 7118 complete and 0 interrupted iterations
+running (41.0s), 09/10 VUs, 34529 complete and 0 interrupted iterations
 health   [  91% ] 09/10 VUs  41.0s/45.0s
 
-running (42.0s), 07/10 VUs, 7239 complete and 0 interrupted iterations
+running (42.0s), 07/10 VUs, 35652 complete and 0 interrupted iterations
 health   [  93% ] 07/10 VUs  42.0s/45.0s
 
-running (43.0s), 05/10 VUs, 7372 complete and 0 interrupted iterations
+running (43.0s), 05/10 VUs, 36563 complete and 0 interrupted iterations
 health   [  96% ] 05/10 VUs  43.0s/45.0s
 
-running (44.0s), 03/10 VUs, 7536 complete and 0 interrupted iterations
+running (44.0s), 03/10 VUs, 37322 complete and 0 interrupted iterations
 health   [  98% ] 03/10 VUs  44.0s/45.0s
 
-running (45.0s), 01/10 VUs, 7653 complete and 0 interrupted iterations
+running (45.0s), 01/10 VUs, 37639 complete and 0 interrupted iterations
 health   [ 100% ] 01/10 VUs  45.0s/45.0s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
+
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
+health ✓ [ 100% ] 00/10 VUs  45s
 
 
   █ THRESHOLDS 
@@ -161,31 +281,31 @@ health   [ 100% ] 01/10 VUs  45.0s/45.0s
 
   █ TOTAL RESULTS 
 
-    checks_total.......: 15314   340.233279/s
-    checks_succeeded...: 100.00% 15314 out of 15314
-    checks_failed......: 0.00%   0 out of 15314
+    checks_total.......: 75286   1672.856906/s
+    checks_succeeded...: 100.00% 75286 out of 75286
+    checks_failed......: 0.00%   0 out of 75286
 
     ✓ healthz 200
     ✓ healthz healthy
 
     HTTP
-    http_req_duration..............: avg=47.59ms min=3.96ms med=39.19ms max=766.84ms p(90)=91.77ms p(95)=107.92ms
-      { expected_response:true }...: avg=47.59ms min=3.96ms med=39.19ms max=766.84ms p(90)=91.77ms p(95)=107.92ms
-    http_req_failed................: 0.00%  0 out of 7657
-    http_reqs......................: 7657   170.116639/s
+    http_req_duration..............: avg=8.72ms min=384.17µs med=5.53ms max=311ms    p(90)=18.35ms p(95)=25.64ms
+      { expected_response:true }...: avg=8.72ms min=384.17µs med=5.53ms max=311ms    p(90)=18.35ms p(95)=25.64ms
+    http_req_failed................: 0.00%  0 out of 37643
+    http_reqs......................: 37643  836.428453/s
 
     EXECUTION
-    iteration_duration.............: avg=49.09ms min=4.26ms med=40.85ms max=423.49ms p(90)=94.52ms p(95)=110.07ms
-    iterations.....................: 7657   170.116639/s
-    vus............................: 1      min=1         max=10
-    vus_max........................: 10     min=10        max=10
+    iteration_duration.............: avg=9.91ms min=615.11µs med=6.49ms max=311.34ms p(90)=20.36ms p(95)=28.37ms
+    iterations.....................: 37643  836.428453/s
+    vus............................: 1      min=1          max=10
+    vus_max........................: 10     min=10         max=10
 
     NETWORK
-    data_received..................: 1.4 MB 30 kB/s
-    data_sent......................: 298 kB 6.6 kB/s
+    data_received..................: 9.7 MB 216 kB/s
+    data_sent......................: 2.9 MB 65 kB/s
 
 
 
 
-running (45.0s), 00/10 VUs, 7657 complete and 0 interrupted iterations
+running (45.0s), 00/10 VUs, 37643 complete and 0 interrupted iterations
 health ✓ [ 100% ] 00/10 VUs  45s

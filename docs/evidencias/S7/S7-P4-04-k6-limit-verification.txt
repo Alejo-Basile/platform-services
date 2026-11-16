@@ -1,0 +1,19 @@
+# S7-P4-04 — verificación de límite del gateway
+# Fecha UTC: 2026-11-16T18:11:04Z
+# RUN_ID=p4-04-1794852660-120075 RUNS=10 ATTACK_RATE=20/s DURATION_MS=10000 TOTAL_REQUESTS=200 PRE_VUS=60
+# Límite esperado: rate=10/s burst=20 TOLERANCE=2 (REFILL_WAIT_S=3)
+# BASE_URL=https://api.localhost:8543 SCENARIO_PATH=/api/v2/documents DOC_ID=p4-04-1794852660-120075-doc
+
+run 1/10 allowed=119 expected_allowed=120 denied=82 expected_denied=81 unexpected=0 dropped=0 tolerance=2 k6_rc=0 deviation=0
+run 2/10 allowed=119 expected_allowed=120 denied=81 expected_denied=80 unexpected=0 dropped=0 tolerance=2 k6_rc=0 deviation=0
+run 3/10 allowed=119 expected_allowed=120 denied=82 expected_denied=81 unexpected=0 dropped=0 tolerance=2 k6_rc=0 deviation=0
+run 4/10 allowed=119 expected_allowed=120 denied=82 expected_denied=81 unexpected=0 dropped=0 tolerance=2 k6_rc=0 deviation=0
+run 5/10 allowed=119 expected_allowed=120 denied=82 expected_denied=81 unexpected=0 dropped=0 tolerance=2 k6_rc=0 deviation=0
+run 6/10 allowed=119 expected_allowed=120 denied=81 expected_denied=80 unexpected=0 dropped=0 tolerance=2 k6_rc=0 deviation=0
+run 7/10 allowed=119 expected_allowed=120 denied=82 expected_denied=81 unexpected=0 dropped=0 tolerance=2 k6_rc=0 deviation=0
+run 8/10 allowed=118 expected_allowed=120 denied=83 expected_denied=81 unexpected=0 dropped=0 tolerance=2 k6_rc=0 deviation=0
+run 9/10 allowed=119 expected_allowed=120 denied=82 expected_denied=81 unexpected=0 dropped=0 tolerance=2 k6_rc=0 deviation=0
+run 10/10 allowed=119 expected_allowed=120 denied=82 expected_denied=81 unexpected=0 dropped=0 tolerance=2 k6_rc=0 deviation=0
+
+total_runs=10 total_deviations=0
+deviating_runs=ninguna

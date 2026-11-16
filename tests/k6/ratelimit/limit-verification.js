@@ -3,26 +3,27 @@ import { check } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
 import exec from 'k6/execution';
 
-// S7-P4-04: dispara TOTAL_REQUESTS peticiones en una ráfaga densa y cuenta
-// cuántas pasan (200) y cuántas se rechazan (429). El runner
-// run-limit-verification.sh compara esos contadores con el límite esperado.
+// S7-P4-04: dispara peticiones a una tasa controlada (constant-arrival-rate)
+// durante una ventana fija y cuenta cuántas pasan (200) y cuántas se rechazan
+// (429). El runner run-limit-verification.sh compara esos contadores con el
+// máximo teórico del límite GCRA para la ventana del escenario.
+//
+// Por qué arribos pautados y no una ráfaga de VUs: con `shared-iterations` la
+// ventana real de llegada al limitador no se puede medir desde k6 (el gateway
+// puede encolar las evaluaciones), y el relleno de tokens durante esa cola
+// hacía que el conteo esperado fuera indeterminable. Con una tasa de ataque
+// superior al límite y una ventana fija, el máximo teórico es exacto:
+// burst + rate * duración.
 //
 // Parámetros (todos opcionales):
 //   BASE_URL        default https://api.localhost:8543
 //   SCENARIO_PATH   ruta bajo el límite (default /api/v2/documents)
 //   DOC_ID          opcional; se agrega al final de SCENARIO_PATH
-//   TOTAL_REQUESTS  peticiones de la ráfaga (default 100)
-//   VUS             VUs concurrentes (default = TOTAL_REQUESTS)
-//   MAX_DURATION    techo del escenario (default 30s)
+//   ATTACK_RATE     arribos por segundo (default 20)
+//   DURATION        ventana del escenario en segundos, formato k6 (default 4s)
+//   PRE_VUS         VUs preasignados (default max(20, ATTACK_RATE*3))
 //   P95_MS          umbral opcional de latencia p95 (default sin umbral)
 //   RUN_ID          trazabilidad (se propaga como header)
-//
-// La ráfaga es intencionalmente densa: `shared-iterations` reparte
-// TOTAL_REQUESTS entre VUS sin pausa para que la ventana medida sea corta y el
-// relleno del token bucket aporte lo mínimo. Aun así el relleno nunca es cero,
-// por eso el runner calcula el máximo teórico con la ventana observada
-// (request_start_offset_ms / request_end_offset_ms) en lugar de asumir que no
-// hubo relleno.
 
 function positiveInteger(raw, fallback) {
   const value = Math.floor(Number(raw));
@@ -32,9 +33,9 @@ function positiveInteger(raw, fallback) {
 const BASE_URL = __ENV.BASE_URL || 'https://api.localhost:8543';
 const SCENARIO_PATH = __ENV.SCENARIO_PATH || '/api/v2/documents';
 const DOC_ID = __ENV.DOC_ID || '';
-const TOTAL_REQUESTS = positiveInteger(__ENV.TOTAL_REQUESTS, 100);
-const VUS = Math.min(TOTAL_REQUESTS, positiveInteger(__ENV.VUS, TOTAL_REQUESTS));
-const MAX_DURATION = __ENV.MAX_DURATION || '30s';
+const ATTACK_RATE = positiveInteger(__ENV.ATTACK_RATE, 20);
+const DURATION = __ENV.DURATION || '4s';
+const PRE_VUS = positiveInteger(__ENV.PRE_VUS, Math.max(20, ATTACK_RATE * 3));
 const RUN_ID = __ENV.RUN_ID || 'local';
 
 const targetURL = DOC_ID
@@ -51,16 +52,21 @@ export const options = {
   insecureSkipTLSVerify: true,
   hosts: { 'api.localhost': '127.0.0.1' },
   scenarios: {
-    burst: {
-      executor: 'shared-iterations',
-      vus: VUS,
-      iterations: TOTAL_REQUESTS,
-      maxDuration: MAX_DURATION,
+    paced: {
+      executor: 'constant-arrival-rate',
+      rate: ATTACK_RATE,
+      timeUnit: '1s',
+      duration: DURATION,
+      preAllocatedVUs: PRE_VUS,
+      maxVUs: PRE_VUS * 2,
     },
   },
   thresholds: {
     checks: ['rate==1'],
     unexpected_status_total: ['count==0'],
+    // Un arribo no emitido invalida la ventana: no se puede comparar contra el
+    // máximo teórico si k6 no llegó a disparar la carga pautada.
+    dropped_iterations: ['count==0'],
     ...(Number(__ENV.P95_MS || 0) > 0
       ? { http_req_duration: [`p(95)<${Number(__ENV.P95_MS)}`] }
       : {}),

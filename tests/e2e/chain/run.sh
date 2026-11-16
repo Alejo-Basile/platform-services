@@ -41,7 +41,8 @@ export P4_MONGO_DB="$MONGO_DATABASE"
 
 check_worker(){
   # Verificar si hay servicio worker levantado
-  if compose ps --services --status running 2>/dev/null | grep -qx "extraction-worker"; then
+  # El worker vive en el perfil `full`: sin el flag, `compose ps` lo oculta.
+  if compose --profile full ps --services --status running 2>/dev/null | grep -qx "extraction-worker"; then
     return 0
   fi
   return 1

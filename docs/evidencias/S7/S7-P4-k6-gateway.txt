@@ -1,0 +1,69 @@
+UTC date: 2026-11-15T19:52:43Z
+command: k6 run tests/k6/ratelimit/gateway.js
+BASE_URL: https://127.0.0.1:8543
+TARGET_PATH: /api/v2/documents
+---
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: tests/k6/ratelimit/gateway.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 12 max VUs, 1m30s max duration (incl. graceful stop):
+              * main: 60 iterations shared among 12 VUs (maxDuration: 1m0s, gracefulStop: 30s)
+
+
+
+  █ THRESHOLDS 
+
+    checks
+    ✓ 'rate==1' rate=100.00%
+
+    denied_total
+    ✓ 'count>0' count=40
+
+    server_error_total
+    ✓ 'count==0' count=0
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 240     2589.834898/s
+    checks_succeeded...: 100.00% 240 out of 240
+    checks_failed......: 0.00%   0 out of 240
+
+    ✓ status is 200 or 429
+    ✓ zero 5xx
+    ✓ 429 has Retry-After
+    ✓ 200 has X-RateLimit-Remaining
+
+    CUSTOM
+    allowed_total..................: 20     215.819575/s
+    denied_total...................: 40     431.63915/s
+    server_error_total.............: 0      0/s
+
+    HTTP
+    http_req_duration..............: avg=14.79ms min=2.22ms  med=13.82ms max=54.71ms p(90)=25.86ms p(95)=32.02ms
+      { expected_response:true }...: avg=24.46ms min=13.41ms med=24.18ms max=54.71ms p(90)=32.95ms p(95)=39.96ms
+    http_req_failed................: 66.66% 40 out of 60
+    http_reqs......................: 60     647.458725/s
+
+    EXECUTION
+    iteration_duration.............: avg=18.1ms  min=2.37ms  med=14.38ms max=72.76ms p(90)=35.18ms p(95)=53.22ms
+    iterations.....................: 60     647.458725/s
+
+    NETWORK
+    data_received..................: 252 kB 2.7 MB/s
+    data_sent......................: 24 kB  263 kB/s
+
+
+
+
+running (0m00.1s), 00/12 VUs, 60 complete and 0 interrupted iterations
+main ✓ [ 100% ] 12 VUs  0m00.1s/1m0s  60/60 shared iters

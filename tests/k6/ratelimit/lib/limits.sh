@@ -56,10 +56,12 @@ limits_expected_paced() {
 
 # limits_deviation_tolerant ALLOWED EXPECTED_ALLOWED DENIED EXPECTED_DENIED UNEXPECTED TOL
 #
-# Igual que limits_deviation pero admite jitter de borde: GCRA evalúa contra el
-# reloj real, así que una corrida pautada puede diferir en ±TOL tokens según
-# dónde caiga el último arribo respecto de la reposición. Un estado inesperado
-# o un contador ausente (-1) nunca se toleran.
+# La cota superior del GCRA es inviolable: nunca pueden pasar más peticiones
+# que burst + rate*ventana, así que cualquier sobre-aprobación (allowed >
+# esperado) es desviación con tolerancia cero. La sub-aprobación sí admite
+# jitter de scheduling/kernel hasta TOL tokens: perder turnos por demora no
+# rompe la garantía de límite. Un estado inesperado o un contador ausente (-1)
+# nunca se toleran.
 limits_deviation_tolerant() {
   local allowed expected_allowed denied expected_denied unexpected tol
   allowed="$(limits_integer_or "$1" -1)"
@@ -73,12 +75,15 @@ limits_deviation_tolerant() {
     printf '1'
     return
   fi
-  local allowed_diff=$((allowed - expected_allowed))
-  local denied_diff=$((denied - expected_denied))
-  ((allowed_diff < 0)) && allowed_diff=$((-allowed_diff))
-  ((denied_diff < 0)) && denied_diff=$((-denied_diff))
 
-  if ((allowed_diff > tol || denied_diff > tol)); then
+  # Sobre-aprobación: ni un solo token por encima del máximo teórico.
+  if ((allowed > expected_allowed || denied < expected_denied)); then
+    printf '1'
+    return
+  fi
+
+  local under=$((expected_allowed - allowed))
+  if ((under > tol)); then
     printf '1'
   else
     printf '0'

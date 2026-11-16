@@ -51,18 +51,19 @@ assert_eq 'pautado con tasa fraccionaria trunca' \
 assert_eq 'pautado sin duración => solo el burst' \
   '20' "$(limits_expected_paced 20 10 0 100)"
 
-# limits_deviation_tolerant: igual que limits_deviation pero admite jitter de
-# borde (GCRA evalúa en tiempo real) dentro de una tolerancia en tokens.
-assert_eq 'tolerancia 1: allowed dentro del borde no es desviación' \
-  '0' "$(limits_deviation_tolerant 61 60 39 40 0 1)"
-assert_eq 'tolerancia 1: allowed por debajo del borde es desviación' \
-  '1' "$(limits_deviation_tolerant 58 60 42 40 0 1)"
-assert_eq 'tolerancia 1: denied fuera del borde es desviación' \
-  '1' "$(limits_deviation_tolerant 60 60 37 40 0 1)"
-assert_eq 'tolerancia 1: un estado inesperado siempre desvía' \
-  '1' "$(limits_deviation_tolerant 60 60 40 40 1 1)"
-assert_eq 'tolerancia 1: contador ausente siempre desvía' \
-  '1' "$(limits_deviation_tolerant -1 60 40 40 0 1)"
+# limits_deviation_tolerant: la cota superior del GCRA es inviolable (nunca
+# puede pasar más que burst + rate*ventana); la sub-aprobación por jitter de
+# scheduling se admite hasta TOL tokens.
+assert_eq 'sub-aprobación dentro de tolerancia no es desviación' \
+  '0' "$(limits_deviation_tolerant 58 60 42 40 0 2)"
+assert_eq 'sub-aprobación fuera de tolerancia es desviación' \
+  '1' "$(limits_deviation_tolerant 57 60 43 40 0 2)"
+assert_eq 'sobre-aprobación de 1 token SIEMPRE es desviación' \
+  '1' "$(limits_deviation_tolerant 61 60 39 40 0 2)"
+assert_eq 'un estado inesperado siempre desvía' \
+  '1' "$(limits_deviation_tolerant 60 60 40 40 1 2)"
+assert_eq 'contador ausente siempre desvía' \
+  '1' "$(limits_deviation_tolerant -1 60 40 40 0 2)"
 
 # limits_deviation: 0 cuando todos los contadores cuadran.
 assert_eq 'sin desviación cuando allowed y denied cuadran' \

@@ -24,7 +24,8 @@
 #   PRE_VUS             VUs preasignados (default max(20, ATTACK_RATE*3))
 #   EXPECTED_RATE       rps del límite (default 10)
 #   EXPECTED_BURST      burst del límite (default 20)
-#   TOLERANCE           jitter admitido en tokens por borde (default 2)
+#   TOLERANCE           sub-aprobación admitida en tokens (default 3); la
+#                       sobre-aprobación del límite nunca se tolera
 #   REFILL_WAIT_S       espera para rellenar el bucket antes de cada corrida
 #                       (default 3)
 #   OUT_DIR             directorio de evidencia (default docs/evidencias/S7)
@@ -57,7 +58,7 @@ usage() {
   printf '  PRE_VUS=<default max(20, ATTACK_RATE*3)>\n'
   printf '  EXPECTED_RATE=%s\n' '10'
   printf '  EXPECTED_BURST=%s\n' '20'
-  printf '  TOLERANCE=%s\n' '2'
+  printf '  TOLERANCE=%s\n' '3'
   printf '  REFILL_WAIT_S=%s\n' '3'
   printf '  OUT_DIR=%s\n' 'docs/evidencias/S7'
 }
@@ -86,7 +87,7 @@ PRE_VUS="${PRE_VUS:-$((ATTACK_RATE * 3 > 20 ? ATTACK_RATE * 3 : 20))}"
 RUNS="${RUNS:-10}"
 EXPECTED_RATE="${EXPECTED_RATE:-10}"
 EXPECTED_BURST="${EXPECTED_BURST:-20}"
-TOLERANCE="${TOLERANCE:-2}"
+TOLERANCE="${TOLERANCE:-3}"
 REFILL_WAIT_S="${REFILL_WAIT_S:-3}"
 OUT_DIR="${OUT_DIR:-$PLATFORM_ROOT/docs/evidencias/S7}"
 
@@ -106,7 +107,7 @@ if ! [[ "$PRE_VUS" =~ ^[1-9][0-9]*$ ]]; then
   PRE_VUS=20
 fi
 if ! [[ "$TOLERANCE" =~ ^[0-9]+$ ]]; then
-  TOLERANCE=2
+  TOLERANCE=3
 fi
 
 for command_name in awk curl jq k6; do

@@ -26,3 +26,7 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Estado local de Engram y caché de Python
+.engram/
+__pycache__/

@@ -33,9 +33,10 @@ Por el mismo bloqueo, no se ejecutaron los casos no-PDF y extracción fallida/DL
 
 - `go test ./...` pasó en `golang:1.24-alpine`; la imagen `ratelimitd:p4-04` se construyó y `/healthz` respondió `{"status":"ok"}`.
 - P1-04/P1-05 quedaron integrados por `infra#44` (`214f124`): `ratelimitd` en Compose y middleware Traefik hacia `/check?key=api-v2&rate=10&burst=20`.
-- Una petición de bajo volumen a `GET /api/v2/documents/{id}` devolvió 200. El burst k6 point-read (100 VUs/100 requests) terminó con 25 respuestas 200, 75 respuestas 429 y checks 100% (exit 0). `http_req_failed=75%` es el contador k6 que clasifica 429 como fallo HTTP; no se usó como threshold porque 429 es el comportamiento esperado sobre el límite.
+- `tests/k6/ratelimit/run-gateway.sh` hizo una petición bajo el límite a `GET /api/v2/documents/{id}` (200) y luego un burst point-read de 100 VUs/100 requests. En la corrida registrada: 46 respuestas 200, 54 respuestas 429, 0 inesperadas y checks 100% (exit 0). La proporción varía con la reposición del GCRA; los thresholds requieren observar ambos códigos y cero respuestas inesperadas. `http_req_failed=54%` es el contador k6 que clasifica 429 como fallo HTTP; no se usó como threshold porque 429 es el comportamiento esperado sobre el límite.
 - El primer burst contra el endpoint de listado produjo 3 respuestas 500; los logs correlacionados mostraron `COLLSCAN` de 14.154 documentos y cancelación de handshake Mongo. Se repitió el burst sobre un documento por ID para aislar el rate-limit del scan del listado.
-- No se ejecutó `tests/k6/ratelimit/run.sh`: ese runner apunta a `BASE_URL/check` en `127.0.0.1:8090`, mientras que el servicio está solo en la red interna y el criterio P4-06 es verificar el comportamiento a través del gateway. La prueba de gateway se ejecutó con un script temporal fuera del repositorio.
+- `tests/k6/ratelimit/run.sh` se conserva para la prueba directa S1 de `/check`; P4-06 usa `tests/k6/ratelimit/run-gateway.sh` porque `ratelimitd` no publica el puerto 8090 en el host.
+- El runner crea un documento de prueba y lo deja en `PENDING_UPLOAD` (no hace upload), por lo que también queda sujeto al webhook/TTL del stack.
 - **Worker, 100 documentos:** pendiente. No se ejecutó porque el webhook 401 impide promover documentos a `UPLOADED`.
 
 ## Dependencias aún pendientes para P4-07

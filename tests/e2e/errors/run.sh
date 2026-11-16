@@ -263,8 +263,15 @@ case_redis_down() {
   # que con Redis caido el documento puede quedar directamente en QUEUED y no
   # se observa UPLOADED. Lo que importa aca es que la subida haya sido aceptada
   # y que el mensaje no se pierda cuando Redis vuelva.
-  if ! wait_status_any "$id" 30 "UPLOADED" "QUEUED"; then
+  local status=""
+  for ((i = 1; i <= 30; i++)); do
+    status="$(mongo_status "$id")"
+    [[ "$status" == "UPLOADED" || "$status" == "QUEUED" ]] && break
+    sleep 1
+  done
+  if [[ "$status" != "UPLOADED" && "$status" != "QUEUED" ]]; then
     restore_services
+    bad "estado $status (esperado UPLOADED o QUEUED)"
     return 1
   fi
   compose start redis-streams >/dev/null

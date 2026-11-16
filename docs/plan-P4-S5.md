@@ -27,7 +27,7 @@
 | Endpoint usado por ForwardAuth (`/check`, clave estática `api-v2`, rate=10/burst=20) | Integrado | `infra#44` (`214f124`), `infra/traefik/dynamic/middlewares.yml` |
 | Servicio `ratelimitd` en Compose | Integrado | `infra#44`, `infra/compose/docker-compose.yml`; `docker compose --profile full up --build ratelimitd` y `/healthz` OK |
 | Middleware ForwardAuth sobre `/api/v2/*` | Integrado | `infra#44`, router `docv2` usa `rate-limit@file` |
-| Verificación de 429 vía Traefik | Verificado | Probe k6: 25 respuestas 200, 75 respuestas 429, 100/100 checks; `docs/evidencias/S5/S5-P4-evidencia-parcial.md` |
+| Verificación de 429 vía Traefik | Verificado | `tests/k6/ratelimit/run-gateway.sh`: respuestas 200 y 429, 100/100 checks; `docs/evidencias/S5/S5-P4-06-k6-ratelimit-gateway.txt` |
 
 **Fallback documentado (tope 30 min):** middleware nativo `RateLimit` de Traefik en el mismo
 `middlewares.yml`, sin código. El conteo es por instancia de Traefik; hoy el Compose tiene una sola

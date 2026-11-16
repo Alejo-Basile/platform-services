@@ -1,6 +1,29 @@
-// Supported environment variables: LISTEN_ADDR, REDIS_ADDR, REDIS_PASSWORD, REDIS_PASSWORD_FILE.
-// Comando ratelimitd: wrapper HTTP mínimo sobre el núcleo GCRA.
-// En S1 sirve para probar el script con k6; el ForwardAuth completo es S7.
+// Comando ratelimitd: endpoint ForwardAuth `/check` sobre el núcleo GCRA.
+//
+// Contrato de `/check` (query params): `scope` (preferido) o el legado `key`,
+// `rate` (default 10) y `burst` (default 5). Un error de Redis degrada a
+// fail-open con `X-RateLimit-Degraded: true` (ADR-0005); parámetros inválidos
+// devuelven 400.
+//
+// Precedencia sobre el path normalizado de `X-Forwarded-Uri` (sin query y con
+// segmentos resueltos):
+//  1. Webhook interno: exento solo con `Bearer` de token válido (compara en
+//     tiempo constante). Sin token válido se limita; nunca cae en la lista
+//     genérica de exenciones (anti-spoofing).
+//  2. Lista explícita de exenciones: exenta sin consumir cuota.
+//  3. Cualquier otra ruta exige identidad y evalúa, en un único EVAL atómico,
+//     el límite global más un límite extra por cada ruta sensible exacta.
+//
+// Variables de entorno:
+//   - LISTEN_ADDR (default ":8090"), REDIS_ADDR, REDIS_PASSWORD,
+//     REDIS_PASSWORD_FILE.
+//   - RL_EXEMPT_PATHS (default "/internal,/healthz,/metrics"): lista explícita
+//     de exenciones segment-aware.
+//   - RL_SENSITIVE_ROUTES (default "POST /api/v2/documents=5:10"): formato
+//     "[METHOD ]path=rate:burst,...", p. ej. "POST /api/v2/documents=5:10".
+//   - RL_WEBHOOK_PATH (default "/internal/storage/events").
+//   - RL_WEBHOOK_TOKEN / RL_WEBHOOK_TOKEN_FILE: el token se toma primero de la
+//     variable de entorno y, si está vacía, del archivo (con trim).
 package main
 
 import (
@@ -27,6 +50,11 @@ func main() {
 		log.Fatalf("redis password: %v", err)
 	}
 
+	policy, err := loadPolicyFromEnv()
+	if err != nil {
+		log.Fatalf("política de rate limit: %v", err)
+	}
+
 	client := limiter.NewClient(redisAddr, redisPassword)
 	defer client.Close()
 	lim := limiter.New(client)
@@ -43,7 +71,7 @@ func main() {
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 	mux.HandleFunc("/check", func(w http.ResponseWriter, r *http.Request) {
-		handleCheck(w, r, lim)
+		handleCheck(w, r, lim, policy)
 	})
 	mux.HandleFunc("/metrics", handleMetrics)
 
@@ -87,13 +115,33 @@ func redisPasswordFromEnv() (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
-// rateChecker abstrae el núcleo GCRA para poder testear el handler sin Redis.
+const (
+	// El límite global conserva los valores por defecto actuales de `/check`.
+	defaultRate  = 10
+	defaultBurst = 5
+	// La creación de documentos es la ruta sensible: dispara upload y
+	// procesamiento asíncrono, por eso su límite es más estricto.
+	defaultSensitiveRoutes = "POST /api/v2/documents=5:10"
+	// Lista explícita de exenciones (nunca heurística de prefijo suelta).
+	defaultExemptPaths = "/internal,/healthz,/metrics"
+	// Endpoint interno que MinIO invoca; exento solo con el token compartido.
+	defaultWebhookPath = "/internal/storage/events"
+)
+
+// rateChecker abstrae el núcleo GCRA multi-clave para testear el handler sin
+// Redis. CheckAll evalúa todos los límites en un único EVAL atómico.
 type rateChecker interface {
-	Check(context.Context, string, float64, float64) (limiter.Decision, error)
+	CheckAll(context.Context, []limiter.Limit) (limiter.Decision, error)
 }
 
-func handleCheck(w http.ResponseWriter, r *http.Request, lim rateChecker) {
-	if exemptPath(r) {
+func handleCheck(w http.ResponseWriter, r *http.Request, lim rateChecker, policy limiter.Policy) {
+	plan := policy.Decide(limiter.Request{
+		Method:        forwardedMethod(r),
+		Path:          forwardedPath(r),
+		Authorization: r.Header.Get("Authorization"),
+	})
+	if plan.Exempt {
+		w.Header().Set("X-RateLimit-Exempt", "true")
 		writeJSON(w, http.StatusOK, map[string]any{"allowed": true, "exempted": true})
 		return
 	}
@@ -104,23 +152,23 @@ func handleCheck(w http.ResponseWriter, r *http.Request, lim rateChecker) {
 
 		return
 	}
-	rate, err := floatParam(r, "rate", 10)
+	rate, err := floatParam(r, "rate", defaultRate)
 	if err != nil || rate <= 0 {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "rate inválido"})
 		return
 	}
-	burst, err := floatParam(r, "burst", 5)
+	burst, err := floatParam(r, "burst", defaultBurst)
 	if err != nil || burst < 1 {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "burst inválido"})
 		return
 	}
 
-	key := rateLimitKey(scope, clientIdentity(r))
+	limits := requestLimits(scope, clientIdentity(r), rate, burst, plan.Routes)
 
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 
-	decision, err := lim.Check(ctx, key, rate, burst)
+	decision, err := lim.CheckAll(ctx, limits)
 	if err != nil {
 		// Fail-open controlado (ADR-0005): degradar la protección, no la API.
 		setRedisUp(false)
@@ -153,6 +201,75 @@ func handleCheck(w http.ResponseWriter, r *http.Request, lim rateChecker) {
 		"remaining":   0,
 		"retry_after": decision.RetryAfter,
 	})
+}
+
+// requestLimits arma el límite global más un límite por ruta sensible. Las
+// claves reutilizan rateLimitKey para mantener el formato estable:
+// `rl:{scope}:{identity}` y `rl:route:{METHOD}:{path}:{identity}`.
+func requestLimits(scope, identity string, rate, burst float64, routes []limiter.RouteLimit) []limiter.Limit {
+	limits := make([]limiter.Limit, 0, 1+len(routes))
+	limits = append(limits, limiter.Limit{
+		Key:   rateLimitKey(scope, identity),
+		Rate:  rate,
+		Burst: burst,
+	})
+	for _, route := range routes {
+		method := route.Method
+		if method == "" {
+			method = "ANY"
+		}
+		limits = append(limits, limiter.Limit{
+			Key:   rateLimitKey("route:"+method+":"+route.Path, identity),
+			Rate:  route.Limit.Rate,
+			Burst: route.Limit.Burst,
+		})
+	}
+	return limits
+}
+
+// forwardedPath usa el URI original que Traefik envía en ForwardAuth.
+func forwardedPath(r *http.Request) string {
+	if uri := r.Header.Get("X-Forwarded-Uri"); uri != "" {
+		return uri
+	}
+	return r.URL.RequestURI()
+}
+
+func forwardedMethod(r *http.Request) string {
+	if method := r.Header.Get("X-Forwarded-Method"); method != "" {
+		return method
+	}
+	return r.Method
+}
+
+// loadPolicyFromEnv lee la política explícita desde variables de entorno.
+func loadPolicyFromEnv() (limiter.Policy, error) {
+	token, err := webhookTokenFromEnv()
+	if err != nil {
+		return limiter.Policy{}, err
+	}
+	return limiter.ParsePolicy(
+		env("RL_SENSITIVE_ROUTES", defaultSensitiveRoutes),
+		env("RL_EXEMPT_PATHS", defaultExemptPaths),
+		env("RL_WEBHOOK_PATH", defaultWebhookPath),
+		token,
+	)
+}
+
+// webhookTokenFromEnv prefiere RL_WEBHOOK_TOKEN y cae a RL_WEBHOOK_TOKEN_FILE.
+func webhookTokenFromEnv() (string, error) {
+	if token := os.Getenv("RL_WEBHOOK_TOKEN"); token != "" {
+		return token, nil
+	}
+	file := os.Getenv("RL_WEBHOOK_TOKEN_FILE")
+	if file == "" {
+		return "", nil
+	}
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(data)), nil
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {

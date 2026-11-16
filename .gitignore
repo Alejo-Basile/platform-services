@@ -9,6 +9,10 @@ vendor/
 results/
 .schemathesis/
 
+# Puntos crudos de k6: pesados (~8 MB por tanda). Se publican como artefactos
+# del workflow; en git solo se versionan los *-summary.json y resultados.csv.
+benchmarks/**/*.json.gz
+
 # Secretos y entornos locales — NUNCA commitear (repo publico)
 *.env
 !.env.example
@@ -22,3 +26,7 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Estado local de Engram y caché de Python
+.engram/
+__pycache__/

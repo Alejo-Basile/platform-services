@@ -46,7 +46,7 @@ func TestMetricsAllowedIncrements(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/check?scope=api-v2", nil)
 	r.Header.Set("X-Forwarded-For", "203.0.113.7")
 	w := httptest.NewRecorder()
-	handleCheck(w, r, fake)
+	handleCheck(w, r, fake, limiter.Policy{})
 
 	a1, _, g1, ru1, _ := snapshotMetrics(t)
 	if a1-a0 != 1 {
@@ -66,7 +66,7 @@ func TestMetricsDeniedIncrements(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/check?scope=api-v2", nil)
 	r.Header.Set("X-Forwarded-For", "203.0.113.7")
 	w := httptest.NewRecorder()
-	handleCheck(w, r, fake)
+	handleCheck(w, r, fake, limiter.Policy{})
 
 	_, d1, _, ru1, _ := snapshotMetrics(t)
 	if d1-d0 != 1 {
@@ -83,7 +83,7 @@ func TestMetricsDegradedIncrements(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/check?scope=api-v2", nil)
 	r.Header.Set("X-Forwarded-For", "203.0.113.7")
 	w := httptest.NewRecorder()
-	handleCheck(w, r, fake)
+	handleCheck(w, r, fake, limiter.Policy{})
 
 	_, _, g1, ru1, _ := snapshotMetrics(t)
 	if g1-g0 != 1 {
@@ -100,7 +100,7 @@ func TestMetricsExemptNoCounter(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/check", nil)
 	r.Header.Set("X-Forwarded-Uri", "/internal/token")
 	w := httptest.NewRecorder()
-	handleCheck(w, r, fake)
+	handleCheck(w, r, fake, limiter.Policy{})
 
 	a1, d1, g1, _, _ := snapshotMetrics(t)
 	if a1 != a0 || d1 != d0 || g1 != g0 {

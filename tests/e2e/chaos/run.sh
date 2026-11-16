@@ -12,8 +12,16 @@
 #   tests/e2e/chaos/run.sh --all --full      # cuando exista worker real
 #   P4_STRICT_RELAY=1 tests/e2e/chaos/run.sh --all  # exige recuperacion por relay
 #
+# Con worker real, el mensaje puede consumirse y ACK-earse antes de que el
+# arnes lo observe. Por eso "sin entrada en el stream" no es un fallo por si
+# solo: se acepta unicamente si el documento tiene el estado terminal
+# esperado (COMPLETED), una unica transicion en status_history, el .txt
+# extraido en MinIO y ninguna evidencia de duplicado. Una entrada de mas, o
+# un documento no terminal sin entrada, sigue siendo fallo.
+#
 # Sin worker real, los caos terminan en la cola y el aserto COMPLETED queda
-# BLOQUEADO. --full convierte ese bloqueo en fallo.
+# BLOQUEADO. --full convierte ese bloqueo en fallo y exige la evidencia
+# terminal completa.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -39,7 +47,10 @@ Uso: tests/e2e/chaos/run.sh <--chaos1|--chaos1-kill|--chaos3|--all> [--full]
   --chaos1-kill  Variante: Redis caido + SIGKILL de doc-service
   --chaos3       S4-P4-03: Redis Streams cae durante la ventana configurada
   --all          los tres casos
-  --full         exige COMPLETED (solo con worker real)
+  --full         exige COMPLETED con status_history, .txt y sin duplicados
+
+Con worker real el mensaje puede estar consumido y ACK-eado: la ausencia de
+entrada en el stream se acepta solo con la evidencia terminal completa.
 
 Variables:
   P4_CHAOS_REDIS_SECONDS   duracion de la caida de Redis (default 300)
@@ -230,31 +241,127 @@ cleanup() {
     local entry
     while IFS= read -r entry; do
       [[ -n "$entry" ]] && stream_delete "$entry"
-    done < <(stream_entries_for "$id" 2>/dev/null || true)
+    done < <(chaos_stream_entries_for "$id" 2>/dev/null || true)
   done
   rm -rf "$TMP_DIR"
 }
 trap cleanup EXIT INT TERM
 
+# `stream_entries_for` de lib.sh solo reconoce el sobre JSON legado
+# (`{"document_id":"..."}`); el relay publica hoy campos planos (ADR-0007).
+# Este arnes necesita distinguir "entrada visible" de "mensaje consumido y
+# ACK-eado" para no fallar por una carrera con el worker real, asi que parsea
+# ambos formatos sobre la misma `redis_cli` compartida.
+chaos_stream_entries_for() {
+  local id="$1"
+  redis_cli --raw XRANGE "$REDIS_STREAM_KEY" - + COUNT 10000 |
+    awk -v id="$id" '
+      /^[0-9]+-[0-9]+$/ { entry=$0; want_field=1; next }
+      want_field { field=$0; want_field=0; next }
+      {
+        if (field == "document_id" && $0 == id) { print entry }
+        else if (index($0, "\"document_id\":\"" id "\"") > 0) { print entry }
+        want_field=1
+      }
+    '
+}
+
+chaos_stream_entry_for() {
+  chaos_stream_entries_for "$1" | awk 'NF { print; exit }'
+}
+
+chaos_stream_count() {
+  chaos_stream_entries_for "$1" | wc -l | tr -d ' '
+}
+
+mongo_doc_state() {
+  local id="$1"
+  # Sin `$` en el JS: el script corre dentro del contenedor, no en este shell.
+  mongo_eval "var d=db.documents.findOne({_id:'$id'}); print(JSON.stringify(d?{status:d.status||'',txt_ref:d.txt_ref||'',history:(d.status_history||[]).map(function(h){return {status:h.status||'',actor:h.actor||'',correlation_id:h.correlation_id||''}})}:null))" \
+    | tail -n1
+}
+
+# Evidencia terminal completa del camino real: COMPLETED, una sola entrada
+# COMPLETED en status_history (sin duplicados), `.txt` extraido y presente en
+# MinIO. Es lo que hace aceptable que el stream ya no muestre el mensaje.
+doc_terminal_ok() {
+  local id="$1" state status txt_ref completed terminal actor correlation
+  state="$(mongo_doc_state "$id")"
+  [[ -n "$state" && "$state" != "null" ]] || return 1
+  status="$(jq -r '.status // empty' <<<"$state" 2>/dev/null)" || return 1
+  [[ "$status" == "COMPLETED" ]] || return 1
+  txt_ref="$(jq -r '.txt_ref // empty' <<<"$state")"
+  [[ -n "$txt_ref" ]] || return 1
+  completed="$(jq -r '[.history[]? | select(.status=="COMPLETED")] | length' <<<"$state")"
+  [[ "$completed" == "1" ]] || return 1
+  terminal="$(jq -r '[.history[]? | select(.status=="COMPLETED")][0] // {} | "\(.actor // "")|\(.correlation_id // "")"' <<<"$state")"
+  actor="${terminal%%|*}"
+  correlation="${terminal#*|}"
+  [[ "$actor" == "worker" && -n "$correlation" ]] || return 1
+  minio_exists "extracted-txt/$txt_ref" || return 1
+  return 0
+}
+
+wait_doc_terminal() {
+  local id="$1" tries="${2:-60}" i
+  for ((i = 1; i <= tries; i++)); do
+    doc_terminal_ok "$id" && return 0
+    sleep 1
+  done
+  return 1
+}
+
+# Exito si aparece una entrada O si el mensaje ya fue consumido y el documento
+# llego al estado terminal completo. Varias entradas son duplicado: fallo.
+wait_entry_or_consumed() {
+  local id="$1" tries="${2:-60}" i count
+  for ((i = 1; i <= tries; i++)); do
+    count="$(chaos_stream_count "$id")"
+    if [[ "$count" == "1" ]]; then
+      return 0
+    fi
+    [[ "$count" != "0" ]] && return 1
+    doc_terminal_ok "$id" && return 0
+    sleep 1
+  done
+  return 1
+}
+
 assert_single_entry() {
   local id="$1" count
-  count="$(stream_entries_for "$id" | wc -l | tr -d ' ')"
+  count="$(chaos_stream_count "$id")"
   if [[ "$count" == "1" ]]; then
     pass "una sola entrada en el stream para $id"
     return 0
   fi
-  bad "entradas en el stream para $id: $count (esperado 1)"
+  if [[ "$count" != "0" ]]; then
+    bad "entradas en el stream para $id: $count (esperado 1 o consumida)"
+    return 1
+  fi
+  # Cero entradas solo es valido si Redis respondio y el documento demuestra
+  # el cierre real; una lectura fallida no debe confundirse con un consumo.
+  redis_available \
+    || { bad "Redis no disponible: no se puede distinguir consumo de fallo de lectura ($id)"; return 1; }
+  if wait_doc_terminal "$id"; then
+    pass "mensaje consumido y ACK-eado con estado terminal verificado ($id)"
+    return 0
+  fi
+  bad "sin entrada en el stream ni evidencia terminal completa (COMPLETED, status_history, .txt, sin duplicados) para $id"
   return 1
 }
 
 assert_completed() {
   local id="$1"
-  if wait_status "$id" "COMPLETED" 120; then
-    pass "documento COMPLETED: $id"
-    return 0
+  if ! wait_status "$id" "COMPLETED" 120; then
+    bad "documento no llego a COMPLETED: $id"
+    return 1
   fi
-  bad "documento no llego a COMPLETED: $id"
-  return 1
+  if ! doc_terminal_ok "$id"; then
+    bad "COMPLETED sin evidencia terminal completa (status_history/.txt/duplicados): $id"
+    return 1
+  fi
+  pass "documento COMPLETED con status_history y .txt verificados: $id"
+  return 0
 }
 
 chaos1_race() {
@@ -280,7 +387,7 @@ chaos1_race() {
 
     status_after="$(mongo_status "$id")"
     local had_entry=0 entry_id
-    entry_id="$(stream_entry_for "$id")"
+    entry_id="$(chaos_stream_entry_for "$id")"
     [[ -n "$entry_id" ]] && had_entry=1
     case "$status_after" in
       PENDING_UPLOAD) hit_pending=$((hit_pending + 1)) ;;
@@ -295,7 +402,9 @@ chaos1_race() {
     if ((had_entry)); then
       recovered="ya-encolado"
     elif [[ "$status_after" != "PENDING_UPLOAD" ]]; then
-      wait_stream_entry "$id" 20 && recovered="relay"
+      # El worker real puede consumir el mensaje antes de esta lectura: se
+      # acepta si el documento ya demuestra el cierre terminal.
+      wait_entry_or_consumed "$id" 20 && recovered="relay"
     fi
 
     if [[ -z "$recovered" ]]; then
@@ -312,13 +421,13 @@ chaos1_race() {
 
       mongo_age_document "$id" >/dev/null
       reconcile_once >/dev/null || true
-      if ! wait_stream_entry "$id" 30; then
+      if ! wait_entry_or_consumed "$id" 30; then
         # Segundo pase: PENDING_UPLOAD -> UPLOADED y, si el relay sigue roto,
         # UPLOADED estancado -> reencolado directo por el reconciliador.
         mongo_age_document "$id" >/dev/null
         reconcile_once >/dev/null || true
-        if ! wait_stream_entry "$id" 30; then
-          bad "iteracion $i: ni relay ni reconciliador encolaron $id"
+        if ! wait_entry_or_consumed "$id" 30; then
+          bad "iteracion $i: ni relay ni reconciliador encolaron $id (o hay entradas duplicadas)"
           return 1
         fi
       fi
@@ -345,7 +454,7 @@ chaos1_race() {
 }
 
 chaos1_kill() {
-  local id recovered=""
+  local id recovered="" status=""
   log "S4-P4-01 (variante): Redis caido + SIGKILL de doc-service"
   require_full_worker || return 1
 
@@ -353,8 +462,14 @@ chaos1_kill() {
   note "Redis detenido; el webhook no podra encolar"
   new_document "chaos1" || { restore_services; return 1; }
   id="$NEW_DOC_ID"
-  wait_status "$id" "UPLOADED" 40 || { bad "el documento no quedo UPLOADED con Redis caido"; return 1; }
-  pass "webhook proceso el evento y dejo UPLOADED"
+  for ((i = 1; i <= 40; i++)); do
+    status="$(mongo_status "$id")"
+    [[ "$status" == "UPLOADED" || "$status" == "QUEUED" ]] && break
+    sleep 1
+  done
+  [[ "$status" == "UPLOADED" || "$status" == "QUEUED" ]] \
+    || { bad "el documento no quedo UPLOADED/QUEUED con Redis caido (estado=$status)"; return 1; }
+  pass "webhook proceso el evento y dejo $status"
   note "document_id=$id"
   if ! kill_doc_service; then
     bad "no se pudo matar el doc-service"
@@ -368,18 +483,18 @@ chaos1_kill() {
     || { bad "doc-service no volvio"; return 1; }
   pass "Redis y doc-service recuperados"
 
-  if wait_stream_entry "$id" 60; then
+  if wait_entry_or_consumed "$id" 60; then
     recovered="relay"
   else
     note "relay no recupero el evento; se fuerza un ciclo de reconciliacion"
     mongo_age_document "$id" >/dev/null
     reconcile_once >/dev/null || true
-    if wait_stream_entry "$id" 60; then
+    if wait_entry_or_consumed "$id" 60; then
       recovered="reconciler"
     fi
   fi
 
-  [[ -n "$recovered" ]] || { bad "ni relay ni reconciliador encolaron el documento"; return 1; }
+  [[ -n "$recovered" ]] || { bad "ni relay ni reconciliador encolaron el documento (o hay entradas duplicadas)"; return 1; }
   if [[ "$recovered" == "reconciler" ]]; then
     known "el relay no reencolo; recupero el reconciliador (forzado). Ver $RELAY_ISSUE"
     TOTAL_KNOWN=$((TOTAL_KNOWN + 1))
@@ -394,7 +509,7 @@ chaos1_kill() {
 
   if ((FULL == 1)); then
     assert_completed "$id" || return 1
-    block "validacion de .txt/descarga/status_history pendiente de completar el arnes"
+    block "validacion de descarga pendiente de completar el arnes"
     TOTAL_BLOCKED=$((TOTAL_BLOCKED + 1))
   else
     block "COMPLETED bloqueado por G-B (worker real ausente)"
@@ -404,7 +519,7 @@ chaos1_kill() {
 }
 
 chaos3() {
-  local start elapsed remaining id recovered="" i
+  local start elapsed remaining id recovered="" status="" i
   local original_ids=()
   log "S4-P4-03: Redis caido ${REDIS_DOWN_SECONDS}s con trabajos encolados"
   require_full_worker || return 1
@@ -413,8 +528,8 @@ chaos3() {
     new_document "chaos3-pre" || { restore_services; return 1; }
     id="$NEW_DOC_ID"
     original_ids+=("$id")
-    wait_stream_entry "$id" 40 || { bad "documento previo no encolado: $id"; return 1; }
-    pass "documento previo encolado: $id"
+    wait_entry_or_consumed "$id" 40 || { bad "documento previo no encolado: $id"; return 1; }
+    pass "documento previo encolado o ya consumido con cierre terminal: $id"
   done
 
   start=$SECONDS
@@ -422,8 +537,14 @@ chaos3() {
   note "Redis detenido; se sube un documento durante la caida"
   new_document "chaos3-during" || { restore_services; return 1; }
   id="$NEW_DOC_ID"
-  wait_status "$id" "UPLOADED" 40 || { bad "el documento de la caida no quedo UPLOADED"; return 1; }
-  pass "documento subido durante la caida quedo UPLOADED"
+  for ((i = 1; i <= 40; i++)); do
+    status="$(mongo_status "$id")"
+    [[ "$status" == "UPLOADED" || "$status" == "QUEUED" ]] && break
+    sleep 1
+  done
+  [[ "$status" == "UPLOADED" || "$status" == "QUEUED" ]] \
+    || { bad "el documento de la caida no quedo UPLOADED/QUEUED (estado=$status)"; return 1; }
+  pass "documento subido durante la caida quedo $status"
 
   elapsed=$((SECONDS - start))
   remaining=$((REDIS_DOWN_SECONDS - elapsed))
@@ -441,19 +562,19 @@ chaos3() {
   for i in "${original_ids[@]}"; do
     assert_single_entry "$i" || return 1
   done
-  pass "entradas previas preservadas (AOF)"
+  pass "entradas previas conservadas o ya consumidas con estado terminal (AOF)"
 
-  if wait_stream_entry "$id" 60; then
+  if wait_entry_or_consumed "$id" 60; then
     recovered="relay"
   else
     note "relay no recupero el documento de la caida; se fuerza reconciliacion"
     mongo_age_document "$id" >/dev/null
     reconcile_once >/dev/null || true
-    if wait_stream_entry "$id" 60; then
+    if wait_entry_or_consumed "$id" 60; then
       recovered="reconciler"
     fi
   fi
-  [[ -n "$recovered" ]] || { bad "el documento de la caida no se recupero"; return 1; }
+  [[ -n "$recovered" ]] || { bad "el documento de la caida no se recupero (o hay entradas duplicadas)"; return 1; }
   if [[ "$recovered" == "reconciler" ]]; then
     known "el relay no reencolo el documento de la caida; recupero el reconciliador (forzado). Ver $RELAY_ISSUE"
     TOTAL_KNOWN=$((TOTAL_KNOWN + 1))

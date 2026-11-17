@@ -117,7 +117,7 @@ Solo si la regla de §2.9 justifica eliminar el número de página y el resto de
 
 | Persona | Rol | Firma / acuse | Fecha |
 |---|---|---|---|
-| P1 | Platform / DevOps | pendiente | |
+| P1 | Platform / DevOps | firmado | 2026-11-17 |
 | P2 | Backend Go | pendiente | |
 | P3 | Systems Rust | pendiente | |
 | P4 | Integración / Calidad | pendiente | |

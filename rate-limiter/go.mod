@@ -1,6 +1,6 @@
 module github.com/Alejo-Basile/platform-services/rate-limiter
 
-go 1.24.0
+go 1.26.11
 
 require github.com/redis/go-redis/v9 v9.7.3
 

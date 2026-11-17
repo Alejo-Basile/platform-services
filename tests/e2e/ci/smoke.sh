@@ -113,10 +113,13 @@ if [[ "$MODE" == "ci" ]]; then
   # (cmd/api/main.go) hace os.Exit(1) si no puede resolver el master
   # myprimary. Sin los sentinels el contenedor entra en crash-loop y
   # /healthz nunca responde.
-  compose up -d --build \
+  # extraction-worker vive en el perfil `full`: hace falta habilitarlo para que
+  # la cadena real (S3-P4-01) tenga consumidor. La imagen se toma de
+  # EXTRACTION_WORKER_IMAGE/TAG (publicada por su repo) y no se construye aca.
+  compose --profile full up -d --build \
     mongo mongo-init redis-streams redis-ratelimit minio minio-init \
     sentinel-1 sentinel-2 sentinel-3 \
-    ratelimitd traefik doc-service minio-notify-init
+    ratelimitd traefik doc-service minio-notify-init extraction-worker
 fi
 
 # Traefik aplica `rate-limit@file` (forwardAuth a ratelimitd:8090) a TODO
@@ -125,6 +128,13 @@ fi
 # detecta (incidente PR #14).
 wait_service_healthy ratelimitd 90 \
   || fail "ratelimitd no quedo healthy; /api/v2 respondera 500 en el gateway"
+if [[ "$MODE" == "ci" ]]; then
+  wait_service_healthy extraction-worker 90 \
+    || fail "extraction-worker no quedo healthy; la cadena real no tiene consumidor"
+else
+  wait_service_healthy extraction-worker 5 \
+    || log "AVISO: extraction-worker no corre; la cadena real quedara BLOQUEADA"
+fi
 wait_http "doc-service /healthz" "$API_BASE/healthz" \
   "api.localhost:${HTTPS_PORT}:127.0.0.1" 90 \
   || fail "doc-service no respondio /healthz"

@@ -7,8 +7,8 @@
   - `tests/e2e/errors/run.sh` → `PASS=7 FAIL=0 BLOCKED=1` (el bloqueo es el
     grupo de caos sin `--chaos`; los 3 casos worker quedaron desbloqueados).
   - `tests/e2e/errors/run.sh --chaos` → `PASS=10 FAIL=0 BLOCKED=0 KNOWN=1`.
-  - `P4_STRICT_RELAY=1 tests/e2e/errors/run.sh --chaos` → `PASS=8 FAIL=2 KNOWN=1`
-    (prueba del gap del relay, ver abajo).
+  - `P4_STRICT_RELAY=1 tests/e2e/errors/run.sh --chaos` → `PASS=10 FAIL=0 KNOWN=0`
+    (tras corregir el matcher del stream y con el catch-up de doc-service#83).
 
 ## DoD
 
@@ -36,27 +36,40 @@ Los 3 casos de worker corren **antes** del bloque de caos: cortar Redis/Mongo
 deja eventos sin encolar y el documento siguiente queda en `UPLOADED`, un fallo
 en cascada que no dice nada del worker.
 
-## Gap verificado: el relay no reencola tras Redis caído
+## Cierre: el relay sí reencola; el KNOWN era un falso negativo del arnés
 
-Con `P4_STRICT_RELAY=1`, el caso Redis falla:
+La primera corrida estricta marcó `Redis caido` como fallo. La causa no era el
+relay: `tests/e2e/lib.sh:stream_entries_for` buscaba el envelope JSON viejo
+(`"document_id":"..."`) mientras el contrato vigente (ADR-0007) publica campos
+planos, así que el matcher nunca encontraba la entrada aunque el relay la
+hubiera creado. Los logs de doc-service lo mostraban encolando el documento
+36 s después de volver Redis (al reabrirse el circuit breaker).
+
+Corregido el matcher:
 
 ```
 [errors] Redis caido
-  [KNOWN-ISSUE] el relay no encolo tras recuperar Redis. Ver doc-service#55
-  [FAIL] relay no recupero el evento (P4_STRICT_RELAY=1)
-  [FAIL] Redis caido
-[errors] PDF corrupto
-  estado final: UPLOADED (esperado REJECTED)
-  [FAIL] PDF corrupto
-[errors] resumen: PASS=8 FAIL=2 BLOCKED=0 KNOWN=1
+  [PASS] el relay encolo el documento tras recuperar Redis
+  [PASS] Redis caido
+[errors] Mongo caido
+  [PASS] create con Mongo caido: HTTP 500 en 30s
+  [PASS] Mongo caido
+
+[errors] resumen: PASS=10 FAIL=0 BLOCKED=0 KNOWN=0
 ```
 
-`doc-service#55` ("Relay no reencola eventos UPLOADED si Redis está caído
-durante la ventana de reintentos") figura **CLOSED**, pero el criterio de
-aceptación 1 (el relay reencola al volver Redis) y el 4 (`P4_STRICT_RELAY=1`
-verde) siguen sin cumplirse en esta corrida. El PDF corrupto que falla después
-es cascada: aislado (sin caos) termina en `REJECTED/PDF_CORRUPT`.
+## Gap real encontrado y arreglado (doc-service#83)
 
-Conclusión: `S2-P4-01` queda verde en los caminos de error puros y **no se
-cierra** mientras el drop de eventos del relay siga reproduciéndose. Arreglarlo
-es una unidad de `doc-service` (changestream/relay), no de este arnés.
+Al reproducir el caos se encontró otra pérdida de eventos: cuando Mongo
+reinicia y el watcher recibe `cannot resume stream`, descarta el token y abre
+un stream fresco; el documento que ya estaba en `UPLOADED` no volvía a
+aparecer hasta el reconciliador (hasta 30 min).
+
+`doc-service#83` agrega un catch-up al abrir un stream sin token que procesa
+los documentos en `UPLOADED`. Verificación en vivo: documento sembrado en
+`UPLOADED` sin evento en el stream y token borrado → al arrancar,
+`catch-up procesados=1`, el relay lo encola y termina en `COMPLETED` en 9 s.
+
+## Resultado final
+
+`S2-P4-01` queda verde con worker real y caos, en modo estricto.

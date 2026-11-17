@@ -35,6 +35,7 @@ case "${1:-}" in
 esac
 STRICT_RELAY="${P4_STRICT_RELAY:-0}"
 RELAY_ISSUE="doc-service#55"
+INVALID_DIR="$PLATFORM_ROOT/tests/fixtures/pdf/invalid"
 
 log()   { printf '[errors] %s\n' "$*"; }
 pass()  { printf '  [PASS] %s\n' "$*"; }
@@ -74,6 +75,28 @@ TOTAL_BLOCKED=0
 TOTAL_KNOWN=0
 
 # mongo_eval, mongo_status y mongo_delete vienen de lib.sh (DRY).
+
+mongo_error_cause() {
+  local id="$1"
+  mongo_eval "var d=db.documents.findOne({_id:'$id'}); print(d&&d.error_cause?d.error_cause:'')" | tail -n1
+}
+
+case_worker_reject() {
+  # case_worker_reject <fixture> <error_cause esperado>
+  local fixture="$1" cause="$2" id body hdr code upload
+  id="err-$(basename "$fixture" .pdf)-$(date +%s)-$RANDOM"
+  body="$TMP_DIR/$(basename "$fixture" .pdf).json"
+  hdr="$TMP_DIR/$(basename "$fixture" .pdf).hdr"
+  code="$(post_create "$id" "$(wc -c < "$fixture" | tr -d ' ')" "$body" "$hdr")"
+  [[ "$code" == "201" ]] || { bad "create HTTP $code"; return 1; }
+  CURRENT_DOC="$id"
+  upload="$(upload_pdf "$body" "$fixture" "application/pdf")"
+  [[ "$upload" =~ ^2[0-9][0-9]$ ]] || { bad "upload HTTP $upload"; return 1; }
+  wait_status "$id" "REJECTED" 40 || return 1
+  [[ "$(mongo_error_cause "$id")" == "$cause" ]] \
+    || { bad "error_cause=$(mongo_error_cause "$id") (esperado $cause)"; return 1; }
+  pass "REJECTED/$cause"
+}
 
 mongo_reason() {
   local id="$1"
@@ -318,6 +341,9 @@ done
 [[ -f "$ENV_FILE" ]] || { bad "falta $ENV_FILE"; exit 1; }
 [[ -f "$VALID_PDF" ]] || { bad "falta el fixture $VALID_PDF"; exit 1; }
 [[ -f "$OVERRIDE_FILE" ]] || { bad "falta $OVERRIDE_FILE"; exit 1; }
+for fixture in corrupt encrypted no-text; do
+  [[ -f "$INVALID_DIR/$fixture.pdf" ]] || { bad "falta $INVALID_DIR/$fixture.pdf"; exit 1; }
+done
 require_mc_image || exit 1
 
 log "API_BASE=$API_BASE proyecto=$PROJECT"
@@ -329,6 +355,17 @@ run_case "MIME falso (no PDF)" case_fake_mime
 run_case "cliente que nunca sube" case_never_upload
 run_case "PDF mayor al maximo en MinIO" case_oversize_upload
 
+# Los casos de worker van antes del caos a proposito: cortar Redis/Mongo deja
+# eventos sin encolar (doc-service#55) y el siguiente documento aparece en
+# UPLOADED, un fallo en cascada que no dice nada del worker.
+case_corrupt_pdf() { case_worker_reject "$INVALID_DIR/corrupt.pdf" "PDF_CORRUPT"; }
+case_encrypted_pdf() { case_worker_reject "$INVALID_DIR/encrypted.pdf" "PDF_ENCRYPTED"; }
+case_no_text_pdf() { case_worker_reject "$INVALID_DIR/no-text.pdf" "PDF_NO_TEXT"; }
+
+run_case "PDF corrupto" case_corrupt_pdf
+run_case "PDF cifrado" case_encrypted_pdf
+run_case "PDF sin texto" case_no_text_pdf
+
 if ((CHAOS == 1)); then
   run_case "MinIO caido" case_minio_down
   run_case "Redis caido" case_redis_down
@@ -336,10 +373,6 @@ if ((CHAOS == 1)); then
 else
   blocked_case "MinIO/Redis/Mongo caidos" "requiere --chaos y un stack aislado"
 fi
-
-blocked_case "PDF corrupto" "requiere worker real (G-B)"
-blocked_case "PDF cifrado" "requiere worker real (G-B)"
-blocked_case "PDF sin texto" "requiere worker real (G-B)"
 
 echo
 log "resumen: PASS=$TOTAL_PASS FAIL=$TOTAL_FAIL BLOCKED=$TOTAL_BLOCKED KNOWN=$TOTAL_KNOWN"

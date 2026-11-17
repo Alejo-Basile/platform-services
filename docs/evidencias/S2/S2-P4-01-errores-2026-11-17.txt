@@ -1,0 +1,62 @@
+# S2-P4-01 — E2E de caminos de error con worker real (evidencia 2026-11-17)
+
+- **Fecha:** 17/11/2026 (UTC-3).
+- **Stack:** Compose `infra` con `doc-service@3887c29` reconstruido y
+  `extraction-worker:sha-d3d8c80` (imagen publicada).
+- **Comandos:**
+  - `tests/e2e/errors/run.sh` → `PASS=7 FAIL=0 BLOCKED=1` (el bloqueo es el
+    grupo de caos sin `--chaos`; los 3 casos worker quedaron desbloqueados).
+  - `tests/e2e/errors/run.sh --chaos` → `PASS=10 FAIL=0 BLOCKED=0 KNOWN=1`.
+  - `P4_STRICT_RELAY=1 tests/e2e/errors/run.sh --chaos` → `PASS=8 FAIL=2 KNOWN=1`
+    (prueba del gap del relay, ver abajo).
+
+## DoD
+
+> Cada escenario tiene un aserto sobre el estado final esperado y un log o
+> alerta identificable.
+
+## Casos verdes con worker real
+
+| Escenario | Estado final |
+|---|---|
+| oversize declarado | 400, sin documento persistido |
+| MIME falso (no PDF) | `REJECTED` / `NOT_A_PDF`, sin mensaje en Redis |
+| cliente que nunca sube | `PENDING_UPLOAD` (ventana corta) |
+| PDF mayor al máximo en MinIO | upload 400/413, documento en `PENDING_UPLOAD` |
+| MinIO caído | create/upload controlado y recuperación |
+| PDF corrupto | `REJECTED` / `PDF_CORRUPT` |
+| PDF cifrado | `REJECTED` / `PDF_ENCRYPTED` |
+| PDF sin texto | `REJECTED` / `PDF_NO_TEXT` |
+| Mongo caído | create 5xx y recuperación |
+| Redis caído | recuperación, documento encolado (`KNOWN` si no reencola) |
+
+Fixtures nuevos: `tests/fixtures/pdf/invalid/{corrupt,encrypted,no-text}.pdf`.
+
+Los 3 casos de worker corren **antes** del bloque de caos: cortar Redis/Mongo
+deja eventos sin encolar y el documento siguiente queda en `UPLOADED`, un fallo
+en cascada que no dice nada del worker.
+
+## Gap verificado: el relay no reencola tras Redis caído
+
+Con `P4_STRICT_RELAY=1`, el caso Redis falla:
+
+```
+[errors] Redis caido
+  [KNOWN-ISSUE] el relay no encolo tras recuperar Redis. Ver doc-service#55
+  [FAIL] relay no recupero el evento (P4_STRICT_RELAY=1)
+  [FAIL] Redis caido
+[errors] PDF corrupto
+  estado final: UPLOADED (esperado REJECTED)
+  [FAIL] PDF corrupto
+[errors] resumen: PASS=8 FAIL=2 BLOCKED=0 KNOWN=1
+```
+
+`doc-service#55` ("Relay no reencola eventos UPLOADED si Redis está caído
+durante la ventana de reintentos") figura **CLOSED**, pero el criterio de
+aceptación 1 (el relay reencola al volver Redis) y el 4 (`P4_STRICT_RELAY=1`
+verde) siguen sin cumplirse en esta corrida. El PDF corrupto que falla después
+es cascada: aislado (sin caos) termina en `REJECTED/PDF_CORRUPT`.
+
+Conclusión: `S2-P4-01` queda verde en los caminos de error puros y **no se
+cierra** mientras el drop de eventos del relay siga reproduciéndose. Arreglarlo
+es una unidad de `doc-service` (changestream/relay), no de este arnés.

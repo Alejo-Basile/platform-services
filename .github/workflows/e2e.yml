@@ -86,6 +86,11 @@ jobs:
           set -o pipefail
           tests/e2e/correlation/run.sh 2>&1 | tee artifacts/correlation.txt
 
+      - name: Matriz de estados terminales
+        run: |
+          set -o pipefail
+          tests/e2e/states/run.sh 2>&1 | tee artifacts/states.txt
+
       - name: E2E caminos de error
         run: |
           set -o pipefail

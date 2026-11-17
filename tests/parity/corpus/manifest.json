@@ -1,0 +1,609 @@
+{
+  "schema_version": "s8-corpus/v1",
+  "version": "s8-expanded-1",
+  "generated": "2026-11-17T00:00:00Z",
+  "count": 100,
+  "total_bytes": 60900,
+  "documents": [
+    {
+      "name": "baseline-0001.pdf",
+      "path": "tests/fixtures/pdf/baseline-0001.pdf",
+      "sha256": "bca306ab876e983efcc5c6d30f2cb5595562f4356f3b36068dd613a94ac35fb3",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0002.pdf",
+      "path": "tests/fixtures/pdf/baseline-0002.pdf",
+      "sha256": "a8e15ad12fa3bb1d89143766ef8acef2d0b091e869deb839eafe54c07bdcef41",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0003.pdf",
+      "path": "tests/fixtures/pdf/baseline-0003.pdf",
+      "sha256": "d8810189f68a5ecc3f23ac1e584006eefb807712a3518c66a60b8c98659dabb5",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0004.pdf",
+      "path": "tests/fixtures/pdf/baseline-0004.pdf",
+      "sha256": "864328d78aaeb19fa978c861bee0e4e0a7a0fb67a7415bffd24af0f720a2cf84",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0005.pdf",
+      "path": "tests/fixtures/pdf/baseline-0005.pdf",
+      "sha256": "7cc759a1b8f1b3476969f75a676ff461188cca8f831ee07934e7f92b11de789d",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0006.pdf",
+      "path": "tests/fixtures/pdf/baseline-0006.pdf",
+      "sha256": "c45cc681ce4b6322b708ea7f3af58a525bf09c0a642fa340c9fe0175924cd167",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0007.pdf",
+      "path": "tests/fixtures/pdf/baseline-0007.pdf",
+      "sha256": "342fa0b9a1eb480fcf984ab0489a169e3b985f48a6cb83876e8890f4c99d1252",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0008.pdf",
+      "path": "tests/fixtures/pdf/baseline-0008.pdf",
+      "sha256": "6a634e79310cbba97d245f10bab9a55bbcf65fa0740ed2a241d9b52b81a1438d",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0009.pdf",
+      "path": "tests/fixtures/pdf/baseline-0009.pdf",
+      "sha256": "90ccad9235ae3dd7b091346d69b50eb76ab50d821ff95893dca8c1bdd3453650",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0010.pdf",
+      "path": "tests/fixtures/pdf/baseline-0010.pdf",
+      "sha256": "b9f907afdee132f872d377fdba4b0d2b403b23f208cb846aa1bf9089050010a8",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0011.pdf",
+      "path": "tests/fixtures/pdf/baseline-0011.pdf",
+      "sha256": "a8ec31f647f5e8def8446aa6ce6364a18a8831f404a7b17df12602916e82cb1e",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0012.pdf",
+      "path": "tests/fixtures/pdf/baseline-0012.pdf",
+      "sha256": "57d48370e51f2d3ffd00ec97c4c3350fcb9266f323d74e3bbee760ff6d28c235",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0013.pdf",
+      "path": "tests/fixtures/pdf/baseline-0013.pdf",
+      "sha256": "11dc32f2ff3eec2a5f26d8dab383364ad3dfdd7c79a04ed2076b350411d48f6e",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0014.pdf",
+      "path": "tests/fixtures/pdf/baseline-0014.pdf",
+      "sha256": "2ff365fb333bd1bfca637b3870345ca59b9142ffba059046d875f112b1292058",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0015.pdf",
+      "path": "tests/fixtures/pdf/baseline-0015.pdf",
+      "sha256": "a1c772d0ec8363901aabdd24b6e8ff87754b9aa359699aa4023c6f2ddbf16a28",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0016.pdf",
+      "path": "tests/fixtures/pdf/baseline-0016.pdf",
+      "sha256": "8d8cfac8284b35883b34afbdb8aeed365b9569147b2ed6a46c8ab25bb9ef0172",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0017.pdf",
+      "path": "tests/fixtures/pdf/baseline-0017.pdf",
+      "sha256": "9c69516315bc0040fe2cbe6c87ddf4d5c4c600d17c08c5ee0423185d28c964d4",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0018.pdf",
+      "path": "tests/fixtures/pdf/baseline-0018.pdf",
+      "sha256": "d9a13905218a5bf5022a8ece3c92e4b484941052cde6b34ce4590d1694482fba",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0019.pdf",
+      "path": "tests/fixtures/pdf/baseline-0019.pdf",
+      "sha256": "f8cb9b7c633454e7ef70abe302a1395a18dbd0d6aac7df22948536e141a066c8",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0020.pdf",
+      "path": "tests/fixtures/pdf/baseline-0020.pdf",
+      "sha256": "a8e8ae3e4c6b09d3bfc8d46103e10f77cc497c4820e27220d7ee40a6f5c5ebc8",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0021.pdf",
+      "path": "tests/fixtures/pdf/baseline-0021.pdf",
+      "sha256": "75400c38df52f51c75d37fe237d1210b2da2d3886c61285a313e4a6cc05c9170",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0022.pdf",
+      "path": "tests/fixtures/pdf/baseline-0022.pdf",
+      "sha256": "340734c0349f02f8967f6da33bf0c1d391700ae73926203f3ffb0a8008b301af",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0023.pdf",
+      "path": "tests/fixtures/pdf/baseline-0023.pdf",
+      "sha256": "4459970eecaf2cebd4fd3a60387cbfd634c8c09789b856ad67e0983825aa69f0",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0024.pdf",
+      "path": "tests/fixtures/pdf/baseline-0024.pdf",
+      "sha256": "f238033006494a26d651ed3e428a824c10f8f0a1fbb06faaeb23aa2580e3079a",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0025.pdf",
+      "path": "tests/fixtures/pdf/baseline-0025.pdf",
+      "sha256": "9473d296329cde021112f14988453f4ba224504e018719cf9ddd16bd65875821",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0026.pdf",
+      "path": "tests/fixtures/pdf/baseline-0026.pdf",
+      "sha256": "f219d93de82dcf02694bedfbb28e46805c5af8090f90d8a87350a89282efa370",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0027.pdf",
+      "path": "tests/fixtures/pdf/baseline-0027.pdf",
+      "sha256": "1818011797f6683cb68394a42feee24169ef309428ffffb3100149e25c5d5cee",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0028.pdf",
+      "path": "tests/fixtures/pdf/baseline-0028.pdf",
+      "sha256": "19616526077fee6128a2ab4cf41587cc10e3769c40f7bd136caf0c4eef0186c4",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0029.pdf",
+      "path": "tests/fixtures/pdf/baseline-0029.pdf",
+      "sha256": "3749895edab0670d578a97e32b431b53c4292779cf0ffc45c064f873a9537511",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0030.pdf",
+      "path": "tests/fixtures/pdf/baseline-0030.pdf",
+      "sha256": "9dc285ac3cfe2f0690c5d506d3347da0ba84f91490edb69a7b94d53c405ca26e",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0031.pdf",
+      "path": "tests/fixtures/pdf/baseline-0031.pdf",
+      "sha256": "22637031f6db771849d3e53bee2d8fb4511535474d863fe1a3648ca0a25539e7",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0032.pdf",
+      "path": "tests/fixtures/pdf/baseline-0032.pdf",
+      "sha256": "f8246e8f5718127727668c3b64aa8f5285c50a8f581d28db4ca585a21895c354",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0033.pdf",
+      "path": "tests/fixtures/pdf/baseline-0033.pdf",
+      "sha256": "27b040c49cf7c157737ba16b711b71d3d2b39fb829cf2853d5402db77b60f1c2",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0034.pdf",
+      "path": "tests/fixtures/pdf/baseline-0034.pdf",
+      "sha256": "c4da0dbf80a46a7020f1f84d5d704c185e7fb08a20af64b2e69664bfe5f993c5",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0035.pdf",
+      "path": "tests/fixtures/pdf/baseline-0035.pdf",
+      "sha256": "8b087d669935abcb4e856a3a4e8a95bd3bd4de0abd093a5c4a8592c630da8641",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0036.pdf",
+      "path": "tests/fixtures/pdf/baseline-0036.pdf",
+      "sha256": "7f70d74d911e3cee73b5124293889ee6e7d9663603e0bb3f463a84ce315925bd",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0037.pdf",
+      "path": "tests/fixtures/pdf/baseline-0037.pdf",
+      "sha256": "37517f47bf0ac12689414b5e5021b8c3fa29a0b2ab68dcbe3524e9e72613d03f",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0038.pdf",
+      "path": "tests/fixtures/pdf/baseline-0038.pdf",
+      "sha256": "9b1ae8e075d5d0cd2dbf7f9ef2f06727ee545b95ec2b34668525096d83542ae9",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0039.pdf",
+      "path": "tests/fixtures/pdf/baseline-0039.pdf",
+      "sha256": "e7d830b482dc6e64a2fedda06d1d50772c1b2b4f0917de9ce2901dd3f34409f1",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0040.pdf",
+      "path": "tests/fixtures/pdf/baseline-0040.pdf",
+      "sha256": "d528e4188040d41eea2fbf0d85eb1d494e2d7ef1bf936bbcc3b8007d26e98e71",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0041.pdf",
+      "path": "tests/fixtures/pdf/baseline-0041.pdf",
+      "sha256": "35b3623b13e9a2862fe13d7913344050be0a385b9152747812c9ff3ccb6f8ede",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0042.pdf",
+      "path": "tests/fixtures/pdf/baseline-0042.pdf",
+      "sha256": "7c402379afa01988852ec354d690d3b93404cb27d2ba86d348ac6de4100fa0fe",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0043.pdf",
+      "path": "tests/fixtures/pdf/baseline-0043.pdf",
+      "sha256": "d064299b3058cd5a5c966fcacbb84448a7c188e99b6ca2bb61faf475ef6dc3d8",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0044.pdf",
+      "path": "tests/fixtures/pdf/baseline-0044.pdf",
+      "sha256": "3f890821521785784f061a180802a797f5f5f9236ee9792ac263e91974165422",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0045.pdf",
+      "path": "tests/fixtures/pdf/baseline-0045.pdf",
+      "sha256": "2d5727daa00a09a1ff02f4cb24e4a5b6b3aa7769de29f1f0c973c4bf85481eed",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0046.pdf",
+      "path": "tests/fixtures/pdf/baseline-0046.pdf",
+      "sha256": "b8b7b54080537910d0264807e49482b0911fd251a6868b44e6648ba4ed3aaf16",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0047.pdf",
+      "path": "tests/fixtures/pdf/baseline-0047.pdf",
+      "sha256": "763d7d6ffe8cb2e3aa4a9fd5cdc9ed37e2632af02d1afaaa53a46f944bec16fa",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0048.pdf",
+      "path": "tests/fixtures/pdf/baseline-0048.pdf",
+      "sha256": "1588c2b08a9be1a892ae08a4ddf78bd05656a381378cf14b7feef65932954d06",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0049.pdf",
+      "path": "tests/fixtures/pdf/baseline-0049.pdf",
+      "sha256": "592e66bd210c984945f9bd516da36f71258ed2678e31ba80421d38563168d2d6",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0050.pdf",
+      "path": "tests/fixtures/pdf/baseline-0050.pdf",
+      "sha256": "364be089e2adc04d4fadd2bde87e25779247b4e1ffbe88b7e1aaa6ac878736ef",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0051.pdf",
+      "path": "tests/fixtures/pdf/baseline-0051.pdf",
+      "sha256": "56ca751c2429ab05953f1f73fb91f492c3e903bcdb5159a0a1f7bbe7cc349730",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0052.pdf",
+      "path": "tests/fixtures/pdf/baseline-0052.pdf",
+      "sha256": "2d9531f26da506111935693dcff59c9c78b7ea397af797a38c25b71c111ce09d",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0053.pdf",
+      "path": "tests/fixtures/pdf/baseline-0053.pdf",
+      "sha256": "77af8cf3f6d25a5d7888d121a71837cc106e0cf5f67a00c21af5b534831d306b",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0054.pdf",
+      "path": "tests/fixtures/pdf/baseline-0054.pdf",
+      "sha256": "b3bc1982a19683250c293220ec5f77d6b124e8df8c2504ae09617ca222859938",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0055.pdf",
+      "path": "tests/fixtures/pdf/baseline-0055.pdf",
+      "sha256": "a080f42d12972315b3dccbe5342d9f89e47602ec5a5eac8c7091eaf403d9eff3",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0056.pdf",
+      "path": "tests/fixtures/pdf/baseline-0056.pdf",
+      "sha256": "74a12ff070b06c3e98bebd195d6a5359b2770b965651a398d856752ae9252d1f",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0057.pdf",
+      "path": "tests/fixtures/pdf/baseline-0057.pdf",
+      "sha256": "b4ac947ae94c400910121517949aba7e1232ad4bb81bec2acbc453b9cebc9748",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0058.pdf",
+      "path": "tests/fixtures/pdf/baseline-0058.pdf",
+      "sha256": "6edacfae183be16e28ceeff6e07cd05d27428ca52193e2e64c0db846bffb4940",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0059.pdf",
+      "path": "tests/fixtures/pdf/baseline-0059.pdf",
+      "sha256": "832d472b2fb09dd0060e6a83bf80c9ae87d4e3f169177228a943b677987105e8",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0060.pdf",
+      "path": "tests/fixtures/pdf/baseline-0060.pdf",
+      "sha256": "b979fbb890c806e44d11769e6cdd11035162d81bde57f803beb435aa90c1f23e",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0061.pdf",
+      "path": "tests/fixtures/pdf/baseline-0061.pdf",
+      "sha256": "68e94b98b827c6ac01ca9f7f837e91811f137bc15ed2c427f945e8069fdb5a04",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0062.pdf",
+      "path": "tests/fixtures/pdf/baseline-0062.pdf",
+      "sha256": "a413bdc41536bf1a69dd6e6edff9ed32eb277a0c1c898e997854be14053c9720",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0063.pdf",
+      "path": "tests/fixtures/pdf/baseline-0063.pdf",
+      "sha256": "5caf507dd5d97b907e28f995192dff8527d12863ac346ece348eaa68b67a6328",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0064.pdf",
+      "path": "tests/fixtures/pdf/baseline-0064.pdf",
+      "sha256": "092cca4b0f4047d12e0d7f651465deb65ca8d63f01455873ab666138485c7a5a",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0065.pdf",
+      "path": "tests/fixtures/pdf/baseline-0065.pdf",
+      "sha256": "d46dc6c726435f901da65460b06b6f788d722ca8991cadbe331de950952fde82",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0066.pdf",
+      "path": "tests/fixtures/pdf/baseline-0066.pdf",
+      "sha256": "4abf9ed424629e3babe13bb5494fed6f624bfd81ce80bef1834a5531021987d1",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0067.pdf",
+      "path": "tests/fixtures/pdf/baseline-0067.pdf",
+      "sha256": "0facbaa7534e1dae7f5a71287e543353f3797643d8bd86388d6c55fbcf42f6a2",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0068.pdf",
+      "path": "tests/fixtures/pdf/baseline-0068.pdf",
+      "sha256": "4dc41f71802e46ecffdcf97126b107a4c4cf4f3903164a814b8ca71695818809",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0069.pdf",
+      "path": "tests/fixtures/pdf/baseline-0069.pdf",
+      "sha256": "e3a229bc4d953fdf023df1c081205f8a81461b620bd3b2fc19bdf14fdf9a3f13",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0070.pdf",
+      "path": "tests/fixtures/pdf/baseline-0070.pdf",
+      "sha256": "0a64647021caf1eaa1664ba92330d68364458c48b8351e17e6b94a153cd935db",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0071.pdf",
+      "path": "tests/fixtures/pdf/baseline-0071.pdf",
+      "sha256": "020cd7fbb510b5e85745826c194d503c55153e4f9a1dc878c04f6c89c68950f6",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0072.pdf",
+      "path": "tests/fixtures/pdf/baseline-0072.pdf",
+      "sha256": "9c1b06b264f7540ecb88a20270b475b713096b75a31ad2866a633a3a8b1faa2b",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0073.pdf",
+      "path": "tests/fixtures/pdf/baseline-0073.pdf",
+      "sha256": "f57ee52246a654fa6371a98fc289bcfe42898b61d6af9b5370d4567a37b2a4d7",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0074.pdf",
+      "path": "tests/fixtures/pdf/baseline-0074.pdf",
+      "sha256": "6e8bb5e48ca69c67bd4ed1715088777e36d2575f4189553d40f5e5a8a74637ce",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0075.pdf",
+      "path": "tests/fixtures/pdf/baseline-0075.pdf",
+      "sha256": "5a1b4e2cb5fd7d1406d814bc042d754393c100964b4e54cbcd012005cf2f4e1c",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0076.pdf",
+      "path": "tests/fixtures/pdf/baseline-0076.pdf",
+      "sha256": "1eeda994967c08ec4304e4da6da6187e2e437637d46bf4368e98a913f3e08c54",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0077.pdf",
+      "path": "tests/fixtures/pdf/baseline-0077.pdf",
+      "sha256": "34cad67f24fc82758d71276a57727bc531a5c9bf1118ca9c5412f456b11b4d8e",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0078.pdf",
+      "path": "tests/fixtures/pdf/baseline-0078.pdf",
+      "sha256": "7333fe6c744dd200aff3689469604f49ed88fdd53d4eebf26ab3a45a70288862",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0079.pdf",
+      "path": "tests/fixtures/pdf/baseline-0079.pdf",
+      "sha256": "619c3876fa976ad82e5d3fa3b45b3968de637bcf2678b2b56a934bf3e987b20c",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0080.pdf",
+      "path": "tests/fixtures/pdf/baseline-0080.pdf",
+      "sha256": "3b5c12f8ccd397b10e504d0f956b27d36e5a23b82bf397a047ced440586da763",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0081.pdf",
+      "path": "tests/fixtures/pdf/baseline-0081.pdf",
+      "sha256": "90e6c8b164f2062533224ed27e0f39611aa7b01551c92820240bd54b34a20940",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0082.pdf",
+      "path": "tests/fixtures/pdf/baseline-0082.pdf",
+      "sha256": "2e18360f53ef934a06639c77012c1af7b502a7ad49c010030d906fc5c150c152",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0083.pdf",
+      "path": "tests/fixtures/pdf/baseline-0083.pdf",
+      "sha256": "ba5eff302ae7ad4f2e3422b0bbb0b8fa243cf59ac393e1e0bd738caa58cfcd04",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0084.pdf",
+      "path": "tests/fixtures/pdf/baseline-0084.pdf",
+      "sha256": "085a78ecf59a40f379ec1c4df2e0944aced83ae2afa24115f959f3cbe751bdaf",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0085.pdf",
+      "path": "tests/fixtures/pdf/baseline-0085.pdf",
+      "sha256": "bafb8154a6ea14afbc068bbbced23cf6e77f8d4598603f42336cdbc91ca2077e",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0086.pdf",
+      "path": "tests/fixtures/pdf/baseline-0086.pdf",
+      "sha256": "3bab475e925748df15436999bf292b06b9793d5d7866fb5551c6b384f8d6b4fe",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0087.pdf",
+      "path": "tests/fixtures/pdf/baseline-0087.pdf",
+      "sha256": "ca66635c3c56a18a86ed5319f1b2c265140b661680c560b3140b4fffa8bffa04",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0088.pdf",
+      "path": "tests/fixtures/pdf/baseline-0088.pdf",
+      "sha256": "598dc2c7c7d0313268b413c9522f7e7243bcdf3ba97c1f9feff1a2548e1dad2c",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0089.pdf",
+      "path": "tests/fixtures/pdf/baseline-0089.pdf",
+      "sha256": "99bf97fdf8998e0776c7d932f5794fa319f2060bee2ca3b7620b0a5ab498505a",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0090.pdf",
+      "path": "tests/fixtures/pdf/baseline-0090.pdf",
+      "sha256": "14be28a0e7d81a1cd89de738768c0f72b01eb85bba25be02a7c160a36f146365",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0091.pdf",
+      "path": "tests/fixtures/pdf/baseline-0091.pdf",
+      "sha256": "4bd3693f5645a40598f9400cc45c9bc18559772e9d6eff46968f0d8cae681762",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0092.pdf",
+      "path": "tests/fixtures/pdf/baseline-0092.pdf",
+      "sha256": "0372bd2b09b2d623cf2ba9f299c9c586bab207a8c8e977a5dc1dff6c4c1db221",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0093.pdf",
+      "path": "tests/fixtures/pdf/baseline-0093.pdf",
+      "sha256": "03d9954747bbf278d35addd7976556a5e33969720975df3f686e1b2a032decd8",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0094.pdf",
+      "path": "tests/fixtures/pdf/baseline-0094.pdf",
+      "sha256": "2059945a8fdc86e4b3241b1022a18b2238a9da910355ba79f7334b36071d4c10",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0095.pdf",
+      "path": "tests/fixtures/pdf/baseline-0095.pdf",
+      "sha256": "d1b8cd79737cf4033c8334722ea789917e9e86ce4f4b42bf462ba6bcd9bc91b8",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0096.pdf",
+      "path": "tests/fixtures/pdf/baseline-0096.pdf",
+      "sha256": "fcc4c1a94d7b1ec344d6f2219bee06f15e35291ce676138fcb5f008bd2548840",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0097.pdf",
+      "path": "tests/fixtures/pdf/baseline-0097.pdf",
+      "sha256": "5e9546633b751504b888881e450e817f46afecb2064858c2dc179b499b1bd09d",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0098.pdf",
+      "path": "tests/fixtures/pdf/baseline-0098.pdf",
+      "sha256": "d54d49202e85a2fb137adb4a33fc3481a3a8d7747f02bea97ab2f705670bb550",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0099.pdf",
+      "path": "tests/fixtures/pdf/baseline-0099.pdf",
+      "sha256": "57af4339e4ac5efacd04bdb11c3ccf628589be158f7a988127d663bcd9685a41",
+      "size_bytes": 609
+    },
+    {
+      "name": "baseline-0100.pdf",
+      "path": "tests/fixtures/pdf/baseline-0100.pdf",
+      "sha256": "d5314d0fa9b06a94f6367e250c5726b84a2f785a3bb7d1504038acd6e80ab6fe",
+      "size_bytes": 609
+    }
+  ]
+}

@@ -95,3 +95,109 @@ La tarea programada queda para la tanda de `S8-P4-03` (T7).
   hostiles y reales) — depende de `S8-P4-01` (T6).
 - Tarea programada con ventana de alerta — `S8-P4-03` (T7).
 - Versionar un reporte base en el repo cuando el corpus esté completo.
+
+## Corpus S8 y runner de replay dos caminos
+
+### Manifiesto del corpus (`S8-P4-01`)
+
+`tests/parity/corpus/build_manifest.py` genera un manifiesto reproducible del
+corpus de PDFs (`tests/fixtures/pdf/baseline-*.pdf`, orden lexicográfico):
+
+```bash
+python3 tests/parity/corpus/build_manifest.py \
+  --pdf-dir tests/fixtures/pdf \
+  --out tests/parity/corpus/manifest.json \
+  --generated 2026-11-17T00:00:00Z \
+  --version s8-expanded-1
+```
+
+Formato (`schema_version: "s8-corpus/v1"`):
+
+```json
+{
+  "schema_version": "s8-corpus/v1",
+  "version": "s8-expanded-1",
+  "generated": "2026-11-17T00:00:00Z",
+  "count": 100,
+  "total_bytes": 60900,
+  "documents": [
+    {
+      "name": "baseline-0001.pdf",
+      "path": "tests/fixtures/pdf/baseline-0001.pdf",
+      "sha256": "<64 hex>",
+      "size_bytes": 609
+    }
+  ]
+}
+```
+
+El resultado es determinista salvo `generated`, que se congela con
+`--generated <ISO8601 UTC>` para tests y CI. `--base-dir` controla la base de
+las rutas relativas (por defecto la raíz del repo `platform-services`).
+
+### Runner de replay (`S8-P4-02`)
+
+`tests/parity/replay.py` recorre el manifiesto y ejecuta los dos caminos por
+documento, en orden secuencial:
+
+- **v1:** `POST /pdf/process` (`multipart/form-data`, campo `file`). Respuesta
+  `200` = bytes del TXT. Un `409` se registra como `v1_duplicate` (error), no
+  como éxito silencioso.
+- **v2:** `POST /api/v2/documents` (`idempotency_key` + `size_bytes`) →
+  subida prefirmada con `upload_url` + `form_fields` + `file` → polling de
+  `GET /api/v2/documents/{id}` cada 2 s hasta estado terminal →
+  `GET /api/v2/documents/{id}/download` → se sigue `download_url` para bajar
+  el TXT.
+
+```bash
+python3 tests/parity/replay.py \
+  --manifest tests/parity/corpus/manifest.json \
+  --v1-base http://localhost:9081 \
+  --v2-base http://localhost:9080 \
+  --out artifacts/parity/replay \
+  --threshold 99.9 \
+  --timeout 180 \
+  --id-prefix s8p4
+```
+
+Salidas bajo `--out`:
+
+```text
+artifacts/parity/replay/
+  fixtures/<stem>/legacy.txt   # TXT de v1 (solo si ambos caminos respondieron)
+  fixtures/<stem>/nuevo.txt    # TXT de v2
+  fixtures/<stem>/case.json    # {"corpus": true}
+  parity-report.json           # esquema de report.py (schema_version "1")
+  run-summary.json             # resumen de la corrida (esquema s8-replay/v1)
+```
+
+`run-summary.json` incluye `run_id`, tiempos, manifiesto, endpoints,
+`v1_ok`/`v1_errors`/`v2_ok`/`v2_errors`, `docs_compared`, `parity_rate`,
+`threshold`, `parity_pass`, `corpus_error_rate` (documentos fallidos /
+totales), `error_rate_threshold` (`0.001`), `error_rate_pass`, `verdicts`,
+`failed_documents[]` (`name`/`stage`/`detail`) y `exit_code`.
+
+Si un lado falla **no** se escribe un par parcial de fixtures: el documento se
+registra en `failed_documents` y cuenta para la tasa de error del corpus.
+
+### Códigos de salida
+
+| Código | Significado |
+|---|---|
+| `0` | Paridad ≥ umbral, sin `MISMATCH`/`ERROR`, tasa de error < 0.1 %. |
+| `1` | Paridad bajo el umbral, algún `MISMATCH`/`ERROR`, o tasa de error ≥ 0.1 %. |
+| `2` | Preflight fallido: manifiesto ausente/inválido o endpoint inalcanzable. |
+
+### Notas
+
+- El runner **solo compara texto extraído normalizado**. Nunca compara
+  códigos HTTP, cuerpos de respuesta, latencias ni cabeceras: el contrato v2
+  es asíncrono y esas diferencias son por diseño (`docs/paridad.md` §5).
+- La tolerancia de contenido es cero: cualquier `MISMATCH`/`ERROR` hace
+  fallar la corrida.
+- `--docs-limit N` toma un subconjunto ordenado y es **solo para smoke**; un
+  resultado con límite no representa la paridad del corpus completo.
+- `--dry-run` valida manifiesto y alcanzabilidad de endpoints y no crea
+  documentos ni artefactos.
+- `--cleanup` intenta borrar los documentos v2 creados. Si la API de borrado
+  no existe, imprime `cleanup skipped: no delete API` (no se inventa una API).

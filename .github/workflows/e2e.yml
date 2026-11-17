@@ -22,6 +22,11 @@ on:
         required: false
         default: "10"
         type: string
+      chain_runs:
+        description: "Repeticiones de la cadena real en CI"
+        required: false
+        default: "1"
+        type: string
   schedule:
     - cron: "0 3 * * *"
 
@@ -36,6 +41,9 @@ jobs:
     env:
       P4_COMPOSE_PROJECT: p4-e2e
       P4_STRICT_RELAY: ${{ vars.P4_STRICT_RELAY || '0' }}
+      # `latest` sigue main del worker; un sha fijo hace la corrida reproducible.
+      EXTRACTION_WORKER_TAG: ${{ vars.EXTRACTION_WORKER_TAG || 'latest' }}
+      P4_CHAIN_RUNS: ${{ github.event.inputs.chain_runs || '1' }}
     steps:
       - name: Checkout platform-services
         uses: actions/checkout@v4
@@ -54,14 +62,10 @@ jobs:
           path: doc-service
           ref: ${{ vars.DOC_SERVICE_REF || 'main' }}
 
-      # extraction-worker no esta definido en infra/compose; se clonara cuando
-      # exista el servicio real y G-B este cerrado.
-      # - name: Checkout extraction-worker
-      #   uses: actions/checkout@v4
-      #   with:
-      #     repository: Alejo-Basile/extraction-worker
-      #     path: extraction-worker
-      #     ref: ${{ vars.EXTRACTION_WORKER_REF || 'main' }}
+      # extraction-worker se prueba con la imagen publicada: el publish-image de
+      # ese repo etiqueta cada main como `latest` y cada commit como `sha-<corto>`.
+      # Para fijar un build concreto, definir la variable EXTRACTION_WORKER_TAG
+      # (p. ej. sha-d3d8c80); sin ella se sigue main via `latest`.
 
       - name: Preparar entorno efimero
         run: tests/e2e/ci/prepare-env.sh --ci
@@ -71,6 +75,21 @@ jobs:
           mkdir -p artifacts
           set -o pipefail
           tests/e2e/ci/smoke.sh --ci 2>&1 | tee artifacts/smoke.txt
+
+      - name: Cadena real create -> webhook -> worker -> .txt -> COMPLETED
+        run: |
+          set -o pipefail
+          tests/e2e/chain/run.sh --runs "${P4_CHAIN_RUNS:-1}" 2>&1 | tee artifacts/chain.txt
+
+      - name: Trazabilidad por correlation_id
+        run: |
+          set -o pipefail
+          tests/e2e/correlation/run.sh 2>&1 | tee artifacts/correlation.txt
+
+      - name: Matriz de estados terminales
+        run: |
+          set -o pipefail
+          tests/e2e/states/run.sh 2>&1 | tee artifacts/states.txt
 
       - name: E2E caminos de error
         run: |

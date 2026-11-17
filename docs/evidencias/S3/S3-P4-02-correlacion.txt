@@ -1,0 +1,39 @@
+# S3-P4-02 — trazabilidad por correlation_id (evidencia en vivo)
+
+- **Fecha:** 17/11/2026 (UTC-3).
+- **Stack:** Compose `infra` con `doc-service@3887c29` reconstruido y
+  `extraction-worker:sha-d3d8c80` (imagen publicada).
+- **Comando:** `tests/e2e/correlation/run.sh --runs 3`
+- **Implementación:** `tests/e2e/correlation/run.sh` (nuevo).
+
+## DoD verificado
+
+> Subir un documento y comprobar que su correlation_id aparece en los logs de
+> los 3 componentes. El test falla si el correlation_id no aparece en todos.
+
+El arnés crea un documento con un `X-Correlation-Id` único, sube un PDF
+válido, espera `COMPLETED` y exige el id en:
+
+1. Mongo (`documents.correlation_id`).
+2. Access log de Traefik (`downstream_X-Correlation-Id`).
+3. Logs de doc-service.
+4. Logs de extraction-worker.
+
+Si falta en cualquiera, la corrida falla nombrando el componente.
+
+## Resultado
+
+```
+[correlation] Trazabilidad S3-P4-02 (API_BASE=https://api.localhost:8543, proyecto=infra)
+  [PASS] run 1: corr-1-20261117T193852Z-7f264124 rastreado en mongo, traefik, doc-service y worker
+  [PASS] run 2: corr-2-20261117T193922Z-82873119 rastreado en mongo, traefik, doc-service y worker
+  [PASS] run 3: corr-3-20261117T193951Z-3e25789a rastreado en mongo, traefik, doc-service y worker
+
+[correlation] OK 3/3
+```
+
+Nota de implementación: los logs de los 3 componentes no se escriben en el
+mismo instante en que Mongo ya reporta `COMPLETED`; el arnés reintenta con una
+ventana acotada (20 s) y usa `docker logs --since` con 1 s de margen. Sin ese
+reintento, 2 de 3 corridas fallaban por una carrera de escritura de logs, no
+por pérdida de correlación.

@@ -67,3 +67,143 @@ Limitaciones
   textual referido y los objetos `.txt`/`.md` asociados al documento.
 - La cobertura de PROCESSING es 2/3; la repetición no alcanzada quedó en QUEUED.
 - S4-P4-05, el failover Sentinel y el runbook siguen pendientes.
+
+Actualización: atribución por PEL y ventana XAUTOCLAIM
+-----------------------------------------------------
+El antecedente de arriba no demostraba XAUTOCLAIM: la atribución buscaba el
+documento en logs (o elegía una réplica al azar si no aparecía) y las
+recuperaciones de 5–8 s eran incompatibles con `WORKER_MIN_IDLE_MS=600001`.
+El SIGKILL podía llegar después del ACK; completar el documento no demostraba
+que el PEL hubiera recuperado el mensaje.
+
+El arnés ahora, al recibir el evento Mongo `PROCESSING`, pausa las dos réplicas,
+obtiene el ID con `chaos_stream_entry_for`, consulta el rango exacto con
+`XPENDING`, toma el consumer de la segunda línea y lo mapea al ID corto del
+contenedor. Solo mata al owner unívoco; luego despausa al sobreviviente. Una
+ventana sin mensaje pendiente se registra como perdida y no mata ningún worker.
+Tras un kill, espera hasta 720 s con sondeo Mongo cada 30 s, comprueba
+COMPLETED/una transición/un artefacto/ninguna entrada duplicada y exige tanto
+latencia de al menos 600000 ms como una línea XAUTOCLAIM en los logs Compose del
+worker sobreviviente. La restauración despausa los workers y devuelve el
+servicio a una réplica healthy incluso si falla el caso.
+
+Intentos de validación de esta implementación:
+- `time P4_CHAOS2_RUNS=1 tests/e2e/chaos/run.sh --chaos2 --full > /tmp/chaos2-proof.out 2>&1`
+  → `real 0m50,767s`, exit 1, resumen literal `[chaos] resumen: PASS=0 FAIL=1
+  BLOCKED=0 KNOWN=0`. Documento `chaos2-1794970352-22066`, entry
+  `1794970358650-0`: `XPENDING` por rango no devolvió consumer (salida vacía),
+  el estado observado fue COMPLETED y el arnés reportó ventana perdida; no se
+  ejecutó SIGKILL ni se midió recuperación.
+- Reintento único del mismo comando → `real 0m52,932s`, exit 1, resumen literal
+  `[chaos] resumen: PASS=0 FAIL=1 BLOCKED=0 KNOWN=0`. Documento
+  `chaos2-1794970430-6214`, entry `1794970437015-0`: mismo resultado, XPENDING
+  sin consumer y estado COMPLETED; no se ejecutó SIGKILL ni se midió
+  recuperación.
+- Diagnóstico posterior: `XINFO GROUPS stream:pdf-processing` mostró el grupo
+  `extraction-workers` con `pending=0` y `last-delivered-id=1794970437015-0`;
+  la consulta XPENDING exacta de ese ID, después de la limpieza del caso, no
+  devolvió fila y salió con código 0. Esto concuerda con las ventanas perdidas,
+  pero no sustituye una observación PEL previa al kill.
+- En ambos intentos se observó COMPLETED, pero no se ejecutó
+  `assert_completed_once`; por tanto, esta actualización no afirma unicidad
+  verificada para esos documentos. No hubo owner atribuido, línea XAUTOCLAIM,
+  latencia ni repetición válida de recuperación. No se hicieron las dos
+  repeticiones adicionales porque el escenario de una repetición no fue válido.
+- En ambas salidas, la limpieza informó `extraction-worker restaurado a una
+  replica`. `docker ps` final mostró `infra-extraction-worker-1` en estado
+  `Up 19 minutes (healthy)` y ningún contenedor en estado Paused. La chain final
+  `tests/e2e/chain/run.sh --runs 1` terminó `OK 1/1`: documento
+  `chain-1794970565-351067c10da8` COMPLETED con
+  `txt=chain-1794970565-351067c10da8.md`.
+
+Estado de S4-P4-02: PARCIAL. La lógica ahora rechaza una prueba sin PEL y evita
+presentar una recuperación post-ACK como XAUTOCLAIM, pero las dos ventanas
+observadas se perdieron; no hay evidencia positiva de recuperación por
+XAUTOCLAIM. Hace falta ajustar el momento de inyección para observar el mensaje
+pendiente sin matar otra réplica ni adivinar el owner.
+
+Actualización: verificación determinista del estado post-crash
+------------------------------------------------------------
+La carrera real no se puede ganar con el fixture disponible: la extracción de
+`tests/fixtures/pdf/baseline-0001.pdf` termina en menos de 1 s. En los dos
+intentos previos se pausaron ambas réplicas y se consultó `XPENDING`, pero el
+PEL ya estaba vacío (`pending=0`, `last-delivered-id` igual al entry del
+documento, estado `COMPLETED`). El OCR está deshabilitado y no hay un fixture
+lento razonable. Por eso el modo nuevo prueba el mecanismo desde el estado
+post-crash preparado, no afirma haber hecho un `kill -9` real.
+
+`--chaos2-seed` (también `P4_CHAOS2_MODE=seed`, modo predeterminado) verifica una
+réplica running, detiene el servicio worker, crea/sube el documento y obtiene
+la entrada del stream. Lee el `correlation_id` existente en Mongo, establece
+`PROCESSING` y agrega historial con `actor=worker`; después crea el consumidor
+`dead-chaos2-<id>`, incorpora la entrada al PEL y ejecuta `XCLAIM` con
+`min-idle-time=600001`, `IDLE 610000` y `RETRYCOUNT 1`. La lectura de grupo previa
+es necesaria para que la entrada de `XCLAIM` ya pertenezca al PEL; una primera
+reclamación fija el idle post-crash antes de aplicar el umbral de 600001 ms. El
+modo arranca el worker, espera hasta 300 s y exige `COMPLETED`, una transición,
+un artefacto y ninguna entrada duplicada, además de un log `XAUTOCLAIM` asociado
+al entry o documento. `--chaos2` y `--all` usan `seed` por defecto; el modo
+`kill` anterior se conserva, pero no se presenta como evidencia alcanzable.
+
+Comando exacto:
+`time tests/e2e/chaos/run.sh --chaos2-seed --full > /tmp/chaos2-seed.out 2>&1`
+
+Resultado observado: `real 6m9,981s`; resumen literal
+`[chaos] resumen: PASS=0 FAIL=1 BLOCKED=0 KNOWN=0`. `XPENDING` confirmó
+`entry=1794971796376-0`, `consumer=dead-chaos2-chaos2-seed-1794971795-19992`,
+`idle=610972` ms y `deliveries=1`; el idle superó el `min-idle-time=600001`.
+El worker no convergió en el plazo de 300 s. En el diagnóstico, `XPENDING` del
+entry ya no devolvió una fila y Mongo seguía en `PROCESSING`; por tanto no hay
+latencia de recuperación hasta COMPLETED que reportar. No se ejecutaron los
+asertos de unicidad de `COMPLETED`, artefacto y entradas duplicadas porque no se
+alcanzó el estado terminal.
+
+La línea de worker observada fue
+`{"timestamp":"2026-11-18T03:16:54.550003Z","level":"INFO","service":"extraction-worker","msg":"documento no reclamable; entrega duplicada, se ACK-ea","correlation_id":"chaos-chaos2-seed-1794971795-19992","document_id":"chaos2-seed-1794971795-19992","msg_id":"1794971796376-0","consumer":"consumer-930aa671a8b7-1","attempts":2,"target":"extraction_worker::consumer::runner"}`.
+También apareció `msg="documento completado y ACK-eado"`, pero el estado de
+Mongo observado al agotar la espera permaneció `PROCESSING`. No se observó una
+línea `XAUTOCLAIM` que mencionara el entry o el documento: es un FAIL real de la
+verificación y no se atribuye una causa no demostrada. La limpieza dejó una
+réplica worker healthy y comprobó que el consumidor muerto ya no aparecía en
+`XINFO CONSUMERS` (`XGROUP DELCONSUMER=0`). No se ejecutó `kill -9` real; el
+resultado no demuestra el camino de muerte real ni una recuperación exitosa.
+
+La chain previa falló primero con `[FAIL] POST create falló`; se esperaron 120 s
+y el único reintento terminó `OK 1/1`. El `docker ps` final mostró exactamente
+una réplica `infra-extraction-worker-1` `Up 6 minutes (healthy)`. La chain final
+`tests/e2e/chain/run.sh --runs 1` terminó `OK 1/1` con
+`chain-1794972235-cef4b16e7fd8` en `COMPLETED` y
+`txt=chain-1794972235-cef4b16e7fd8.md`.
+
+Estado actualizado de S4-P4-02: PARCIAL. El PEL de consumidor muerto quedó
+confirmado por encima del umbral, pero la convergencia y la evidencia de
+`XAUTOCLAIM` no se observaron; el modo `kill` queda explícitamente limitado por
+la carrera sub-segundo y no hubo `kill -9` real.
+
+Causa raíz verificada en código: un documento en PROCESSING no es reclamable
+-----------------------------------------------------------------------------
+El reclamo en Mongo del worker solo acepta `QUEUED` y `RETRYING`:
+
+- `extraction-worker/crates/worker/src/document_store.rs:87-106` — `claim()` filtra
+  por `DocumentStatus::claimable_from()`.
+- `extraction-worker/crates/core/src/status.rs:74-76` — `claimable_from()` devuelve
+  `[Queued, Retrying]`.
+
+Por eso, cuando el dueño original muere con el documento en `PROCESSING`, la
+entrega recuperada por `XAUTOCLAIM` no puede reclamarlo: `claim_job` devuelve
+`Ok(false)` y el worker hace `ack_and_log` (runner.rs:1009-1022). El mensaje se
+ACK-ea como "entrega duplicada" y se pierde; el documento queda en `PROCESSING`
+y solo lo recupera el reconciliador de `doc-service` cuando supera `stuckAfter`
+(30 min), pasando `PROCESSING -> RETRYING` y reencolando.
+
+Esto explica el resultado observado sin atribuir causas no demostradas: el ACK
+del worker es correcto frente a una entrega duplicada con dueño vivo, pero el
+umbral de `XAUTOCLAIM` (600001 ms) ya es mayor que 2x el `job_timeout` (300 s),
+así que en ese punto el dueño no puede estar vivo y el reclamo debería permitir
+reintentar.
+
+Consecuencia para S4-P4-02: el DoD del plan ("el otro worker lo reclama con
+XAUTOCLAIM ... COMPLETED") no es alcanzable con el código actual. La
+recuperación real existe, pero es la del reconciliador y agrega hasta ~30 min
+de latencia. Queda como hallazgo de producto, fuera del alcance de P4 (no se
+modifica `extraction-worker`).

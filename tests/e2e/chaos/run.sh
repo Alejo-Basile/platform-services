@@ -8,7 +8,8 @@
 #   tests/e2e/chaos/run.sh --chaos1          # ventana webhook -> XADD (real)
 #   tests/e2e/chaos/run.sh --chaos1-kill     # variante Redis caido + SIGKILL
 #   P4_CHAOS_REDIS_SECONDS=10 tests/e2e/chaos/run.sh --chaos3
-#   P4_CHAOS2_RUNS=3 tests/e2e/chaos/run.sh --chaos2 --full
+#   tests/e2e/chaos/run.sh --chaos2-seed --full
+#   P4_CHAOS2_MODE=kill tests/e2e/chaos/run.sh --chaos2 --full
 #   tests/e2e/chaos/run.sh --chaos4 --full
 #   tests/e2e/chaos/run.sh --all --full      # cuando exista worker real
 #   P4_STRICT_RELAY=1 tests/e2e/chaos/run.sh --all  # exige recuperacion por relay
@@ -34,6 +35,7 @@ COMPOSE_FILES+=(-f "$BUILD_FILE" -f "$OVERRIDE_FILE")
 REDIS_DOWN_SECONDS="${P4_CHAOS_REDIS_SECONDS:-300}"
 CHAOS1_RACE_RUNS="${P4_CHAOS1_RACE_RUNS:-10}"
 CHAOS2_RUNS="${P4_CHAOS2_RUNS:-3}"
+CHAOS2_MODE="${P4_CHAOS2_MODE:-seed}"
 STRICT_RELAY="${P4_STRICT_RELAY:-0}"
 RELAY_ISSUE="doc-service#55"
 RUN_CHAOS1=0
@@ -46,11 +48,13 @@ WORKER_SCALE_REQUIRED=0
 
 usage() {
   cat <<'EOF'
-  Uso: tests/e2e/chaos/run.sh <--chaos1|--chaos1-kill|--chaos2|--chaos3|--chaos4|--all> [--full]
+  Uso: tests/e2e/chaos/run.sh <--chaos1|--chaos1-kill|--chaos2|--chaos2-seed|--chaos2-kill|--chaos3|--chaos4|--all> [--full]
 
   --chaos1       S4-P4-01: doc-service muere entre webhook y XADD (real)
   --chaos1-kill  Variante: Redis caido + SIGKILL de doc-service
-  --chaos2       S4-P4-02: worker muere durante una extraccion
+  --chaos2       S4-P4-02: modo P4_CHAOS2_MODE (seed por defecto)
+  --chaos2-seed  S4-P4-02: prueba determinista desde el estado post-crash
+  --chaos2-kill  S4-P4-02: kill real; la carrera sub-segundo es inalcanzable
   --chaos3       S4-P4-03: Redis Streams cae durante la ventana configurada
   --chaos4       S4-P4-04: Mongo cae durante el cierre de un trabajo
   --all          todos los casos implementados
@@ -63,6 +67,7 @@ Variables:
   P4_CHAOS_REDIS_SECONDS   duracion de la caida de Redis (default 300)
   P4_CHAOS1_RACE_RUNS      repeticiones de --chaos1 (default 10)
   P4_CHAOS2_RUNS            repeticiones de --chaos2 (default 3)
+  P4_CHAOS2_MODE            modo de --chaos2: seed o kill (default seed)
   P4_STRICT_RELAY          si vale 1, exige que el relay reencole (default 0)
   P4_COMPOSE_PROJECT       proyecto Compose (default infra)
   P4_WORKSPACE_ROOT        workspace con infra/ y platform-services/
@@ -74,6 +79,8 @@ while (($# > 0)); do
     --chaos1) RUN_CHAOS1=1 ;;
     --chaos1-kill) RUN_CHAOS1_KILL=1 ;;
     --chaos2) RUN_CHAOS2=1 ;;
+    --chaos2-seed) RUN_CHAOS2=1; CHAOS2_MODE=seed ;;
+    --chaos2-kill) RUN_CHAOS2=1; CHAOS2_MODE="kill" ;;
     --chaos3) RUN_CHAOS3=1 ;;
     --chaos4) RUN_CHAOS4=1 ;;
     --all) RUN_CHAOS1=1; RUN_CHAOS1_KILL=1; RUN_CHAOS2=1; RUN_CHAOS3=1; RUN_CHAOS4=1 ;;
@@ -98,6 +105,10 @@ if ! [[ "$CHAOS1_RACE_RUNS" =~ ^[0-9]+$ ]] || ((CHAOS1_RACE_RUNS < 1)); then
 fi
 if ! [[ "$CHAOS2_RUNS" =~ ^[0-9]+$ ]] || ((CHAOS2_RUNS < 1)); then
   echo "[chaos] ERROR: P4_CHAOS2_RUNS debe ser un entero >= 1" >&2
+  exit 2
+fi
+if ((RUN_CHAOS2 == 1)) && [[ "$CHAOS2_MODE" != "seed" && "$CHAOS2_MODE" != "kill" ]]; then
+  echo "[chaos] ERROR: P4_CHAOS2_MODE debe ser seed o kill" >&2
   exit 2
 fi
 
@@ -137,6 +148,7 @@ TOTAL_FAIL=0
 TOTAL_BLOCKED=0
 TOTAL_KNOWN=0
 CASE_ENV_BLOCKED=0
+DEAD_CHAOS2_CONSUMER=""
 
 # mongo_eval, mongo_status y mongo_delete vienen de lib.sh (DRY).
 
@@ -267,14 +279,67 @@ worker_replicas_running() {
   return 1
 }
 
+worker_replicas_healthy() {
+  local expected="$1" attempt cid health healthy
+  local containers=()
+  for ((attempt = 1; attempt <= 90; attempt++)); do
+    mapfile -t containers < <(compose --profile full ps -q extraction-worker 2>/dev/null)
+    healthy=0
+    for cid in "${containers[@]}"; do
+      [[ -n "$cid" ]] || continue
+      health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid" 2>/dev/null || true)"
+      [[ "$health" == "healthy" ]] && healthy=$((healthy + 1))
+    done
+    ((healthy == expected && ${#containers[@]} == expected)) && return 0
+    sleep 2
+  done
+  bad "extraction-worker: se esperaban $expected replicas healthy; observadas $healthy"
+  return 1
+}
+
+unpause_worker_ids() {
+  local cid paused=0 failed=0
+  for cid in "$@"; do
+    [[ -n "$cid" ]] || continue
+    if [[ "$(docker inspect -f '{{.State.Paused}}' "$cid" 2>/dev/null || true)" == "true" ]]; then
+      paused=$((paused + 1))
+      if ! docker unpause "$cid" >/dev/null 2>&1; then
+        bad "no se pudo despausar extraction-worker $cid"
+        failed=1
+      fi
+    fi
+  done
+  ((failed == 0))
+}
+
+unpause_all_workers() {
+  local cid
+  local worker_ids=()
+  mapfile -t worker_ids < <(docker ps --filter name=infra-extraction-worker --format '{{.ID}}')
+  for cid in "${worker_ids[@]}"; do
+    [[ -n "$cid" ]] || continue
+    if [[ "$(docker inspect -f '{{.State.Paused}}' "$cid" 2>/dev/null || true)" == "true" ]]; then
+      docker unpause "$cid" >/dev/null 2>&1 || {
+        bad "no se pudo despausar extraction-worker $cid"
+        return 1
+      }
+    fi
+  done
+}
+
 scale_worker() {
   local replicas="$1"
   compose --profile full up -d --scale "extraction-worker=$replicas" extraction-worker
 }
 
 restore_one_worker() {
+  local restore_failed=0
   ((WORKER_SCALE_REQUIRED == 1)) || return 0
-  if scale_worker 1 && worker_replicas_running 1; then
+  unpause_all_workers || restore_failed=1
+  scale_worker 1 || restore_failed=1
+  worker_replicas_running 1 || restore_failed=1
+  worker_replicas_healthy 1 || restore_failed=1
+  if ((restore_failed == 0)); then
     WORKER_SCALE_REQUIRED=0
     pass "extraction-worker restaurado a una replica"
     return 0
@@ -291,6 +356,20 @@ restore_services() {
     fi
   done
   STOPPED=()
+}
+
+remove_dead_chaos2_consumer() {
+  local result remaining
+  [[ -n "$DEAD_CHAOS2_CONSUMER" ]] || return 0
+  result="$(redis_cli --raw XGROUP DELCONSUMER "$REDIS_STREAM_KEY" extraction-workers "$DEAD_CHAOS2_CONSUMER")"
+  remaining="$(redis_cli --raw XINFO CONSUMERS "$REDIS_STREAM_KEY" extraction-workers |
+    awk -v consumer="$DEAD_CHAOS2_CONSUMER" '$0 == "name" { getline; if ($0 == consumer) found=1 } END { print found+0 }')"
+  if ! [[ "$result" =~ ^[0-9]+$ ]] || [[ "$remaining" != "0" ]]; then
+    bad "no se pudo eliminar el consumidor temporal $DEAD_CHAOS2_CONSUMER (DEL=$result presente=$remaining)"
+    return 1
+  fi
+  note "consumidor temporal $DEAD_CHAOS2_CONSUMER eliminado (XGROUP DELCONSUMER=$result)"
+  DEAD_CHAOS2_CONSUMER=""
 }
 
 kill_doc_service() {
@@ -370,7 +449,9 @@ cleanup() {
   local previous_compose_timeout="${P4_COMPOSE_TIMEOUT:-}"
   export P4_COMPOSE_TIMEOUT=15s
   restore_services
+  unpause_all_workers || TOTAL_FAIL=$((TOTAL_FAIL + 1))
   restore_one_worker || TOTAL_FAIL=$((TOTAL_FAIL + 1))
+  remove_dead_chaos2_consumer || TOTAL_FAIL=$((TOTAL_FAIL + 1))
   local i
   for i in "${!CURRENT_DOCS[@]}"; do
     mongo_delete "${CURRENT_DOCS[$i]}"
@@ -538,7 +619,8 @@ wait_mongo_healthy() {
 
 monitor_processing_action() {
   local id="$1" action="$2" event_file="$3" fifo watcher_pid marker
-  local cid attribution killed_at status
+  local cid consumer_name consumer_host killed_at_ms killed_at_iso status
+  local entry_id pending_output survivor_cid survivor_number log_prefix
   local worker_ids=()
   fifo="${event_file}.pipe"
   mkfifo "$fifo" || return 1
@@ -553,17 +635,82 @@ monitor_processing_action() {
     fi
     [[ "$marker" == "PROCESSING" ]] || continue
     if [[ "$action" == "kill-worker" ]]; then
-      cid="$(worker_container_for_document "$id" || true)"
-      attribution="logs"
-      if [[ -z "$cid" ]]; then
-        mapfile -t worker_ids < <(compose --profile full ps -q extraction-worker 2>/dev/null)
-        ((${#worker_ids[@]} > 0)) || { wait "$watcher_pid" || true; return 1; }
-        cid="${worker_ids[$((RANDOM % ${#worker_ids[@]}))]:-}"
-        attribution="aleatoria; no se pudo atribuir por logs/actividad"
+      mapfile -t worker_ids < <(compose --profile full ps -q extraction-worker 2>/dev/null)
+      if ((${#worker_ids[@]} != 2)); then
+        printf 'UNRESOLVED|replicas=%s\n' "${#worker_ids[@]}" > "$event_file"
+        wait "$watcher_pid" || true
+        return 2
       fi
-      killed_at="$(date +%s)"
-      docker kill -s KILL "$cid" >/dev/null || { wait "$watcher_pid" || true; return 1; }
-      printf 'PROCESSING|%s|%s|%s\n' "$cid" "$attribution" "$killed_at" > "$event_file"
+      for cid in "${worker_ids[@]}"; do
+        if ! docker pause "$cid" >/dev/null 2>&1; then
+          unpause_worker_ids "${worker_ids[@]}" || true
+          printf 'UNRESOLVED|pause-failed=%s\n' "$cid" > "$event_file"
+          wait "$watcher_pid" || true
+          return 2
+        fi
+      done
+
+      entry_id="$(chaos_stream_entry_for "$id")"
+      if [[ -z "$entry_id" ]]; then
+        unpause_worker_ids "${worker_ids[@]}" || true
+        printf 'LOST_WINDOW|entry_id=missing|XPENDING=not-run\n' > "$event_file"
+        wait "$watcher_pid" || true
+        return 2
+      fi
+      pending_output="$(redis_cli --raw XPENDING "$REDIS_STREAM_KEY" extraction-workers "$entry_id" "$entry_id" 1)"
+      consumer_name="$(awk 'NR == 2 { print; exit }' <<<"$pending_output")"
+      if [[ -z "$consumer_name" ]]; then
+        unpause_worker_ids "${worker_ids[@]}" || true
+        printf 'LOST_WINDOW|entry_id=%s|XPENDING=%s\n' "$entry_id" "${pending_output//$'\n'/,}" > "$event_file"
+        wait "$watcher_pid" || true
+        return 2
+      fi
+
+      if [[ "$consumer_name" =~ ^consumer-(.+)-[0-9]+$ ]]; then
+        consumer_host="${BASH_REMATCH[1]}"
+      else
+        unpause_worker_ids "${worker_ids[@]}" || true
+        printf 'UNRESOLVED|entry_id=%s|consumer=%s|format=invalid\n' "$entry_id" "$consumer_name" > "$event_file"
+        wait "$watcher_pid" || true
+        return 2
+      fi
+
+      local matches=()
+      while read -r cid _; do
+        [[ -n "$cid" ]] || continue
+        [[ "$cid" == "$consumer_host"* ]] && matches+=("$cid")
+      done < <(docker ps --filter name=infra-extraction-worker --format '{{.ID}} {{.Names}}')
+      if ((${#matches[@]} != 1)); then
+        unpause_worker_ids "${worker_ids[@]}" || true
+        printf 'UNRESOLVED|entry_id=%s|consumer=%s|hostname=%s|matches=%s\n' \
+          "$entry_id" "$consumer_name" "$consumer_host" "${#matches[@]}" > "$event_file"
+        wait "$watcher_pid" || true
+        return 2
+      fi
+      cid="${matches[0]}"
+      local survivors=()
+      for survivor_cid in "${worker_ids[@]}"; do
+        [[ "$survivor_cid" == "$cid" ]] || survivors+=("$survivor_cid")
+      done
+      if ((${#survivors[@]} != 1)); then
+        unpause_worker_ids "${worker_ids[@]}" || true
+        printf 'UNRESOLVED|entry_id=%s|consumer=%s|owner=%s|survivors=%s\n' \
+          "$entry_id" "$consumer_name" "$cid" "${#survivors[@]}" > "$event_file"
+        wait "$watcher_pid" || true
+        return 2
+      fi
+
+      survivor_cid="${survivors[0]}"
+      killed_at_iso="$(date --iso-8601=seconds)"
+      killed_at_ms="$(date +%s%3N)"
+      if ! docker kill -s KILL "$cid" >/dev/null; then
+        unpause_worker_ids "${worker_ids[@]}" || true
+        wait "$watcher_pid" || true
+        return 1
+      fi
+      unpause_worker_ids "${survivors[@]}" || { wait "$watcher_pid" || true; return 1; }
+      printf 'PROCESSING|%s|%s|%s|%s|%s|%s\n' \
+        "$cid" "$consumer_name" "$entry_id" "$survivor_cid" "$killed_at_ms" "$killed_at_iso" > "$event_file"
       break
     fi
     if [[ "$action" == "stop-mongo" ]]; then
@@ -910,9 +1057,135 @@ chaos3() {
   pass "S4-P4-03 parcial"
 }
 
-chaos2() {
-  local runs="$CHAOS2_RUNS" i id state event_type cid attribution killed_at
-  local recovery_seconds completed=0 missed=0 log_output xautoclaim killed_at_iso
+chaos2_seed_diagnostics() {
+  local id="$1" entry_id="$2" worker_started_iso="$3" pending_output state log_output
+  pending_output="$(redis_cli --raw XPENDING "$REDIS_STREAM_KEY" extraction-workers "$entry_id" "$entry_id" 1)"
+  state="$(mongo_doc_state "$id")"
+  log_output="$(compose --profile full logs --no-color --since "$worker_started_iso" extraction-worker 2>&1 || true)"
+  bad "diagnostico seed: entry=$entry_id XPENDING=${pending_output//$'\n'/,} documento=$(jq -c '{status:.status,history:.history,txt_ref:.txt_ref}' <<<"$state") logs desde $worker_started_iso siguen"
+  printf '%s\n' "${log_output:-[sin logs observados]}"
+}
+
+chaos2_seed() {
+  local id entry_id correlation_id create_result created read_output claim_output pending_output worker_started_iso worker_started_ms
+  local state completed_at_ms recovery_ms log_output xautoclaim_line consumer_name
+  local worker_ids=() running=0 cid status
+  log "S4-P4-02: estado post-crash sembrado para verificar XAUTOCLAIM"
+  WORKER_SCALE_REQUIRED=1
+  mapfile -t worker_ids < <(compose --profile full ps -q extraction-worker 2>/dev/null)
+  for cid in "${worker_ids[@]}"; do
+    [[ -n "$cid" ]] || continue
+    status="$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || true)"
+    [[ "$status" == "running" ]] && running=$((running + 1))
+  done
+  if ((running > 1)); then
+    scale_worker 1 || { bad "no se pudo escalar extraction-worker a una replica"; return 1; }
+    worker_replicas_running 1 || return 1
+  elif ((running != 1)); then
+    bad "S4-P4-02 seed requiere exactamente una replica running; observadas $running"
+    return 1
+  fi
+  pass "exactamente una replica de extraction-worker esta running"
+
+  compose stop extraction-worker >/dev/null || { bad "no se pudo detener extraction-worker"; return 1; }
+  STOPPED+=(extraction-worker)
+  pass "extraction-worker detenido; no hay consumidores activos"
+  new_document "chaos2-seed" || {
+    create_result=$?
+    ((create_result == 2)) && return 0
+    return 1
+  }
+  id="$NEW_DOC_ID"
+  entry_id="$(chaos_stream_entry_for "$id")"
+  if [[ -z "$entry_id" ]]; then
+    bad "S4-P4-02 seed: no existe entrada de stream para $id"
+    return 1
+  fi
+  pass "relay encolo $id como entry=$entry_id"
+
+  correlation_id="$(mongo_get "$id" correlation_id)"
+  if [[ -z "$correlation_id" ]]; then
+    bad "S4-P4-02 seed: correlation_id ausente en Mongo para $id"
+    return 1
+  fi
+  if ! created="$(mongo_eval "db.documents.updateOne({_id:'$id'}, {\$set:{status:'PROCESSING',updated_at:new Date()},\$push:{status_history:{status:'PROCESSING',actor:'worker',correlation_id:'$correlation_id'}}}).modifiedCount" | tail -n1)" \
+    || [[ "$created" != "1" ]]; then
+    bad "S4-P4-02 seed: no se pudo sembrar PROCESSING con historial para $id (modifiedCount=${created:-vacio})"
+    return 1
+  fi
+  pass "PROCESSING sembrado con status_history y correlation_id existente"
+
+  DEAD_CHAOS2_CONSUMER="dead-chaos2-$id"
+  created="$(redis_cli --raw XGROUP CREATECONSUMER "$REDIS_STREAM_KEY" extraction-workers "$DEAD_CHAOS2_CONSUMER")"
+  if [[ "$created" != "1" ]]; then
+    bad "S4-P4-02 seed: XGROUP CREATECONSUMER no creo $DEAD_CHAOS2_CONSUMER (resultado=${created:-vacio})"
+    return 1
+  fi
+  read_output="$(redis_cli --raw XREADGROUP GROUP extraction-workers "$DEAD_CHAOS2_CONSUMER" COUNT 1 STREAMS "$REDIS_STREAM_KEY" '>')"
+  if [[ "$read_output" != *"$entry_id"* ]]; then
+    bad "S4-P4-02 seed: XREADGROUP no incorporo $entry_id al PEL (salida=${read_output:-vacia})"
+    return 1
+  fi
+  # XCLAIM applies min-idle-time before IDLE, so first seed an eligible idle age.
+  claim_output="$(redis_cli --raw XCLAIM "$REDIS_STREAM_KEY" extraction-workers "$DEAD_CHAOS2_CONSUMER" 0 "$entry_id" IDLE 610000 RETRYCOUNT 1)"
+  if [[ "$claim_output" != *"$entry_id"* ]]; then
+    bad "S4-P4-02 seed: no se pudo fijar el idle post-crash de $entry_id (salida=${claim_output:-vacia})"
+    return 1
+  fi
+  claim_output="$(redis_cli --raw XCLAIM "$REDIS_STREAM_KEY" extraction-workers "$DEAD_CHAOS2_CONSUMER" 600001 "$entry_id" IDLE 610000 RETRYCOUNT 1)"
+  if [[ "$claim_output" != *"$entry_id"* ]]; then
+    bad "S4-P4-02 seed: XCLAIM no devolvio la entrada $entry_id (salida=${claim_output:-vacia})"
+    return 1
+  fi
+  pending_output="$(redis_cli --raw XPENDING "$REDIS_STREAM_KEY" extraction-workers "$entry_id" "$entry_id" 1)"
+  consumer_name="$(awk 'NR == 2 { print; exit }' <<<"$pending_output")"
+  if ! awk -v entry="$entry_id" -v consumer="$DEAD_CHAOS2_CONSUMER" \
+    'NR == 1 { actual_entry=$0 } NR == 2 { actual_consumer=$0 } END { exit !(actual_entry == entry && actual_consumer == consumer) }' \
+    <<<"$pending_output"; then
+    bad "S4-P4-02 seed: XPENDING no confirma la entrada para consumidor muerto (observado=${pending_output//$'\n'/,})"
+    return 1
+  fi
+  note "XPENDING confirmó entry=$entry_id consumer=$consumer_name: ${pending_output//$'\n'/,}"
+
+  if ! compose start extraction-worker >/dev/null; then
+    bad "S4-P4-02 seed: no se pudo iniciar extraction-worker"
+    return 1
+  fi
+  worker_started_ms="$(date +%s%3N)"
+  worker_started_iso="$(date --iso-8601=seconds)"
+  note "extraction-worker iniciado en $worker_started_iso; esperando COMPLETED hasta 300 s"
+  if ! state="$(wait_document_status "$id" 300 10)"; then
+    chaos2_seed_diagnostics "$id" "$entry_id" "$worker_started_iso"
+    return 1
+  fi
+  completed_at_ms="$(date +%s%3N)"
+  recovery_ms=$((completed_at_ms - worker_started_ms))
+  if ! assert_completed_once "$id"; then
+    chaos2_seed_diagnostics "$id" "$entry_id" "$worker_started_iso"
+    return 1
+  fi
+  if ! log_output="$(compose --profile full logs --no-color --since "$worker_started_iso" extraction-worker 2>&1)"; then
+    bad "S4-P4-02 seed: no se pudieron leer logs desde $worker_started_iso: $log_output"
+    chaos2_seed_diagnostics "$id" "$entry_id" "$worker_started_iso"
+    return 1
+  fi
+  xautoclaim_line="$(awk -v entry="$entry_id" -v id="$id" \
+    'tolower($0) ~ /xautoclaim/ && (index($0, entry) > 0 || index($0, id) > 0) { print; exit }' <<<"$log_output")"
+  note "latencia de recuperación desde el arranque del worker=${recovery_ms}ms"
+  if [[ -z "$xautoclaim_line" ]]; then
+    chaos2_seed_diagnostics "$id" "$entry_id" "$worker_started_iso"
+    bad "S4-P4-02 seed: no se observó XAUTOCLAIM asociado a $entry_id o $id"
+    return 1
+  fi
+  note "línea XAUTOCLAIM observada: $xautoclaim_line"
+  pass "S4-P4-02 seed: COMPLETED, una transición, un artefacto y sin entradas duplicadas"
+  remove_dead_chaos2_consumer || return 1
+}
+
+chaos2_kill() {
+  local runs="$CHAOS2_RUNS" i id state event_type event_line cid consumer_name entry_id survivor_cid
+  local killed_at_ms killed_at_iso recovery_ms recovery_seconds completed=0 missed=0
+  local log_output xautoclaim_line survivor_number log_prefix
   log "S4-P4-02: worker muere durante la extraccion ($runs repeticiones)"
   WORKER_SCALE_REQUIRED=1
   scale_worker 2 || { bad "no se pudieron escalar dos replicas de extraction-worker"; return 1; }
@@ -927,39 +1200,56 @@ chaos2() {
     }
     id="$NEW_DOC_ID"
     note "iteracion $i/$runs: document_id=$id"
-    IFS='|' read -r event_type cid attribution killed_at < "$TMP_DIR/${id}.event"
+    IFS= read -r event_line < "$TMP_DIR/${id}.event"
+    IFS='|' read -r event_type cid consumer_name entry_id survivor_cid killed_at_ms killed_at_iso <<<"$event_line"
     if [[ "$event_type" != "PROCESSING" ]]; then
       state="$(mongo_doc_state "$id")"
-      note "iteracion $i: cobertura no alcanzada; estado=${event_type#NO_WINDOW} $(jq -r '.status // empty' <<<"$state")"
+      note "iteracion $i: evento=$event_type evidencia=${event_line#*|}; estado=$(jq -r '.status // empty' <<<"$state")"
+      if [[ "$event_type" == "LOST_WINDOW" ]]; then
+        bad "iteracion $i: XPENDING no encontro mensaje pendiente antes del kill; ventana perdida, no demuestra XAUTOCLAIM ni implica fallo del producto"
+        return 1
+      fi
       missed=$((missed + 1))
       continue
     fi
     pass "iteracion $i: ventana PROCESSING alcanzada"
-    note "iteracion $i: SIGKILL al worker $cid (atribucion=$attribution)"
+    note "iteracion $i: XPENDING entry=$entry_id consumer=$consumer_name; SIGKILL al owner=$cid; sobreviviente=$survivor_cid"
 
-    if ! state="$(wait_document_status "$id" 720 15)"; then
+    if ! state="$(wait_document_status "$id" 720 30)"; then
       state="$(mongo_doc_state "$id")"
       bad "iteracion $i: no convergio en 720 s; status=$(jq -r '.status // empty' <<<"$state") history=$(jq -c '.history // []' <<<"$state")"
       return 1
     fi
-    recovery_seconds=$(($(date +%s) - killed_at))
+    recovery_ms=$(($(date +%s%3N) - killed_at_ms))
+    recovery_seconds=$((recovery_ms / 1000))
     if ! assert_completed_once "$id"; then
       state="$(mongo_doc_state "$id")"
       bad "iteracion $i: estado final observado=$(jq -c '{status:.status,history:.history,txt_ref:.txt_ref}' <<<"$state")"
       return 1
     fi
-    killed_at_iso="$(date -d "@$killed_at" --iso-8601=seconds)"
-    log_output="$(compose --profile full logs --no-color --since "$killed_at_iso" extraction-worker 2>&1 || true)"
-    xautoclaim="no observado en logs"
-    if [[ "$log_output" =~ [Xx][Aa][Uu][Tt][Oo][Cc][Ll][Aa][Ii][Mm] ]]; then
-      xautoclaim="si, registrado en logs"
-    elif ((recovery_seconds >= 600)); then
-      xautoclaim="probable por umbral de 600001 ms; sin linea explicita en logs"
+    survivor_number="$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.container-number" }}' "$survivor_cid" 2>/dev/null || true)"
+    log_prefix="extraction-worker-${survivor_number}"
+    if ! log_output="$(compose --profile full logs --no-color --since "$killed_at_iso" extraction-worker 2>&1)"; then
+      bad "iteracion $i: no se pudieron leer logs de extraction-worker desde $killed_at_iso: $log_output"
+      return 1
     fi
-    note "iteracion $i: recuperacion=${recovery_seconds}s; XAUTOCLAIM=$xautoclaim"
+    xautoclaim_line="$(awk -v prefix="$log_prefix" 'tolower($0) ~ /xautoclaim/ && index($0, prefix) > 0 { print; exit }' <<<"$log_output")"
+    note "iteracion $i: recuperacion=${recovery_ms}ms (${recovery_seconds}s); linea XAUTOCLAIM sobreviviente=${xautoclaim_line:-no observada}"
+    if ((recovery_ms < 600000)); then
+      bad "iteracion $i: latencia ${recovery_ms}ms inferior a 600000ms; XAUTOCLAIM no queda demostrado"
+      return 1
+    fi
+    if [[ -z "$xautoclaim_line" ]]; then
+      bad "iteracion $i: no se encontro linea XAUTOCLAIM en los logs de $log_prefix; escenario no validado"
+      return 1
+    fi
     completed=$((completed + 1))
   done
   note "cobertura PROCESSING: alcanzada=$completed/$runs no_alcanzada=$missed/$runs"
+  if ((missed > 0)); then
+    bad "S4-P4-02: cobertura PROCESSING incompleta ($completed/$runs); repetir para obtener evidencia"
+    return 1
+  fi
   pass "S4-P4-02: $completed repeticiones convergieron; cobertura no alcanzada=$missed"
 }
 
@@ -1043,7 +1333,7 @@ record_case() {
   fi
 }
 
-log "API_BASE=$API_BASE proyecto=$PROJECT redis_down=${REDIS_DOWN_SECONDS}s chaos1_runs=${CHAOS1_RACE_RUNS} chaos2_runs=${CHAOS2_RUNS} full=$FULL strict_relay=$STRICT_RELAY"
+log "API_BASE=$API_BASE proyecto=$PROJECT redis_down=${REDIS_DOWN_SECONDS}s chaos1_runs=${CHAOS1_RACE_RUNS} chaos2_runs=${CHAOS2_RUNS} chaos2_mode=$CHAOS2_MODE full=$FULL strict_relay=$STRICT_RELAY"
 preflight
 
 if ((RUN_CHAOS1 == 1)); then
@@ -1065,7 +1355,11 @@ if ((RUN_CHAOS2 == 1)); then
   CASE_ENV_BLOCKED=0
   case_result=0
   restore_failed=0
-  chaos2 || case_result=$?
+  if [[ "$CHAOS2_MODE" == "seed" ]]; then
+    chaos2_seed || case_result=$?
+  else
+    chaos2_kill || case_result=$?
+  fi
   if ! restore_one_worker; then
     restore_failed=1
   fi

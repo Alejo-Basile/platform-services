@@ -270,3 +270,18 @@ func readCacheFile(path string) (map[string]string, error) {
 	}
 	return m, nil
 }
+
+func TestInvalidPolicyReportsRejectedKey(t *testing.T) {
+	cache := NewCache(filepath.Join(t.TempDir(), "config-cache.json"))
+	m, _ := newManagerForTest(t, &Client{Disabled: true}, cache)
+
+	var rejected []string
+	m.Hooks.OnReject = func(key string) { rejected = append(rejected, key) }
+
+	if err := m.ApplyValues(map[string]string{"sensitive_routes": "not-a-route"}); err == nil {
+		t.Fatal("expected a parse error for a malformed route")
+	}
+	if len(rejected) != 1 || rejected[0] != "sensitive_routes" {
+		t.Fatalf("rejected = %v, want [sensitive_routes]", rejected)
+	}
+}

@@ -1,6 +1,7 @@
 package configkv
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -8,21 +9,34 @@ import (
 	"testing"
 )
 
-// repoRoot sube desde el directorio del test hasta la raíz del repositorio,
-// identificada por el oracle de fixtures compartido de C10.
-func repoRoot(t *testing.T) string {
+// fixturesDir devuelve el directorio con los fixtures de C10 vendorizados en
+// el paquete. El CI clona solo este repositorio, por lo que el test no puede
+// depender de un checkout hermano de infra/.
+func fixturesDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return filepath.Join(dir, "testdata")
+}
+
+// sharedOracleDir busca el oracle compartido de C10 en un checkout hermano de
+// infra/. Devuelve "" cuando no existe, como ocurre en CI.
+func sharedOracleDir(t *testing.T) string {
 	t.Helper()
 	dir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
 	for {
-		if _, err := os.Stat(filepath.Join(dir, "infra", "compose", "consul", "testdata")); err == nil {
-			return dir
+		candidate := filepath.Join(dir, "infra", "compose", "consul", "testdata")
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			return candidate
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			t.Fatalf("no se encontro infra/compose/consul/testdata subiendo desde %s", dir)
+			return ""
 		}
 		dir = parent
 	}
@@ -38,10 +52,10 @@ type manifest struct {
 }
 
 // TestFixtureParity es el oracle de paridad de C10: cada fixture
-// rate-limiter.*.json debe producir exactamente el veredicto del manifest.
+// rate-limiter.*.json vendorizado debe producir exactamente el veredicto del
+// manifest.
 func TestFixtureParity(t *testing.T) {
-	root := repoRoot(t)
-	td := filepath.Join(root, "infra", "compose", "consul", "testdata")
+	td := fixturesDir(t)
 
 	raw, err := os.ReadFile(filepath.Join(td, "manifest.json"))
 	if err != nil {
@@ -92,6 +106,48 @@ func TestFixtureParity(t *testing.T) {
 	}
 	if seen != 6 {
 		t.Fatalf("fixtures rate-limiter encontrados = %d, want 6", seen)
+	}
+}
+
+// TestVendoredFixturesMatchSharedOracle detecta deriva entre la copia
+// vendorizada y el oracle de infra/ cuando ambos repositorios estan presentes
+// en el workspace. En CI el oracle no existe y la copia vendorizada es la
+// referencia.
+func TestVendoredFixturesMatchSharedOracle(t *testing.T) {
+	oracle := sharedOracleDir(t)
+	if oracle == "" {
+		t.Log("oracle compartido infra/compose/consul/testdata ausente: se usan los fixtures vendorizados")
+		return
+	}
+
+	raw, err := os.ReadFile(filepath.Join(oracle, "manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var man manifest
+	if err := json.Unmarshal(raw, &man); err != nil {
+		t.Fatal(err)
+	}
+	names := []string{"manifest.json"}
+	for _, f := range man.Fixtures {
+		if strings.HasPrefix(f.File, "rate-limiter.") {
+			names = append(names, f.File)
+		}
+	}
+
+	local := fixturesDir(t)
+	for _, name := range names {
+		got, err := os.ReadFile(filepath.Join(local, name))
+		if err != nil {
+			t.Fatalf("%s falta en la copia vendorizada: %v", name, err)
+		}
+		want, err := os.ReadFile(filepath.Join(oracle, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(got, want) {
+			t.Fatalf("%s difiere del oracle compartido %s; actualizar la copia vendorizada", name, oracle)
+		}
 	}
 }
 

@@ -7,8 +7,8 @@ import (
 
 // Rejection describe una clave rechazada y el motivo. Los motivos son parte
 // del contrato C10 y deben coincidir con el oracle de
-// infra/compose/consul/testdata/manifest.json: malformed_json, type, range,
-// unknown_key y coherence.
+// infra/compose/consul/testdata/manifest.json (copia vendorizada en
+// testdata/): malformed_json, type, range, unknown_key y coherence.
 type Rejection struct {
 	Key    string
 	Reason string

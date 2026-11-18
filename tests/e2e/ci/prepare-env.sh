@@ -159,9 +159,15 @@ if [[ "$MODE" == "ci" ]]; then
 
   # Traefik monta el htpasswd de la UI de Consul y hoy infra no lo genera en
   # ningun script versionado: sin el archivo, el contenedor ni siquiera arranca.
+  # La password entra por stdin (no por argv) y el hash se valida antes de
+  # escribir para no dejar un archivo malformado que el guard `-s` nunca regenere.
   if [[ ! -s "$SECRETS_DIR/consul_ui_users.txt" ]]; then
-    printf 'consul:%s\n' "$(openssl passwd -apr1 "$(rand_hex 16)")" \
-      > "$SECRETS_DIR/consul_ui_users.txt"
+    ui_password="$(rand_hex 16)"
+    ui_hash="$(printf '%s\n' "$ui_password" | openssl passwd -apr1 -stdin)"
+    unset ui_password
+    [[ "$ui_hash" == "\$apr1\$"* ]] \
+      || fail "openssl no genero un hash apr1 para el htpasswd de la UI de Consul"
+    printf 'consul:%s\n' "$ui_hash" > "$SECRETS_DIR/consul_ui_users.txt"
     chmod 0644 "$SECRETS_DIR/consul_ui_users.txt"
   fi
   log "htpasswd de la UI de Consul listo"
@@ -169,7 +175,7 @@ else
   missing=()
   for required in consul_ca_cert.pem consul_doc_service_token.txt \
                   consul_ratelimitd_token.txt consul_worker_token.txt \
-                  consul_ui_users.txt; do
+                  consul_prometheus_token.txt consul_ui_users.txt; do
     [[ -s "$SECRETS_DIR/$required" ]] || missing+=("$required")
   done
   if (( ${#missing[@]} > 0 )); then

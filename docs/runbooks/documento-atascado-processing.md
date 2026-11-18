@@ -27,8 +27,9 @@ objetos y sin perder evidencia. Si no existe una operación soportada, escalar.
 4. `doc-service` valida el objeto, lo pasa a `QUEUED` y publica un mensaje en
    `stream:pdf-processing` (grupo `extraction-workers`).
 5. `extraction-worker` reclama el mensaje, pasa el documento a `PROCESSING`,
-   descarga el PDF, extrae el texto, sube `<document_id>.txt` al bucket
-   `extracted-txt` y, si todo sale bien, lo pasa a `COMPLETED`.
+   descarga el PDF, extrae el texto, sube el artefacto textual al bucket
+   `extracted-txt` (en este stack, `<document_id>.md`) y, si todo sale bien, lo
+   pasa a `COMPLETED`.
 6. Si falla la infraestructura, el mensaje queda en la PEL y se reintenta. Si se
    agota el presupuesto, va a `stream:pdf-processing-dlq` y el documento queda en
    `EXTRACTION_FAILED`. Si el PDF es inválido, el documento queda en `REJECTED`.
@@ -186,7 +187,8 @@ Para el documento elegido, capture:
 - Si el mensaje está en el stream, en la PEL o en la DLQ, con `id`,
   `delivery_count` e `idle_ms`.
 - Estado del worker (`healthy`, `Restarting`, logs).
-- Existencia del PDF en `raw-pdfs` y del `.txt` en `extracted-txt`.
+- Existencia del PDF en `raw-pdfs` y del artefacto indicado por `txt_ref` en
+  `extracted-txt` (en este stack puede tener extensión `.md`).
 
 No reinicie ni borre nada hasta tener esta foto. La evidencia es lo que permite
 decidir entre reintentar y escalar.
@@ -291,10 +293,16 @@ stream fue recreado, escale: no recree el grupo a mano.
 **F. No hay mensaje en stream, PEL ni DLQ**
 
 Es el caso de un mensaje perdido: el estado quedó en `PROCESSING`, pero no hay
-trabajo reclamable. No existe un endpoint soportado para
-`PROCESSING → RETRYING` y el reconciliador solo detecta estos estados, no los
-repara. Escale al owner del pipeline con la evidencia. No actualice `status` en
-Mongo a mano y no invente un mensaje con `XADD`.
+trabajo reclamable. Cuando `updated_at` ya supera el umbral de 30 minutos,
+ejecute una vez el reconciliador manual de la sección 6. En este stack, el
+reconciliador detecta el `PROCESSING` atascado y lo pasa a `RETRYING`; después,
+siga la acción de retry de la sección 6. Verifique en Mongo y en stream/PEL que
+el mensaje efectivamente exista: una respuesta `"reenqueued": true` por sí sola
+no demuestra que se publicó ni que el documento terminó. Si el documento sigue
+en `RETRYING`, no aparece una entrada reclamable o no llega a terminal, escale al
+owner del pipeline con la evidencia. El endpoint de reconcile es global y puede
+actuar sobre otros documentos; revise el alcance antes de ejecutarlo. No
+actualice `status` en Mongo a mano y no invente un mensaje con `XADD`.
 
 ### Paso 3: ¿el PDF y el texto existen en MinIO?
 
@@ -306,7 +314,7 @@ else
   echo "object_key vacío: revise el documento en Mongo"
 fi
 
-# txt_ref es <document_id>.txt, sin prefijo de bucket.
+# txt_ref es el nombre del objeto en extracted-txt, sin prefijo de bucket.
 if [[ -n "${TXT_REF:-}" ]]; then
   mc_in_minio stat "local/extracted-txt/${TXT_REF}" || true
 else
@@ -318,10 +326,10 @@ Casos:
 
 - **PDF ausente:** el worker no puede procesar. No hay transición soportada desde
   `PROCESSING` por objeto faltante. Escale y conserve la evidencia.
-- **PDF presente y `.txt` presente:** la extracción probablemente terminó, pero
-  la actualización de estado no se aplicó. No borre el `.txt` ni marque el
-  documento a mano. Capture la evidencia y escale.
-- **PDF presente y `.txt` ausente:** consistente con un procesamiento que no
+- **PDF presente y el objeto indicado por `txt_ref` presente:** la extracción
+  probablemente terminó, pero la actualización de estado no se aplicó. No borre
+  el artefacto ni marque el documento a mano. Capture la evidencia y escale.
+- **PDF presente y el objeto indicado por `txt_ref` ausente:** consistente con un procesamiento que no
   terminó. Continúe con el diagnóstico de worker/cola.
 
 ### Paso 4: ¿Mongo está sano y la transición es posible?
@@ -344,8 +352,8 @@ esperada, no fuerce el estado: escale.
 | Lag > 0, worker sano | Revisar logs y reiniciar el worker | No, si se recupera |
 | Mensaje en DLQ, error transitorio | Replay de DLQ según `reintentar-dlq.md` | No |
 | Mensaje en DLQ, error de negocio | No reemitir; cerrar por compensación | Sí |
-| Sin mensaje en stream/PEL/DLQ | No hay operación soportada | Sí |
-| `.txt` presente con estado `PROCESSING` | No borrar; investigar la actualización de estado | Sí |
+| Sin mensaje en stream/PEL/DLQ y `PROCESSING` > 30 min | Reconcile una vez; si queda `RETRYING`, usar retry y verificar stream/PEL | Si no hay reencolado o terminal |
+| Artefacto textual presente con estado `PROCESSING` | No borrar; investigar la actualización de estado | Sí |
 | PDF ausente | No hay transición soportada | Sí |
 | Mongo caído | Recuperar Mongo y reintentar el diagnóstico | No, si se recupera |
 
@@ -364,13 +372,18 @@ esperada, no fuerce el estado: escale.
 
 ### Disparar el reconciliador
 
-Es seguro ejecutarlo para los estados que repara (`PENDING_UPLOAD`, `UPLOADED`,
-`QUEUED`). No repara `PROCESSING`, `RETRYING` ni `COMPENSATING`.
+Puede ejecutarse para `PENDING_UPLOAD`, `UPLOADED`, `QUEUED` y para un
+`PROCESSING` cuyo `updated_at` supere el umbral de 30 minutos. En este último
+caso, compruebe la transición a `RETRYING` y continúe con la acción de retry de
+abajo. La operación es global, no limitada al `DOC`, y también puede ejecutar
+otros barridos; no la confunda con una acción de solo lectura. No repara
+`RETRYING` ni `COMPENSATING`.
 
 ```bash
 "${C[@]}" exec -T doc-service sh -c '
+  TOKEN=$(cat /run/secrets/internal_token)
   wget -qO- \
-    --header="X-Internal-Token: $INTERNAL_TOKEN" \
+    --header="X-Internal-Token: $TOKEN" \
     --post-data="" \
     http://localhost:8080/internal/reconcile
 '
@@ -382,8 +395,9 @@ Es seguro ejecutarlo para los estados que repara (`PENDING_UPLOAD`, `UPLOADED`,
 DOC="DOC_ID"
 
 "${C[@]}" exec -T -e P4_DOC="$DOC" doc-service sh -c '
+  TOKEN=$(cat /run/secrets/internal_token)
   wget -qO- \
-    --header="X-Internal-Token: $INTERNAL_TOKEN" \
+    --header="X-Internal-Token: $TOKEN" \
     --header="Content-Type: application/json" \
     --post-data="{}" \
     "http://localhost:8080/internal/documents/$P4_DOC/retry"
@@ -392,10 +406,24 @@ DOC="DOC_ID"
 
 Respuestas esperadas:
 
-- 200 con `"reenqueued": true` si el mensaje se publicó.
+- 200 con `"reenqueued": true` si el encolado no devolvió error.
 - 409 si el estado no es `RETRYING` ni `EXTRACTION_FAILED`.
 - 503 si la transición se aplicó pero el encolado falló. El documento queda en
   `RETRYING`; reintente la operación.
+
+> **`reenqueued: true` no garantiza que se publicó un mensaje.** El encolado
+> deduplica por documento con `SETNX` sobre `dedup:<document_id>` y TTL de
+> 10 minutos (`doc-service/internal/adapters/redis/queue.go:73-85`, `DedupTTL`).
+> Si la marca sigue viva, `Enqueue` devuelve nil sin hacer `XADD`, y la API
+> responde `reenqueued: true`. Es el caso de un reintento dentro de los 10
+> minutos posteriores al encolado original.
+
+Después de un 200, confirme que hay una entrada del documento en el stream o en
+la PEL y que alcanza un estado terminal. Si no aparece en ninguno de los dos y el
+documento sigue en `RETRYING`, revise si pasaron menos de 10 minutos desde el
+encolado original: espere a que expire la marca de deduplicación y repita el
+retry una sola vez. Si aun así no aparece, escale; no repita el endpoint
+indefinidamente ni use `XADD` manual.
 
 ### Cancelar `PENDING_UPLOAD`
 
@@ -405,8 +433,9 @@ Solo aplica a `PENDING_UPLOAD`; cualquier otro estado devuelve 409.
 DOC="DOC_ID"
 
 "${C[@]}" exec -T -e P4_DOC="$DOC" doc-service sh -c '
+  TOKEN=$(cat /run/secrets/internal_token)
   wget -qO- \
-    --header="X-Internal-Token: $INTERNAL_TOKEN" \
+    --header="X-Internal-Token: $TOKEN" \
     --post-data="" \
     "http://localhost:8080/internal/documents/$P4_DOC/cancel"
 '
@@ -442,7 +471,8 @@ fi
 
 Criterios:
 
-- El documento llegó a `COMPLETED` y `txt_ref` existe en `extracted-txt`, o
+- El documento llegó a `COMPLETED` y el objeto señalado por `txt_ref` existe en
+  `extracted-txt`, o
 - Llegó a un terminal con causa (`FAILED`, `REJECTED`, `UPLOAD_EXPIRED`) y la
   causa está registrada.
 - La PEL y la DLQ no contienen el mensaje del documento.
@@ -459,7 +489,8 @@ Criterios:
 
 **Escalar** cuando:
 
-- No hay mensaje reclamable para un `PROCESSING`.
+- Después de reconcile/retry, no aparece un mensaje reclamable o el documento no
+  llega a un estado terminal.
 - El error es de negocio o de contrato.
 - El estado y los objetos de MinIO son inconsistentes.
 - El documento está en `COMPENSATING`.
@@ -475,7 +506,8 @@ Criterios:
 - No borrar objetos de `raw-pdfs` ni `extracted-txt` para "destrabar".
 - No usar `--all` en el replay de DLQ sin aprobación.
 - No ejecutar `docker compose down -v`.
-- No marcar un documento como `COMPLETED` si el `.txt` no existe.
+- No marcar un documento como `COMPLETED` si el objeto señalado por `txt_ref` no
+  existe.
 
 ## 10. Registro de ensayo
 

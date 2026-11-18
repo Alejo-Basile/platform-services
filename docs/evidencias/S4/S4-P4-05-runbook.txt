@@ -1,150 +1,237 @@
-# S4-P4-05 — Guía de documentos atascados (BORRADOR)
+# S4-P4-05 — Validación operativa del runbook de PROCESSING
 
-**Fecha:** 2026-11-09
-**Estado:** BORRADOR — validación real bloqueada por G-B (sin worker)
-**Depende de:** S3-P4-03 (matriz de estados)
-**Autor:** P4
+Fecha: 2026-11-18
+Commit probado: 9f42fce50937cfa9388f168c9cbd72efb88a779e
+Entorno: Docker Compose local, rama `feat/p4-s4-chaos-harness`
+Operador: persona distinta de quien escribió el runbook
 
----
+## Preparación y caso sembrado
 
-## 1. Propósito
+Comando previo requerido: `tests/e2e/chain/run.sh --runs 1` → exit 0, OK 1/1;
+`chain-1794972686-76a4ef7e3a76` llegó a `COMPLETED` con artefacto
+`chain-1794972686-76a4ef7e3a76.md`.
 
-Guía operativa para identificar y resolver documentos que quedaron atascados
-en estados no terminales del pipeline. Un documento está "atascado" cuando
-lleva más tiempo del esperado en un estado sin avanzar.
+Se detuvo solo el worker con `docker compose ... stop extraction-worker` (0
+réplicas durante la siembra; no se bajó el stack). Se creó el documento por
+`POST /api/v2/documents` → HTTP 201 y se subió el fixture
+`tests/fixtures/pdf/baseline-0001.pdf` al URL prefirmado → HTTP 204. El webhook y
+relay reales lo llevaron a `QUEUED`; su historial contiene los eventos reales
+`PENDING_UPLOAD`, `UPLOADED` y `QUEUED`. El documento fue
+`runbook-p405-1794972812-24565`, `correlation_id=chaos-runbook-p405-1794972812-24565`,
+`object_key=raw-pdfs/runbook-p405-1794972812-24565.pdf` y el mensaje fue
+`1794972821768-0` en `stream:pdf-processing`.
 
-## 2. Estados del pipeline
+Para reproducir el estado post-crash determinista se ejecutó una actualización
+Mongo únicamente sobre ese documento: `db.documents.updateOne({_id:'runbook-p405-1794972812-24565',status:'QUEUED'}, {$set:{status:'PROCESSING',updated_at:new Date(Date.now()-31*60*1000)},$push:{status_history:{status:'PROCESSING',actor:'worker',correlation_id:'chaos-runbook-p405-1794972812-24565'}}}).modifiedCount` → 1.
+El `status_history` fue el registro de worker sembrado por la prueba, con el
+correlation ID real; no se presenta como una transición ejecutada por el worker.
+Se retrodató `updated_at` 31 minutos solo para simular la antigüedad sin esperar
+el umbral. Después se ejecutó `XDEL stream:pdf-processing 1794972821768-0` → 1,
+dejando el mensaje perdido fuera del stream y sin PEL. Se reinició el worker y
+quedó healthy. La escritura Mongo y `XDEL` fueron exclusivamente preparación
+del caso, según la autorización expresa de la solicitud; no se usaron para
+resolverlo.
 
-| Estado | Tipo | Descripción |
-|---|---|---|
-| `PENDING_UPLOAD` | No terminal | Creado, esperando subida del PDF |
-| `UPLOADED` | No terminal | PDF subido a MinIO, esperando encolado |
-| `QUEUED` | No terminal | Mensaje en Redis Streams, esperando worker |
-| `PROCESSING` | No terminal | Worker extrayendo texto |
-| `RETRYING` | No terminal | Extracción falló, esperando reintento |
-| `EXTRACTION_FAILED` | No terminal | Extracción falló, puede necesitar compensación |
-| `COMPENSATING` | No terminal | Ejecutando compensación por fallo |
-| `COMPLETED` | Terminal | Éxito — `.txt` disponible |
-| `FAILED` | Terminal | Fallo definitivo |
-| `REJECTED` | Terminal | Rechazado (PDF inválido, etc.) |
-| `UPLOAD_EXPIRED` | Terminal | Upload vencido sin subida |
+## Transcripción del runbook y observaciones
 
-## 3. Diagnóstico rápido
+La shell se preparó desde `platform-services` con el bloque §2 del runbook:
+`WORKSPACE_ROOT="$(cd .. && pwd)"`, `DOCKER_GID` desde `/var/run/docker.sock`,
+`PROJECT=infra`, `REDIS_STREAM_KEY=stream:pdf-processing` y
+`C=(docker compose -f "$WORKSPACE_ROOT/infra/compose/docker-compose.yml" --env-file "$WORKSPACE_ROOT/infra/.env" -p "$PROJECT" --profile full)`.
+Se definieron `mongo_eval`, `redis_cli`, `stream_entries_for` y `mc_in_minio`
+con los cuerpos de §2; las salidas de secretos se mantuvieron dentro de los
+contenedores. Variables del caso: `DOC=runbook-p405-1794972812-24565`,
+`OBJECT_KEY=raw-pdfs/runbook-p405-1794972812-24565.pdf` y
+`MSG_ID=1794972821768-0` (el mensaje ya había sido eliminado antes de este
+diagnóstico).
 
-### 3.1 Consultar documentos atascados
-
-```bash
-# Documentos no terminales con más de 30 minutos
-docker compose exec -T mongo mongosh --quiet -u root -p "$MONGO_INITDB_ROOT_PASSWORD" \
-  --authenticationDatabase admin documents --eval '
-  db.documents.find({
-    status: { $nin: ["COMPLETED","FAILED","REJECTED","UPLOAD_EXPIRED"] },
-    updated_at: { $lt: new Date(Date.now() - 30*60*1000) }
-  }).forEach(function(d) {
-    print(d._id + " | " + d.status + " | " + d.updated_at + " | " + (d.correlation_id||""));
-  })
-'
-```
-
-### 3.2 Ver historial de un documento
-
-```bash
-docker compose exec -T mongo mongosh --quiet -u root -p "$MONGO_INITDB_ROOT_PASSWORD" \
-  --authenticationDatabase admin documents --eval '
-  var d = db.documents.findOne({_id: "DOCUMENT_ID"});
-  printjson(d.history || []);
-'
-```
-
-### 3.3 Verificar mensaje en Redis Streams
+Comandos de diagnóstico ejecutados según las secciones indicadas:
 
 ```bash
-docker compose exec -T redis-streams redis-cli -a "$REDIS_PASSWORD" --no-auth-warning \
-  XRANGE stream:pdf-processing - + COUNT 100 | grep DOCUMENT_ID
+mongo_eval 'db.documents.aggregate([{$group:{_id:"$status",n:{$sum:1}}},{$sort:{n:-1}}]).forEach(printjson);'
+mongo_eval 'var cutoff=Date.now()-20*60*1000; db.documents.find({status:"PROCESSING"}).forEach(function(d){var t=d.updated_at instanceof Date?d.updated_at.getTime():Date.parse(d.updated_at); if(isFinite(t)&&t<cutoff) printjson({id:d._id,status:d.status,updated_at:d.updated_at,age_min:Math.round((Date.now()-t)/60000),object_key:d.object_key,txt_ref:d.txt_ref,failure_reason:d.failure_reason,correlation_id:d.correlation_id});});'
+mongo_eval "var d=db.documents.findOne({_id:'$DOC'}); printjson({id:d._id,status:d.status,created_at:d.created_at,updated_at:d.updated_at,object_key:d.object_key,txt_ref:d.txt_ref,failure_reason:d.failure_reason,correlation_id:d.correlation_id,schema_version:d.schema_version,history:d.history,status_history:d.status_history});"
+"${C[@]}" ps -a extraction-worker
+"${C[@]}" exec -T extraction-worker curl -fsS http://localhost:8081/readyz
+"${C[@]}" exec -T extraction-worker sh /entrypoint.sh /usr/local/bin/extraction-worker --inspect-pel
+redis_cli XINFO GROUPS "$REDIS_STREAM_KEY"
+stream_entries_for "$DOC"
+redis_cli XPENDING "$REDIS_STREAM_KEY" extraction-workers - + 100
+redis_cli --raw XPENDING "$REDIS_STREAM_KEY" extraction-workers "$MSG_ID" "$MSG_ID" 1
+"${C[@]}" exec -T extraction-worker sh /entrypoint.sh /usr/local/bin/extraction-worker --inspect-dlq --limit 1000
+mc_in_minio stat "local/raw-pdfs/${OBJECT_KEY}"
+mongo_eval 'printjson(db.hello())'
+mongo_eval 'printjson(db.documents.getIndexes().map(i => i.name))'
 ```
 
-## 4. Escenarios y resolución
+### 1. Identificar edad y estado — §3.1–3.3
 
-### 4.1 PENDING_UPLOAD atascado
+- `db.documents.aggregate([{$group:{_id:"$status",n:{$sum:1}}},{$sort:{n:-1}}])`
+  → se observó el documento de prueba en `PROCESSING` y un `PENDING_UPLOAD`
+  preexistente, que no se alteró.
+- Consulta indicada para `PROCESSING` de más de 20 minutos → documento de prueba
+  con `age_min: 32`, `updated_at=2026-11-18T03:02:54.627Z`, sin `txt_ref` ni
+  `failure_reason`; `object_key` y `correlation_id` coinciden con la siembra.
+- Consulta de detalle → `status=PROCESSING`; `history` conserva los tres eventos
+  reales del API/webhook/relay y `status_history` contiene el registro de prueba.
+- Evaluación: correcta; la consulta normaliza el tipo de fecha y el resultado
+  identifica el caso.
 
-**Causa:** El cliente creó el documento pero nunca subió el PDF.
+### 2. Worker y cola — §5, pasos 1–2
 
-**Resolución:** El reconciliador marca `UPLOAD_EXPIRED` cuando vence `expires_at`.
-Si `expires_at` ya pasó y no se marcó:
+- `docker compose ... ps -a extraction-worker` → una réplica `Up (healthy)`.
+- `docker compose ... exec -T extraction-worker curl -fsS http://localhost:8081/readyz`
+  → `{"status":"ok","checks":{"redis":"ok","redis_group":"ok","minio":"ok","mongo":"ok"}}`.
+- Logs del worker de los últimos 30 minutos filtrados por el ID → ninguna línea
+  del documento; evaluación: información suficiente.
+- `--inspect-pel` → `pending_count: 0`, `entries: []`.
+- `XINFO GROUPS stream:pdf-processing` → grupo `extraction-workers`,
+  `pending=0`; `XPENDING ... - + 100` → vacío; `XPENDING` por el ID de entrada
+  exacto → vacío.
+- `stream_entries_for "$DOC"` y `XRANGE` del ID → sin entrada (el `XDEL` de
+  siembra había devuelto 1).
+- `--inspect-dlq --limit 1000` → profundidad global 24; ninguna entrada del
+  documento.
+- Evaluación: el árbol selecciona correctamente F, mensaje ausente en stream,
+  PEL y DLQ. El runbook original indicaba escalar y no ofrecía una resolución.
 
-```bash
-# Forzar reconciliación (API_BASE: host público de la API en Traefik)
-curl -X POST "$API_BASE/internal/reconcile" \
-  -H "Authorization: Bearer $INTERNAL_TOKEN" \
-  -H "Content-Type: application/json"
-```
+### 3. Objetos y Mongo — §5, pasos 3–4
 
-### 4.2 UPLOADED atascado (sin mensaje en stream)
+- `mc_in_minio stat "local/raw-pdfs/${OBJECT_KEY}"` (comando literal del
+  runbook) → OK, PDF de 609 bytes. `txt_ref` está vacío; `mc stat` para los
+  candidatos `.txt` y `.md` del documento → ambos ausentes. No hay texto huérfano.
+- `mongo_eval 'printjson(db.hello())'` → `ok: 1`, replica set `rs0`, primary
+  writable `mongo:27017`.
+- `mongo_eval 'printjson(db.documents.getIndexes().map(i => i.name))'` →
+  `_id_`, `status_1`, `updated_at_1`, `expires_at_1`.
+- Evaluación: diagnóstico de objetos correcto; Mongo sano y el caso coincide con
+  el escenario de mensaje perdido.
 
-**Causa:** El webhook de MinIO falló o el relay no reencoló tras una caída de Redis.
+### 4. Acción del árbol y endpoints documentados
 
-**Resolución:**
-1. Verificar que el objeto existe en MinIO (`mc stat local/raw-pdfs/<key>`)
-2. Forzar reconciliación (endpoint interno)
-3. Si el relay no reencola (doc-service#55), el reconciliador lo recupera
+- Acción original para F: escalar; el runbook afirmaba que reconcile no repara
+  `PROCESSING`. No se alteró Mongo ni Redis como acción operativa.
+- Se probó adicionalmente el comando de `POST /internal/reconcile` de §6. La
+  forma publicada era:
 
-### 4.3 QUEUED atascado (mensaje en stream, sin worker)
+  ```bash
+  "${C[@]}" exec -T doc-service sh -c '
+    wget -qO- --header="X-Internal-Token: $INTERNAL_TOKEN" --post-data="" \
+      http://localhost:8080/internal/reconcile
+  '
+  ```
 
-**Causa:** El worker no está levantado o no procesa el mensaje.
+  `$INTERNAL_TOKEN` no estaba definido dentro del contenedor; logs de
+  `doc-service` registraron HTTP 401 (`token inválido o ausente`). El secreto
+  sí está montado en `/run/secrets/internal_token`.
+- Con el mismo comando leyendo el secreto dentro del contenedor:
 
-**Resolución:**
-1. Verificar worker: `docker compose ps extraction-worker`
-2. Verificar consumer group: `docker compose exec redis-streams redis-cli -a "$PW" XINFO GROUPS stream:pdf-processing`
-3. Verificar PEL (Pending Entries List): `XINFO GROUPS` muestra `pending`
-4. Si el mensaje está en PEL hace tiempo, `XAUTOCLAIM` lo reasigna (lo hace el worker)
+  ```bash
+  "${C[@]}" exec -T doc-service sh -c '
+    TOKEN=$(cat /run/secrets/internal_token)
+    wget -qO- --header="X-Internal-Token: $TOKEN" --post-data="" \
+      http://localhost:8080/internal/reconcile
+  '
+  ```
 
-### 4.4 PROCESSING atascado
+  `POST /internal/reconcile` devolvió HTTP 200:
+  `{"expired_pending":0,"recovered_uploaded":0,"reenqueued":1,"stuck_detected":1,"orphans_purged":0,"completed_no_txt":0,"errors":0,"lock_acquired":true,"dry_run":false,"planned_actions":9,"executed_actions":2}`.
+  Mongo pasó a `RETRYING`, con `history` de actor `reconciler`. La llamada tomó
+  aproximadamente un segundo; no se esperó otro ciclo de 30 minutos. Esto
+  contradice la afirmación original de que el reconciliador solo detecta y no
+  repara `PROCESSING`.
+- Se ejecutó una vez el retry documentado para el estado `RETRYING` con el token
+  leído del secreto:
 
-**Causa:** El worker se cayó durante el procesamiento o el job timeout no se disparó.
+  ```bash
+  "${C[@]}" exec -T -e P4_DOC="$DOC" doc-service sh -c '
+    TOKEN=$(cat /run/secrets/internal_token)
+    wget -qO- --header="X-Internal-Token: $TOKEN" \
+      --header="Content-Type: application/json" --post-data="{}" \
+      "http://localhost:8080/internal/documents/$P4_DOC/retry"
+  '
+  ```
 
-**Resolución:**
-1. El `WORKER_MIN_IDLE_MS` (600s) + `XAUTOCLAIM` reasigna el mensaje
-2. Verificar que el worker tiene `WORKER_JOB_TIMEOUT_SECS=300` configurado
-3. Si persiste, revisar logs del worker
+  Resultado HTTP 200,
+  `{"document_id":"runbook-p405-1794972812-24565","reenqueued":true,"status":"RETRYING"}`.
+  Sin embargo, `XRANGE`/`XREVRANGE` no mostró entrada para el documento, la PEL
+  siguió vacía, no hubo log de procesamiento del worker y Mongo permaneció en
+  `RETRYING`. El sondeo hasta 300 s terminó por timeout de la herramienta; la
+  lectura inmediata posterior confirmó `RETRYING`. No se invocó `XADD` ni se
+  repitió el endpoint.
+- Evaluación: el runbook original no resolvía el caso y su comando de
+  autenticación devolvía 401. Aun aplicando reconcile + retry, no se produjo un
+  mensaje reclamable ni un estado terminal. Se actualizó la guía para reflejar
+  la transición observada, leer el secreto montado y exigir validar stream/PEL y
+  estado terminal; si no hay entrada, manda escalar sin inventar trabajo.
 
-### 4.5 RETRYING atascado
+## Verificación final y veredicto
 
-**Causa:** Reintentos agotados o worker no procesa reintentos.
+- Estado Mongo final: `RETRYING`, `txt_ref` vacío, `failure_reason` vacío; no
+  llegó a `COMPLETED` ni `FAILED` durante la validación.
+- Cola: cero entradas del documento en stream, PEL y DLQ; cero duplicados
+  observados, pero no se puede declarar resuelto ni consistente como trabajo
+  reencolado porque no hubo mensaje efectivo.
+- MinIO: el PDF original sigue en `raw-pdfs`; no hay `.txt` ni `.md` del
+  documento en `extracted-txt`.
+- El reconcile global intentó purgar objetos huérfanos y encontró `Access
+  Denied`; los logs registraron el circuit breaker MinIO en `open`. Es el
+  bloqueo ambiental conocido de L28; no se modificó infraestructura. El
+  documento `PENDING_UPLOAD` preexistente permaneció sin cambios.
+- `tests/e2e/chain/run.sh --runs 1` antes → exit 0, OK 1/1.
+- `tests/e2e/chain/run.sh --runs 1` después → exit 0, OK 1/1;
+  `chain-1794973466-fa7dcce806c9` llegó a `COMPLETED` con
+  `chain-1794973466-fa7dcce806c9.md`.
+- Verificación final tras los cambios documentales: `tests/e2e/chain/run.sh --runs 1`
+  → exit 0, OK 1/1; `chain-1794973710-daf786bae30d` llegó a `COMPLETED` con
+  `chain-1794973710-daf786bae30d.md`.
+- `docker ps` final → 18 contenedores; 14 con healthcheck `healthy` y cuatro
+  servicios sin healthcheck. `infra-extraction-worker-1` está `Up (healthy)`;
+  exactamente una réplica.
 
-**Resolución:**
-1. Verificar `WORKER_MAX_ATTEMPTS` (default: 5)
-2. Revisar DLQ: `stream:pdf-processing-dlq`
-3. Si está en DLQ, usar replay del worker (S4-P3-01)
+**Veredicto del DoD: NO CUMPLIDO.** El documento real sembrado no alcanzó un
+estado terminal; reconcile lo movió a `RETRYING`, pero ni esa llamada ni el retry
+publicaron un mensaje visible en el stream/PEL. La guía fue corregida para no
+afirmar que reconcile no toca `PROCESSING`, para corregir autenticación y para
+no tratar `reenqueued=true` como evidencia suficiente. La recuperación del caso
+queda pendiente del owner del pipeline; no se maquilla como éxito.
 
-### 4.6 EXTRACTION_FAILED / COMPENSATING atascado
+## Archivos modificados
 
-**Causa:** Fallo de extracción sin compensación ejecutada.
+- `docs/runbooks/documento-atascado-processing.md`: flujo `PROCESSING` viejo,
+  token interno desde el secreto y verificación real de reencolado.
+- `odd/tasks/p4-complete-spec.md`: resultado `L35` y actualización de T3.
+- `docs/evidencias/S4/S4-P4-05-runbook.txt`: esta transcripción y veredicto.
 
-**Resolución:**
-1. Revisar logs del worker para el error de extracción
-2. La compensación debería restaurar el estado
-3. Si no se ejecutó, marcar manualmente como `FAILED` (con `failure_reason`)
+Causa raíz verificada: el retry puede responder `reenqueued: true` sin encolar
+-------------------------------------------------------------------------------
+Durante la validación, `POST /internal/documents/:id/retry` devolvió HTTP 200
+con `reenqueued: true` desde `RETRYING`, pero no apareció ninguna entrada del
+documento en `XRANGE` del stream y el documento siguió en `RETRYING`.
 
-## 5. Herramientas útiles
+Causa, verificada en código:
 
-| Herramienta | Uso |
-|---|---|
-| `tests/e2e/chain/run.sh` | Validar cadena completa (requiere worker) |
-| `tests/e2e/errors/run.sh` | Probar escenarios de error |
-| `tests/e2e/chaos/run.sh` | Probar resiliencia (caos) |
-| `POST /internal/reconcile` | Forzar reconciliador |
-| `mongosh` | Consultar estado de documentos |
-| `redis-cli` | Verificar stream y consumer groups |
+- `doc-service/internal/adapters/redis/queue.go:73-85` — `Enqueue` empieza con
+  una deduplicación `SetNX` sobre `dedup:<document_id>` y, si la marca ya existe,
+  retorna `nil` **sin ejecutar el `XADD`**.
+- `doc-service/internal/adapters/redis/queue.go:41` — `DedupTTL` por defecto son
+  10 minutos.
+- `doc-service/internal/api/internal.go:154-185` — el handler marca
+  `reenqueued = true` cuando `Enqueue` no devuelve error, sin comprobar que se
+  haya publicado nada.
 
-## 6. Prevención
+El caso se sembró a las 03:33:32 y el retry se ejecutó a las 03:42:20, es decir
+8 min 48 s después: dentro de la ventana de deduplicación. Por eso el
+`Enqueue` fue un no-op exitoso y la respuesta afirmó un reencolado que no
+ocurrió.
 
-- Monitorear métrica `docservice_docs_non_terminal` (slo-exporter)
-- Alertar si documentos no terminales > umbral por más de 30 min
-- Verificar `/readyz` del worker regularmente
-- Revisar DLQ periódicamente
+Implicación operativa: el endpoint de retry no reencola un documento que fue
+encolado hace menos de 10 minutos, y el response no lo distingue. La guía quedó
+corregida para exigir la verificación del stream/PEL y recomendar esperar a que
+expire la marca antes de repetir una sola vez.
 
-## 7. Notas
-
-- Este runbook requiere validación con worker real (G-B) para cerrar S4-P4-05
-- La validación debe hacerla una persona distinta de quien lo escribió
-- Evidencia pendiente: `docs/evidencias/S4/S4-P4-05-runbook.txt` + caso resuelto
+Estado del DoD de S4-P4-05: **no cumplido**. La guía permite diagnosticar y
+llevar el caso a `RETRYING`, pero no existe una operación soportada que
+garantice el reencolado dentro de la ventana de deduplicación; el operador debe
+esperar hasta 10 minutos o escalar. No se modifica `doc-service` (fuera del
+alcance de P4).

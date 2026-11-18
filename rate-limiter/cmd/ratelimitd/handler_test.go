@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Alejo-Basile/platform-services/rate-limiter/internal/limiter"
@@ -297,13 +298,15 @@ func TestNonCanonicalExemptPathIsLimited(t *testing.T) {
 	}
 }
 
-func testPolicy(t *testing.T) limiter.Policy {
+func testPolicy(t *testing.T) *atomic.Pointer[limiter.Policy] {
 	t.Helper()
 	policy, err := limiter.ParsePolicy("POST /api/v2/documents=1:1", defaultExemptPaths, defaultWebhookPath, "test-secret")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return policy
+	ptr := &atomic.Pointer[limiter.Policy]{}
+	ptr.Store(&policy)
+	return ptr
 }
 
 func TestWebhookTokenEnvironmentPrecedenceAndFileFallback(t *testing.T) {

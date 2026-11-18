@@ -36,11 +36,17 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
+	"github.com/Alejo-Basile/platform-services/rate-limiter/internal/configkv"
 	"github.com/Alejo-Basile/platform-services/rate-limiter/internal/limiter"
 )
+
+// kvManager guarda el manager del cliente KV para que /metrics publique su
+// estado sin acoplar el paquete configkv al paquete main.
+var kvManager atomic.Pointer[configkv.Manager]
 
 func main() {
 	addr := env("LISTEN_ADDR", ":8090")
@@ -59,6 +65,30 @@ func main() {
 	defer client.Close()
 	lim := limiter.New(client)
 
+	// Política viva: el swap es atómico y handleCheck la lee en cada request.
+	policyPtr := &atomic.Pointer[limiter.Policy]{}
+	policyPtr.Store(&policy)
+
+	kvCtx, kvCancel := context.WithCancel(context.Background())
+	defer kvCancel()
+
+	mgr := configkv.NewManager(configkv.NewClient(), configkv.NewCache(""), policyPtr, policy)
+	mgr.Hooks = configkv.Hooks{
+		OnReject:  recordKVRejection,
+		OnApplied: recordKVApplied,
+	}
+	kvManager.Store(mgr)
+	// Init está acotado a 2 s: Consul caído no retrasa el arranque.
+	mgr.Init()
+	go mgr.Watch(kvCtx)
+	// C17 completa registro/desregistro; aquí solo el gancho no bloqueante.
+	go func() {
+		if err := registerConsulHook(); err != nil {
+			log.Printf("consul registration failed: %v", err)
+			metricConsulRegFailed.Add(1)
+		}
+	}()
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
@@ -71,7 +101,7 @@ func main() {
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 	mux.HandleFunc("/check", func(w http.ResponseWriter, r *http.Request) {
-		handleCheck(w, r, lim, policy)
+		handleCheck(w, r, lim, policyPtr)
 	})
 	mux.HandleFunc("/metrics", handleMetrics)
 
@@ -95,9 +125,23 @@ func main() {
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
 
+	// Detiene el watcher KV antes de cerrar el servidor.
+	kvCancel()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(ctx)
+}
+
+// registerConsulHook es el punto de extensión que C17 convierte en registro y
+// desregistro reales. Aquí no bloquea el serving ni falla el arranque.
+func registerConsulHook() error {
+	name := os.Getenv("SERVICE_NAME")
+	if name == "" {
+		name = "ratelimitd"
+	}
+	log.Printf("consul registration hook listo para %s (implementacion completa en C17)", name)
+	return nil
 }
 
 func redisPasswordFromEnv() (string, error) {
@@ -134,8 +178,13 @@ type rateChecker interface {
 	CheckAll(context.Context, []limiter.Limit) (limiter.Decision, error)
 }
 
-func handleCheck(w http.ResponseWriter, r *http.Request, lim rateChecker, policy limiter.Policy) {
-	plan := policy.Decide(limiter.Request{
+func handleCheck(w http.ResponseWriter, r *http.Request, lim rateChecker, policy *atomic.Pointer[limiter.Policy]) {
+	p := policy.Load()
+	if p == nil {
+		pp := limiter.Policy{}
+		p = &pp
+	}
+	plan := p.Decide(limiter.Request{
 		Method:        forwardedMethod(r),
 		Path:          forwardedPath(r),
 		Authorization: r.Header.Get("Authorization"),

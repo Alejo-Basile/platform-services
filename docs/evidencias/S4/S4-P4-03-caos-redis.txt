@@ -1,72 +1,136 @@
-S4-P4-03 — Redis Streams caído 5 minutos
-==========================================
+S4-P4-03 — Redis Streams caído durante 300 segundos
+====================================================
 
-Estado: PARCIAL (COMPLETED y pérdida por réplica asíncrona bloqueados por G-B)
-Fecha: 2026-10-24
-Commit: 2bc9d56031d8fe9d66c1bb23bbeb9465b63bcade
-Workflow: e2e workflow_dispatch 40135424950
-URL: https://github.com/Alejo-Basile/platform-services/actions/runs/40135424950
-Job: smoke, 10m39s
-Proyecto Compose: p4-e2e
-Stack: imágenes construidas desde main de infra y doc-service; extraction-worker
-no está definido en infra/compose y no participó.
-Issue del relay: https://github.com/Alejo-Basile/doc-service/issues/55
+Estado: PARCIAL. En la última corrida `--all --full`, la creación devolvió
+`HTTP 500` y S4-P4-03 no llegó a detener Redis ni a medir una ventana. Se
+conservan abajo las evidencias históricas de 300 s y 10 s; la medición de
+pérdida por réplica asíncrona y el conteo de recuperados siguen BLOQUEADOS.
+Fecha: 2026-11-17
+Commit platform-services: fc9bf39ed4ccb615eef92d28af464f5856d5fe9e
+Commit fuente doc-service: origin/main 3887c29 (según el despliegue de la corrida)
+Imagen doc-service: doc-service:local
+ID de imagen doc-service: sha256:3d3e1893bec1f5d6bffeb99ffb3c7d8f481ab213d08212756840a0bceec8abe5
+Imagen worker: ghcr.io/alejo-basile/extraction-worker:latest
+ID de imagen worker: sha256:bffe7c579701cd8270aefa5a14412d79c8db82d382494fada49cba4f009d9c64
+Proyecto Compose: infra (stack preexistente; no se levantó ni bajó completo)
 
-Inyección
----------
-- Dos documentos creados y encolados con Redis arriba.
-- Redis Streams detenido durante 300 s reales.
-- Tercer documento subido durante la caída; quedó en UPLOADED.
-- Redis recuperado; las dos entradas previas seguían presentes.
-- El relay no reencoló el tercer documento; se forzó reconciliación retrasando
-  created_at/updated_at 45 minutos y llamando POST /internal/reconcile.
+Comando de la corrida previa
+----------------------------
+P4_CHAOS_REDIS_SECONDS=300 P4_CHAOS1_RACE_RUNS=10 tests/e2e/chaos/run.sh --all --full
 
-Resultado
----------
-PASS: dos documentos previos encolados antes de la caída.
-PASS: documento subido durante la caída quedó en UPLOADED.
-PASS: ventana de caída real de 300 s.
-PASS: Redis volvió.
-PASS: entradas previas preservadas (AOF), una por documento.
-PASS: documento de la caída recuperado por el reconciliador.
-PASS: una sola entrada en el stream por documento.
-BLOCKED: COMPLETED y medición de pérdida con réplica asíncrona requieren G-B.
-Resumen del arnés: PASS=2 FAIL=0 BLOCKED=2 (incluye S4-P4-01).
-El arnés actual agrega KNOWN=n y no cuenta el relay como fallo parcial.
+Resultado de la corrida previa
+------------------------------
+Resumen literal: PASS=2 FAIL=1 BLOCKED=1 KNOWN=0 (exit 1).
+Resultado S4-P4-03: PASS parcial; el arnés reportó `PASS S4-P4-03 parcial`.
+Cobertura S4-P4-01 real (salida literal del arnés): webhook->XADD=0,
+webhook-perdido=0, ya-encolado=10, reconciliador-forzado=0.
 
-Salida (arnés anterior)
------------------------
-[chaos] S4-P4-03: Redis caido 300s con trabajos encolados
-  [PASS] documento previo encolado: chaos3-pre-1792878410-28868
-  [PASS] documento previo encolado: chaos3-pre-1792878411-13856
- Container p4-e2e-redis-streams-1  Stopping
- Container p4-e2e-redis-streams-1  Stopped
-  [INFO] Redis detenido; se sube un documento durante la caida
-  [PASS] documento subido durante la caida quedo UPLOADED
-  [INFO] esperando 299s para completar la ventana
-  [INFO] ventana de caida real: 300s
-  [PASS] Redis recuperado
-  [PASS] una sola entrada en el stream para chaos3-pre-1792878410-28868
-  [PASS] una sola entrada en el stream para chaos3-pre-1792878411-13856
-  [PASS] entradas previas preservadas (AOF)
-  [INFO] relay no recupero el documento de la caida; se fuerza reconciliacion
-  [PASS] documento de la caida recuperado por reconciler
-  [PASS] una sola entrada en el stream para chaos3-during-1792878412-19821
-  [BLOCKED] COMPLETED y perdida por replica asincrona bloqueados por G-B
-  [PASS] S4-P4-03 parcial
-
-Hallazgos
----------
-1. Redis conservó las entradas previas tras la caída y reinicio (AOF).
-2. El relay no recuperó el documento encolado durante la caída. El
-   reconciliador sí. Aplican las mismas observaciones que en S4-P4-01
-   (doc-service#55).
-3. No se midió pérdida con réplica asíncrona porque el worker no está en
-   Compose y no hay consumidor real.
-4. La recuperación por reconciliación se forzó; no se esperó el ciclo natural.
+- Dos documentos anteriores fueron encolados o consumidos con cierre terminal.
+- Duración histórica reportada por el arnés: 300 s (`ventana de caida real: 300s`);
+  esperó 289 s. El cronómetro empieza antes de la orden de parada y termina
+  antes de restaurar Redis; no es una medición separada por sondas de la
+  indisponibilidad efectiva del contenedor.
+- El documento subido durante la caída quedó QUEUED.
+- Redis volvió; las entradas previas se conservaron o ya tenían estado terminal.
+- El documento de la caída fue recuperado por relay y el arnés verificó una
+  sola entrada para cada documento.
+- Los tres documentos alcanzaron COMPLETED; status_history y .txt fueron
+  verificados.
+- BLOCKED: medición de pérdida por réplica asíncrona y conteo de recuperados
+  pendientes, tal como informó el arnés.
 
 Limitaciones
 ------------
-- Solo se detuvo el master de Redis; no se probó failover Sentinel.
-- No se ejecutó el runbook de failover de P1 (owner P1).
-- No se validó COMPLETED ni .txt: dependen de G-B.
+- Aunque el worker real estaba en ejecución y los tres documentos llegaron a
+  COMPLETED, el arnés mantiene BLOQUEADA la medición de pérdida por réplica
+  asíncrona/conteo de recuperados; no se declara cerrado el DoD completo.
+- La corrida detuvo Redis Streams; no valida un failover Sentinel ni el runbook
+  de failover de P1.
+- El resumen PASS/FAIL/BLOCKED/KNOWN corresponde a los tres escenarios de
+  `--all --full`, no solo a S4-P4-03. El FAIL de la variante está detallado en
+  S4-P4-01-caos-doc-service.txt.
+
+Estado final del stack
+----------------------
+`docker ps` posterior mostró los 18 contenedores en ejecución. Los 13
+contenedores con healthcheck estaban healthy; los cinco sin healthcheck
+(ratelimitd, Grafana, Prometheus, Loki y redis-exporter) figuraban Up. La cadena
+posterior `tests/e2e/chain/run.sh --runs 1` terminó OK 1/1 (COMPLETED con .txt).
+
+Reverificación de los tres casos — 2026-11-17
+---------------------------------------------
+Comando: `time P4_CHAOS1_RACE_RUNS=2 P4_CHAOS_REDIS_SECONDS=10 tests/e2e/chaos/run.sh --all --full`
+Duración: `real 23m1,526s`.
+Resumen literal global: `[chaos] resumen: PASS=2 FAIL=1 BLOCKED=1 KNOWN=1` (exit 1).
+
+S4-P4-03 terminó parcial PASS: Redis estuvo caído 10 s, dos documentos previos
+se conservaron o ya estaban COMPLETED, el documento durante la caída se
+recuperó por relay y los tres llegaron a COMPLETED con status_history y .txt.
+Siguió BLOQUEADA la medición de pérdida por réplica asíncrona y conteo de
+recuperados. El FAIL global fue la variante S4-P4-01, detallada en
+S4-P4-01-caos-doc-service.txt; no se atribuye al escenario Redis.
+
+Evidencia final — 2026-11-17
+----------------------------
+Comando: `time P4_CHAOS_REDIS_SECONDS=300 P4_CHAOS1_RACE_RUNS=10 tests/e2e/chaos/run.sh --all --full`
+Duración total: `real 12m48,513s`.
+Resumen literal global: `[chaos] resumen: PASS=2 FAIL=1 BLOCKED=1 KNOWN=1` (exit 1).
+S4-P4-01 terminó con worker real: la carrera fue 10/10 COMPLETED y la variante
+SIGKILL/Redis caído se recuperó por reconciliador hasta COMPLETED. Cobertura de
+la carrera: `webhook->XADD=0 webhook-perdido=0 ya-encolado=10
+reconciliador-forzado=0`.
+S4-P4-03 no llegó a ejecutarse: el arnés emitió
+`[FAIL] --full requiere un servicio extraction-worker en Compose`, aunque
+`docker ps` mostró `infra-extraction-worker-1` Up (healthy). Por lo tanto, en
+esta corrida no hubo ventana medida de 300 s; el cronómetro de la ventana no
+inició. En la corrida previa de 10 s registrada arriba, el arnés reportó
+`ventana de caida real: 10s` y recuperación por relay.
+La limitación de medir pérdida por réplica asíncrona y contar recuperados
+permanece; tampoco se validaron failover Sentinel ni su runbook.
+
+Última corrida de evidencia — 2026-11-17
+-----------------------------------------
+Comando: `time P4_CHAOS_REDIS_SECONDS=300 P4_CHAOS1_RACE_RUNS=10 tests/e2e/chaos/run.sh --all --full > /tmp/chaos-evidence.out 2>&1`
+Commit platform-services: `fc9bf39ed4ccb615eef92d28af464f5856d5fe9e`.
+Fuente de `doc-service:local`: doc-service `origin/main` `3887c29`, según el
+despliegue registrado; ID de imagen verificado: `sha256:3d3e1893bec1f5d6bffeb99ffb3c7d8f481ab213d08212756840a0bceec8abe5`.
+Duración total: `real 0m12,842s`.
+Resumen literal global: `[chaos] resumen: PASS=0 FAIL=3 BLOCKED=0 KNOWN=0` (exit 1).
+Cobertura S4-P4-01: no se emitió el contador. El caso real, la variante y
+S4-P4-03 devolvieron `create HTTP 500` antes de las iteraciones o la preparación
+de documentos; no se asignan valores a webhook->XADD, webhook-perdido,
+ya-encolado ni reconciliador-forzado.
+S4-P4-03: falló durante la creación, antes de detener Redis; la ventana de
+300 s no comenzó y no se midió. El Redis detenido brevemente por la variante
+S4-P4-01 se restauró durante la limpieza y no es una medición de S4-P4-03.
+El último `docker ps` mostró 19 contenedores Up; `infra-redis-streams-1`,
+`infra-doc-service-1` e `infra-extraction-worker-1` estaban healthy. En total,
+15 tenían healthcheck healthy y cuatro no tenían healthcheck.
+
+Limitaciones de la corrida L27: en ese momento la causa interna del HTTP 500 no
+se había determinado. La cadena previa había fallado con `download 500` y no se
+ejecutó una chain posterior a esa corrida. La causa se diagnosticó después y se
+registra en la sección siguiente; la medición de pérdida por réplica
+asíncrona/conteo de recuperados permanece BLOQUEADA, al igual que failover
+Sentinel y su runbook. El falso rechazo previo de `worker_present` quedó
+mitigado con reintentos y no fue el fallo de esa corrida.
+
+Bloqueo de entorno: purga de huérfanos y circuit breaker
+--------------------------------------------------------
+La causa de los HTTP 500 quedó diagnosticada en el stack: la policy MinIO
+`docservice-rw` (`infra/compose/minio/init-buckets.sh:74`) no concede
+`s3:DeleteObject`; solo permite `s3:GetObject`, `s3:ListBucket` y `s3:PutObject`.
+Cada purga de objetos huérfanos del `doc-service` acumula aproximadamente 145
+fallos con el mensaje literal `delete raw-pdfs/raw-pdfs/...: Access Denied`.
+El fallo abre el circuit breaker compartido de MinIO; en los logs de
+`infra-doc-service-1` se observó el estado `open`, y las solicitudes
+`POST /api/v2/documents` y `GET /api/v2/documents/{id}/download` respondieron
+HTTP 500 mientras permanecía abierto.
+
+Impacto: las corridas de caos que coinciden con esa ventana pueden fallar antes
+de inyectar el escenario, durante create o download. La decisión vigente del
+usuario es no modificar infraestructura ni el breaker. Ante un HTTP 500 por
+este bloqueo se espera aproximadamente 2 minutos, se reintenta una vez y, si
+persiste, se registra como bloqueo de entorno, no como FAIL del escenario. Este
+hallazgo no cierra S4-P4-03: la pérdida por réplica asíncrona/conteo de
+recuperados y el failover Sentinel siguen pendientes.

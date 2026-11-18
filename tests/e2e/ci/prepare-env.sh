@@ -8,6 +8,11 @@
 # En modo local NO pisa infra/.env ni los secretos existentes. En modo CI
 # genera todos los valores con openssl y los escribe en infra/.env (ignorado
 # por git). Nunca imprime valores secretos.
+#
+# Desde S11 de infra el stack core/full monta secretos de Consul (CA, tokens
+# ACL y htpasswd de la UI) aunque el perfil `discovery` no se levante. En modo
+# CI se materializan para que Docker Compose no falle con "bind source path
+# does not exist"; en modo local se avisa que faltan.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -125,6 +130,54 @@ if [[ -z "$(env_value DOCKER_GID)" ]]; then
   [[ -n "$docker_gid" ]] || fail "no se pudo resolver el GID del grupo docker"
   set_env DOCKER_GID "$docker_gid"
   log "DOCKER_GID=$docker_gid agregado a $ENV_FILE"
+fi
+
+# --- Material de Consul (infra S11) -------------------------------------------
+# infra declara secretos de Consul que doc-service, ratelimitd,
+# extraction-worker y traefik montan por bind mount aunque el perfil
+# `discovery` no se levante en el E2E. Docker Compose rechaza el `up` si el
+# archivo fuente no existe ("bind source path does not exist"), asi que hay que
+# materializarlos antes del smoke.
+if [[ "$MODE" == "ci" ]]; then
+  [[ -x "$INFRA_DIR/scripts/consul-dev-secrets.sh" ]] \
+    || fail "falta $INFRA_DIR/scripts/consul-dev-secrets.sh (requerido por infra S11)"
+  # Genera gossip key, CA y material de servidor. Idempotente: no pisa archivos.
+  "$INFRA_DIR/scripts/consul-dev-secrets.sh" >/dev/null
+  log "material TLS/gossip de Consul generado"
+
+  # Tokens ACL por servicio: el E2E no levanta Consul, asi que configkv degrada
+  # y el token nunca se valida contra el servidor. Se generan placeholders para
+  # satisfacer el bind mount; el bootstrap real corre contra Consul vivo con
+  # infra/scripts/consul-bootstrap-acl.sh.
+  for token_file in consul_doc_service_token.txt consul_ratelimitd_token.txt \
+                    consul_worker_token.txt consul_prometheus_token.txt; do
+    [[ -s "$SECRETS_DIR/$token_file" ]] && continue
+    printf '%s' "$(rand_hex 16)" > "$SECRETS_DIR/$token_file"
+    chmod 0644 "$SECRETS_DIR/$token_file"
+  done
+  log "tokens ACL de Consul listos (placeholders para el E2E)"
+
+  # Traefik monta el htpasswd de la UI de Consul y hoy infra no lo genera en
+  # ningun script versionado: sin el archivo, el contenedor ni siquiera arranca.
+  if [[ ! -s "$SECRETS_DIR/consul_ui_users.txt" ]]; then
+    printf 'consul:%s\n' "$(openssl passwd -apr1 "$(rand_hex 16)")" \
+      > "$SECRETS_DIR/consul_ui_users.txt"
+    chmod 0644 "$SECRETS_DIR/consul_ui_users.txt"
+  fi
+  log "htpasswd de la UI de Consul listo"
+else
+  missing=()
+  for required in consul_ca_cert.pem consul_doc_service_token.txt \
+                  consul_ratelimitd_token.txt consul_worker_token.txt \
+                  consul_ui_users.txt; do
+    [[ -s "$SECRETS_DIR/$required" ]] || missing+=("$required")
+  done
+  if (( ${#missing[@]} > 0 )); then
+    log "AVISO: infra S11 requiere ${missing[*]} en $SECRETS_DIR"
+    log "       corre infra/scripts/consul-dev-secrets.sh y, con Consul arriba,"
+    log "       infra/scripts/consul-bootstrap-acl.sh (crea los tokens ACL)"
+    log "       consul_ui_users.txt es el htpasswd de la UI (usuario:hash apr1)"
+  fi
 fi
 
 write_secret() {

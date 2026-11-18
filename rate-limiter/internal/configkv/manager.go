@@ -107,6 +107,13 @@ func (m *Manager) ApplyValues(values map[string]string) error {
 	policy, err := limiter.ParsePolicyFromKV(candidate, m.Base)
 	if err != nil {
 		log.Printf("configkv: politica invalida, se conserva la anterior: %v", err)
+		// El descarte es del conjunto: se atribuye a las claves que entraron en
+		// este lote, para que el rechazo sea visible en las metricas.
+		for key := range accepted {
+			if m.Hooks.OnReject != nil {
+				m.Hooks.OnReject(key)
+			}
+		}
 		return err
 	}
 

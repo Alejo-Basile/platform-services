@@ -1,6 +1,7 @@
 package configkv
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -61,6 +62,46 @@ func NewClient() *Client {
 	}
 	c.HTTP.Transport = &http.Transport{TLSClientConfig: tlsCfg}
 	return c
+}
+
+// NewClientWithAddr deriva un cliente para una dirección explícita manteniendo
+// la misma resolución de CA y token que NewClient.
+func NewClientWithAddr(addr string) *Client {
+	c := NewClient()
+	if addr != "" {
+		c.Addr = strings.TrimRight(addr, "/")
+	}
+	return c
+}
+
+// Put ejecuta un PUT HTTP reutilizando el mismo CA/token/transport.
+func (c *Client) Put(ctx context.Context, path string, body []byte) (int, error) {
+	if c.Disabled {
+		return http.StatusOK, nil
+	}
+	var reader *bytes.Reader
+	if body == nil {
+		reader = bytes.NewReader(nil)
+	} else {
+		reader = bytes.NewReader(body)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, c.Addr+path, reader)
+	if err != nil {
+		return 0, err
+	}
+	if c.Token != "" {
+		req.Header.Set("X-Consul-Token", c.Token)
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	io.Copy(io.Discard, resp.Body)
+	return resp.StatusCode, nil
 }
 
 func envOr(key, def string) string {

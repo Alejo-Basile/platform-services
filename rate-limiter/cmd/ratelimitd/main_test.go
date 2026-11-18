@@ -64,3 +64,23 @@ func TestRedisPassword(t *testing.T) {
 		}
 	})
 }
+
+func TestHTTPPortFromAddr(t *testing.T) {
+	cases := []struct {
+		addr string
+		want int
+	}{
+		{addr: ":8090", want: 8090},
+		{addr: "0.0.0.0:9099", want: 9099},
+		{addr: "127.0.0.1:8500", want: 8500},
+		{addr: "", want: 8090},
+		{addr: "8091", want: 8090},
+		{addr: ":abc", want: 8090},
+		{addr: ":0", want: 8090},
+	}
+	for _, tc := range cases {
+		if got := httpPortFromAddr(tc.addr); got != tc.want {
+			t.Errorf("httpPortFromAddr(%q) = %d, want %d", tc.addr, got, tc.want)
+		}
+	}
+}

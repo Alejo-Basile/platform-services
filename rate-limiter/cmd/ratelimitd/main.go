@@ -36,11 +36,18 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
+	"github.com/Alejo-Basile/platform-services/rate-limiter/internal/configkv"
+	"github.com/Alejo-Basile/platform-services/rate-limiter/internal/consulreg"
 	"github.com/Alejo-Basile/platform-services/rate-limiter/internal/limiter"
 )
+
+// kvManager guarda el manager del cliente KV para que /metrics publique su
+// estado sin acoplar el paquete configkv al paquete main.
+var kvManager atomic.Pointer[configkv.Manager]
 
 func main() {
 	addr := env("LISTEN_ADDR", ":8090")
@@ -59,6 +66,30 @@ func main() {
 	defer client.Close()
 	lim := limiter.New(client)
 
+	// Política viva: el swap es atómico y handleCheck la lee en cada request.
+	policyPtr := &atomic.Pointer[limiter.Policy]{}
+	policyPtr.Store(&policy)
+
+	kvCtx, kvCancel := context.WithCancel(context.Background())
+	defer kvCancel()
+
+	mgr := configkv.NewManager(configkv.NewClient(), configkv.NewCache(""), policyPtr, policy)
+	mgr.Hooks = configkv.Hooks{
+		OnReject:  recordKVRejection,
+		OnApplied: recordKVApplied,
+	}
+	kvManager.Store(mgr)
+	// Init está acotado a 2 s: Consul caído no retrasa el arranque.
+	mgr.Init()
+	go mgr.Watch(kvCtx)
+	// Registro en Consul: no bloqueante, tolera fallos.
+	reg := consulreg.NewFromEnv(httpPortFromAddr(addr))
+	reg.OnRegisterFailure = func() { metricConsulRegFailed.Add(1) }
+	regCtx, regCancel := context.WithCancel(context.Background())
+	go func() {
+		reg.RegisterWithRetry(regCtx)
+	}()
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
@@ -71,7 +102,7 @@ func main() {
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 	mux.HandleFunc("/check", func(w http.ResponseWriter, r *http.Request) {
-		handleCheck(w, r, lim, policy)
+		handleCheck(w, r, lim, policyPtr)
 	})
 	mux.HandleFunc("/metrics", handleMetrics)
 
@@ -95,9 +126,35 @@ func main() {
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
 
+	// Detiene el watcher KV y el registro antes de cerrar el servidor.
+	kvCancel()
+	regCancel()
+
+	deregCtx, deregCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer deregCancel()
+	if err := reg.Deregister(deregCtx); err != nil {
+		log.Printf("consul deregistration failed: %v", err)
+		metricConsulRegFailed.Add(1)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(ctx)
+}
+
+// httpPortFromAddr extrae el puerto de LISTEN_ADDR para publicarlo en el
+// registro de Consul. Un valor sin puerto usable cae al default del servicio.
+func httpPortFromAddr(addr string) int {
+	const defaultPort = 8090
+	i := strings.LastIndex(addr, ":")
+	if i < 0 {
+		return defaultPort
+	}
+	p, err := strconv.Atoi(addr[i+1:])
+	if err != nil || p <= 0 {
+		return defaultPort
+	}
+	return p
 }
 
 func redisPasswordFromEnv() (string, error) {
@@ -134,8 +191,13 @@ type rateChecker interface {
 	CheckAll(context.Context, []limiter.Limit) (limiter.Decision, error)
 }
 
-func handleCheck(w http.ResponseWriter, r *http.Request, lim rateChecker, policy limiter.Policy) {
-	plan := policy.Decide(limiter.Request{
+func handleCheck(w http.ResponseWriter, r *http.Request, lim rateChecker, policy *atomic.Pointer[limiter.Policy]) {
+	p := policy.Load()
+	if p == nil {
+		pp := limiter.Policy{}
+		p = &pp
+	}
+	plan := p.Decide(limiter.Request{
 		Method:        forwardedMethod(r),
 		Path:          forwardedPath(r),
 		Authorization: r.Header.Get("Authorization"),

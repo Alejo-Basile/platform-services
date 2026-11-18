@@ -90,9 +90,13 @@ wait_redis() {
 
 stream_entries_for() {
   local id="$1"
+  # El contrato vigente (ADR-0007) usa campos planos: XRANGE devuelve el id,
+  # luego pares campo/valor, asi que el valor de document_id viene en la linea
+  # siguiente. Se acepta tambien el envelope JSON viejo por compatibilidad.
   redis_cli --raw XRANGE "$REDIS_STREAM_KEY" - + COUNT 10000 |
     awk -v id="$id" '
       /^[0-9]+-[0-9]+$/ { entry=$0; next }
+      $0 == "document_id" { getline; if ($0 == id) print entry; next }
       index($0, "\"document_id\":\"" id "\"") { print entry }
     '
 }

@@ -261,6 +261,21 @@ func ParseExemptPaths(raw string) ([]string, error) {
 	return paths, nil
 }
 
+// ParsePolicyFromKV parsea y valida la política completa desde KV values,
+// reutilizando ParsePolicy y manteniendo WebhookPath/WebhookToken de base.
+func ParsePolicyFromKV(values map[string]string, base Policy) (Policy, error) {
+	_ = base
+	routes := "POST /api/v2/documents=5:10"
+	if v, ok := values["sensitive_routes"]; ok {
+		routes = v
+	}
+	exempt := "/internal,/healthz,/metrics"
+	if v, ok := values["exempt_paths"]; ok {
+		exempt = v
+	}
+	return ParsePolicy(routes, exempt, base.WebhookPath, base.WebhookToken)
+}
+
 // ParsePolicy valida y construye la política completa.
 func ParsePolicy(routesRaw, exemptRaw, webhookPath, webhookToken string) (Policy, error) {
 	routes, err := ParseSensitiveRoutes(routesRaw)

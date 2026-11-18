@@ -41,6 +41,7 @@ import (
 	"time"
 
 	"github.com/Alejo-Basile/platform-services/rate-limiter/internal/configkv"
+	"github.com/Alejo-Basile/platform-services/rate-limiter/internal/consulreg"
 	"github.com/Alejo-Basile/platform-services/rate-limiter/internal/limiter"
 )
 
@@ -81,12 +82,12 @@ func main() {
 	// Init está acotado a 2 s: Consul caído no retrasa el arranque.
 	mgr.Init()
 	go mgr.Watch(kvCtx)
-	// C17 completa registro/desregistro; aquí solo el gancho no bloqueante.
+	// Registro en Consul: no bloqueante, tolera fallos.
+	reg := consulreg.NewFromEnv(httpPortFromAddr(addr))
+	reg.OnRegisterFailure = func() { metricConsulRegFailed.Add(1) }
+	regCtx, regCancel := context.WithCancel(context.Background())
 	go func() {
-		if err := registerConsulHook(); err != nil {
-			log.Printf("consul registration failed: %v", err)
-			metricConsulRegFailed.Add(1)
-		}
+		reg.RegisterWithRetry(regCtx)
 	}()
 
 	mux := http.NewServeMux()
@@ -125,23 +126,35 @@ func main() {
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
 
-	// Detiene el watcher KV antes de cerrar el servidor.
+	// Detiene el watcher KV y el registro antes de cerrar el servidor.
 	kvCancel()
+	regCancel()
+
+	deregCtx, deregCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer deregCancel()
+	if err := reg.Deregister(deregCtx); err != nil {
+		log.Printf("consul deregistration failed: %v", err)
+		metricConsulRegFailed.Add(1)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(ctx)
 }
 
-// registerConsulHook es el punto de extensión que C17 convierte en registro y
-// desregistro reales. Aquí no bloquea el serving ni falla el arranque.
-func registerConsulHook() error {
-	name := os.Getenv("SERVICE_NAME")
-	if name == "" {
-		name = "ratelimitd"
+// httpPortFromAddr extrae el puerto de LISTEN_ADDR para publicarlo en el
+// registro de Consul. Un valor sin puerto usable cae al default del servicio.
+func httpPortFromAddr(addr string) int {
+	const defaultPort = 8090
+	i := strings.LastIndex(addr, ":")
+	if i < 0 {
+		return defaultPort
 	}
-	log.Printf("consul registration hook listo para %s (implementacion completa en C17)", name)
-	return nil
+	p, err := strconv.Atoi(addr[i+1:])
+	if err != nil || p <= 0 {
+		return defaultPort
+	}
+	return p
 }
 
 func redisPasswordFromEnv() (string, error) {

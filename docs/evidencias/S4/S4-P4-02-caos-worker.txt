@@ -1,0 +1,69 @@
+S4-P4-02 — Worker muere durante una extracción
+================================================
+
+Estado: PARCIAL. Se observó PROCESSING en 2 de 3 repeticiones; ambas terminaron
+COMPLETED después de SIGKILL. La recuperación tardó 8 s y 5 s. No se observó
+XAUTOCLAIM en logs y esas latencias son inferiores al umbral configurado de
+600001 ms, por lo que no se atribuye la recuperación a XAUTOCLAIM. La tercera
+repetición quedó QUEUED antes de observar PROCESSING; se registra como cobertura
+no alcanzada, no como FAIL.
+Fecha: 2026-11-17
+Commit platform-services: fc9bf39ed4ccb615eef92d28af464f5856d5fe9e
+Imagen doc-service: doc-service:local
+ID de imagen doc-service: sha256:3d3e1893bec1f5d6bffeb99ffb3c7d8f481ab213d08212756840a0bceec8abe5
+Imagen worker: ghcr.io/alejo-basile/extraction-worker:latest
+ID de imagen worker: sha256:bffe7c579701cd8270aefa5a14412d79c8db82d382494fada49cba4f009d9c64
+Proyecto Compose: infra (stack preexistente; no se levantó ni bajó completo)
+
+Comando de evidencia
+--------------------
+`time P4_CHAOS2_RUNS=3 tests/e2e/chaos/run.sh --chaos2 --full > /tmp/chaos2.out 2>&1`
+
+Resultado final
+---------------
+Duración: `real 3m36,357s`.
+Resumen literal: `[chaos] resumen: PASS=1 FAIL=0 BLOCKED=0 KNOWN=0` (exit 0).
+El arnés escaló extraction-worker a dos contenedores reales en estado running y
+al finalizar volvió a una réplica healthy. Dos eventos de cambio de Mongo
+confirmaron PROCESSING; en ambos casos los logs permitieron atribuir el
+documento a un contenedor y se ejecutó `docker kill -s KILL`. Identificadores:
+- `chaos2-1794969222-6080`: COMPLETED, una transición COMPLETED, un artefacto
+  textual en `extracted-txt`, sin entradas duplicadas; recuperación 8 s;
+  `XAUTOCLAIM=no observado en logs`.
+- `chaos2-1794969254-9894`: COMPLETED, una transición COMPLETED, un artefacto
+  textual en `extracted-txt`, sin entradas duplicadas; recuperación 5 s;
+  `XAUTOCLAIM=no observado en logs`.
+- Iteración 3: no se observó PROCESSING; el estado final de la observación fue
+  QUEUED. No se mató una réplica ni se contabilizó como fallo.
+
+Salidas literales relevantes:
+- `[chaos] cobertura PROCESSING: alcanzada=2/3 no_alcanzada=1/3`
+- `[chaos] resumen: PASS=1 FAIL=0 BLOCKED=0 KNOWN=0`
+
+Intentos de ajuste anteriores al resultado final
+------------------------------------------------
+- El primer comando idéntico terminó en `real 1m28,769s`, con resumen literal
+  `[chaos] resumen: PASS=1 FAIL=0 BLOCKED=0 KNOWN=0`; cobertura PROCESSING 0/3,
+  porque las consultas puntuales solo observaron documentos ya COMPLETED.
+- El segundo comando idéntico terminó en `real 1m25,725s`, con resumen literal
+  `[chaos] resumen: PASS=1 FAIL=0 BLOCKED=0 KNOWN=0`; el monitor de eventos
+  observó una ventana, pero un contador compartido hizo que el ciclo terminara
+  tras la primera iteración. Se corrigió el alcance local del contador antes
+  de la corrida final.
+- Una corrida adicional antes de la última reverificación terminó en
+  `real 3m39,228s`, resumen literal `[chaos] resumen: PASS=1 FAIL=0 BLOCKED=0
+  KNOWN=0`, cobertura 2/3 y recuperaciones de 6 s/9 s. La corrida final
+  anterior `real 3m40,045s` mantuvo 2/3, con recuperaciones de 6 s/7 s.
+  La reverificación más reciente terminó en `real 3m36,357s`, con cobertura
+  2/3 y recuperaciones de 8 s/5 s.
+
+Limitaciones
+------------
+- El worker configura `WORKER_MIN_IDLE_MS=600001` y
+  `WORKER_DEAD_CONSUMER_MS=600001`. Las dos recuperaciones observadas tardaron
+  menos de 10 s; no prueban recuperación por XAUTOCLAIM ni el umbral de 10 min.
+- La evidencia de `chain/run.sh` muestra que `txt_ref` tiene extensión `.md`
+  aunque el bucket se llama `extracted-txt`. El aserto cuenta el artefacto
+  textual referido y los objetos `.txt`/`.md` asociados al documento.
+- La cobertura de PROCESSING es 2/3; la repetición no alcanzada quedó en QUEUED.
+- S4-P4-05, el failover Sentinel y el runbook siguen pendientes.

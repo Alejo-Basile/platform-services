@@ -48,7 +48,12 @@ MC_IMAGE="${MC_IMAGE:-quay.io/minio/aistor/mc@sha256:0d52eb92083ad1e1ddbe1ba82e6
 COMPOSE_FILES=(-f "$COMPOSE_FILE")
 
 compose() {
-  docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_FILE" -p "$PROJECT" "$@"
+  if [[ -n "${P4_COMPOSE_TIMEOUT:-}" ]]; then
+    timeout --foreground "$P4_COMPOSE_TIMEOUT" docker compose \
+      "${COMPOSE_FILES[@]}" --env-file "$ENV_FILE" -p "$PROJECT" "$@"
+  else
+    docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_FILE" -p "$PROJECT" "$@"
+  fi
 }
 
 env_value() {
@@ -205,8 +210,10 @@ minio_exists() {
   MC_HOST_local="http://${user}:${pass}@minio:9000" docker run --rm "${net_args[@]}" -e MC_HOST_local "$MC_IMAGE" stat "local/${key}" >/dev/null 2>&1
 }
 
+# shellcheck disable=SC2016
 data_network() {
-  docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}' \
+  timeout --foreground "${P4_COMPOSE_TIMEOUT:-15s}" \
+    docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}' \
     "$(compose ps -q minio 2>/dev/null)" 2>/dev/null | head -n1
 }
 
@@ -214,6 +221,7 @@ minio_delete() {
   local key="$1"
   [[ -n "$key" ]] || return 0
   local user pass network
+  local P4_COMPOSE_TIMEOUT="${P4_COMPOSE_TIMEOUT:-15s}"
   local net_args=()
   user="$(env_value MINIO_ROOT_USER)"
   pass="$(env_value MINIO_ROOT_PASSWORD)"
@@ -223,7 +231,8 @@ minio_delete() {
   # El reconciliador puede borrar el objeto huerfano antes que nosotros; en ese
   # caso `mc` sale con error y no es un fallo de la limpieza.
   local out
-  if ! out="$(MC_HOST_local="http://${user}:${pass}@minio:9000" \
+  if ! out="$(timeout --foreground "$P4_COMPOSE_TIMEOUT" \
+    env MC_HOST_local="http://${user}:${pass}@minio:9000" \
     docker run --rm "${net_args[@]}" -e MC_HOST_local "$MC_IMAGE" \
     rm --force "local/${key}" 2>&1)"; then
     if [[ "$out" == *"Object does not exist"* ]]; then

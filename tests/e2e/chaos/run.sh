@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2016,SC2317,SC2329
-# Caos parcial de S4-P4: S4-P4-01 (doc-service tras webhook), su variante
-# Redis caido + SIGKILL, y S4-P4-03 (Redis Streams caido). Requiere el stack
-# E2E ya levantado; no lo levanta.
+# Caos parcial de S4-P4: doc-service, Redis Streams, extraction-worker y Mongo.
+# Requiere el stack E2E ya levantado; no lo levanta.
 #
 # Uso:
 #   tests/e2e/chaos/run.sh --all
 #   tests/e2e/chaos/run.sh --chaos1          # ventana webhook -> XADD (real)
 #   tests/e2e/chaos/run.sh --chaos1-kill     # variante Redis caido + SIGKILL
 #   P4_CHAOS_REDIS_SECONDS=10 tests/e2e/chaos/run.sh --chaos3
+#   P4_CHAOS2_RUNS=3 tests/e2e/chaos/run.sh --chaos2 --full
+#   tests/e2e/chaos/run.sh --chaos4 --full
 #   tests/e2e/chaos/run.sh --all --full      # cuando exista worker real
 #   P4_STRICT_RELAY=1 tests/e2e/chaos/run.sh --all  # exige recuperacion por relay
 #
@@ -32,21 +33,27 @@ COMPOSE_FILES+=(-f "$BUILD_FILE" -f "$OVERRIDE_FILE")
 
 REDIS_DOWN_SECONDS="${P4_CHAOS_REDIS_SECONDS:-300}"
 CHAOS1_RACE_RUNS="${P4_CHAOS1_RACE_RUNS:-10}"
+CHAOS2_RUNS="${P4_CHAOS2_RUNS:-3}"
 STRICT_RELAY="${P4_STRICT_RELAY:-0}"
 RELAY_ISSUE="doc-service#55"
 RUN_CHAOS1=0
 RUN_CHAOS1_KILL=0
 RUN_CHAOS3=0
+RUN_CHAOS2=0
+RUN_CHAOS4=0
 FULL=0
+WORKER_SCALE_REQUIRED=0
 
 usage() {
   cat <<'EOF'
-Uso: tests/e2e/chaos/run.sh <--chaos1|--chaos1-kill|--chaos3|--all> [--full]
+  Uso: tests/e2e/chaos/run.sh <--chaos1|--chaos1-kill|--chaos2|--chaos3|--chaos4|--all> [--full]
 
   --chaos1       S4-P4-01: doc-service muere entre webhook y XADD (real)
   --chaos1-kill  Variante: Redis caido + SIGKILL de doc-service
+  --chaos2       S4-P4-02: worker muere durante una extraccion
   --chaos3       S4-P4-03: Redis Streams cae durante la ventana configurada
-  --all          los tres casos
+  --chaos4       S4-P4-04: Mongo cae durante el cierre de un trabajo
+  --all          todos los casos implementados
   --full         exige COMPLETED con status_history, .txt y sin duplicados
 
 Con worker real el mensaje puede estar consumido y ACK-eado: la ausencia de
@@ -55,6 +62,7 @@ entrada en el stream se acepta solo con la evidencia terminal completa.
 Variables:
   P4_CHAOS_REDIS_SECONDS   duracion de la caida de Redis (default 300)
   P4_CHAOS1_RACE_RUNS      repeticiones de --chaos1 (default 10)
+  P4_CHAOS2_RUNS            repeticiones de --chaos2 (default 3)
   P4_STRICT_RELAY          si vale 1, exige que el relay reencole (default 0)
   P4_COMPOSE_PROJECT       proyecto Compose (default infra)
   P4_WORKSPACE_ROOT        workspace con infra/ y platform-services/
@@ -65,8 +73,10 @@ while (($# > 0)); do
   case "$1" in
     --chaos1) RUN_CHAOS1=1 ;;
     --chaos1-kill) RUN_CHAOS1_KILL=1 ;;
+    --chaos2) RUN_CHAOS2=1 ;;
     --chaos3) RUN_CHAOS3=1 ;;
-    --all) RUN_CHAOS1=1; RUN_CHAOS1_KILL=1; RUN_CHAOS3=1 ;;
+    --chaos4) RUN_CHAOS4=1 ;;
+    --all) RUN_CHAOS1=1; RUN_CHAOS1_KILL=1; RUN_CHAOS2=1; RUN_CHAOS3=1; RUN_CHAOS4=1 ;;
     --full) FULL=1 ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; exit 2 ;;
@@ -74,7 +84,7 @@ while (($# > 0)); do
   shift
 done
 
-if ((RUN_CHAOS1 == 0 && RUN_CHAOS1_KILL == 0 && RUN_CHAOS3 == 0)); then
+if ((RUN_CHAOS1 == 0 && RUN_CHAOS1_KILL == 0 && RUN_CHAOS2 == 0 && RUN_CHAOS3 == 0 && RUN_CHAOS4 == 0)); then
   usage >&2
   exit 2
 fi
@@ -84,6 +94,10 @@ if ! [[ "$REDIS_DOWN_SECONDS" =~ ^[0-9]+$ ]] || ((REDIS_DOWN_SECONDS < 1)); then
 fi
 if ! [[ "$CHAOS1_RACE_RUNS" =~ ^[0-9]+$ ]] || ((CHAOS1_RACE_RUNS < 1)); then
   echo "[chaos] ERROR: P4_CHAOS1_RACE_RUNS debe ser un entero >= 1" >&2
+  exit 2
+fi
+if ! [[ "$CHAOS2_RUNS" =~ ^[0-9]+$ ]] || ((CHAOS2_RUNS < 1)); then
+  echo "[chaos] ERROR: P4_CHAOS2_RUNS debe ser un entero >= 1" >&2
   exit 2
 fi
 
@@ -101,7 +115,15 @@ MONGO_DATABASE="$(env_value MONGO_DATABASE)"
 MONGO_DATABASE="${MONGO_DATABASE:-documents}"
 REDIS_STREAM_KEY="$(env_value REDIS_STREAM_KEY)"
 REDIS_STREAM_KEY="${REDIS_STREAM_KEY:-stream:pdf-processing}"
-INTERNAL_TOKEN="$(env_value INTERNAL_TOKEN)"
+
+internal_token() {
+  local token=""
+  token="$(compose exec -T doc-service sh -c 'cat /run/secrets/internal_token 2>/dev/null || printenv INTERNAL_TOKEN' 2>/dev/null | tr -d '\r\n')"
+  [[ -n "$token" ]] || token="$(env_value INTERNAL_TOKEN)"
+  printf '%s' "$token"
+}
+
+INTERNAL_TOKEN="$(internal_token)"
 
 TMP_DIR="$(mktemp -d)"
 VALID_PDF="$PLATFORM_ROOT/tests/fixtures/pdf/baseline-0001.pdf"
@@ -114,6 +136,7 @@ TOTAL_PASS=0
 TOTAL_FAIL=0
 TOTAL_BLOCKED=0
 TOTAL_KNOWN=0
+CASE_ENV_BLOCKED=0
 
 # mongo_eval, mongo_status y mongo_delete vienen de lib.sh (DRY).
 
@@ -123,6 +146,14 @@ mongo_age_document() {
   # vencidos y UPLOADED con updated_at viejo. Sin expires_at, un documento
   # que quedó PENDING_UPLOAD tras el kill nunca se recupera en la prueba.
   mongo_eval "db.documents.updateOne({_id:'$id'},{\$set:{created_at:new Date(Date.now()-45*60*1000),updated_at:new Date(Date.now()-45*60*1000),expires_at:new Date(Date.now()-45*60*1000)}}).modifiedCount" \
+    | tail -n1
+}
+
+mongo_age_queued_document() {
+  local id="$1"
+  # sweepStuckQueued exige created_at y updated_at antiguos. Mantener expires_at
+  # en el futuro evita que el indice TTL elimine el documento antes del sweep.
+  mongo_eval "var now=Date.now(); db.documents.updateOne({_id:'$id'},{\$set:{created_at:new Date(now-45*60*1000),updated_at:new Date(now-45*60*1000),expires_at:new Date(now+60*60*1000)}}).modifiedCount" \
     | tail -n1
 }
 
@@ -155,30 +186,101 @@ upload_pdf() {
 }
 
 new_document() {
-  local prefix="$1" body hdr code upload id
+  local prefix="$1" action="${2:-}" body hdr code upload id monitor_pid="" monitor_result=0 i
   id="${prefix}-$(date +%s)-$RANDOM"
   body="$TMP_DIR/${id}.json"
   hdr="$TMP_DIR/${id}.hdr"
   code="$(post_create "$id" "$(wc -c < "$VALID_PDF" | tr -d ' ')" "$body" "$hdr")"
+  if [[ "$code" == "500" ]]; then
+    note "create HTTP 500; esperando 120 s por recuperacion del circuit breaker y reintentando una vez"
+    sleep 120
+    code="$(post_create "$id" "$(wc -c < "$VALID_PDF" | tr -d ' ')" "$body" "$hdr")"
+    if [[ "$code" == "500" ]]; then
+      block "create HTTP 500 persistente tras 120 s y un reintento; bloqueo de entorno por circuit breaker"
+      TOTAL_BLOCKED=$((TOTAL_BLOCKED + 1))
+      CASE_ENV_BLOCKED=1
+      return 2
+    fi
+  fi
   if [[ "$code" != "201" ]]; then
     bad "create HTTP $code"
     return 1
   fi
+  NEW_DOC_ID="$id"
+  NEW_DOC_KEY="$(jq -r '.form_fields.key // empty' "$body")"
+  CURRENT_DOCS+=("$id")
+  CURRENT_KEYS+=("$NEW_DOC_KEY")
+  if [[ -n "$action" ]]; then
+    monitor_processing_action "$id" "$action" "$TMP_DIR/${id}.event" &
+    monitor_pid=$!
+    for ((i = 1; i <= 300; i++)); do
+      [[ -f "$TMP_DIR/${id}.event.ready" ]] && break
+      sleep 0.1
+    done
+    if [[ ! -f "$TMP_DIR/${id}.event.ready" ]]; then
+      wait "$monitor_pid" || true
+      bad "no se pudo iniciar el monitor de cambios Mongo para $id"
+      return 1
+    fi
+  fi
   upload="$(upload_pdf "$body" "$VALID_PDF" "application/pdf")"
   if ! [[ "$upload" =~ ^2[0-9][0-9]$ ]]; then
+    if [[ -n "$monitor_pid" ]]; then
+      wait "$monitor_pid" 2>/dev/null || true
+    fi
     bad "upload HTTP $upload"
     return 1
   fi
-  NEW_DOC_ID="$id"
-  NEW_DOC_KEY="$(cat "$TMP_DIR/upload.key")"
-  CURRENT_DOCS+=("$id")
-  CURRENT_KEYS+=("$NEW_DOC_KEY")
+  if [[ -n "$monitor_pid" ]]; then
+    wait "$monitor_pid" || monitor_result=$?
+    if [[ -f "$TMP_DIR/${id}.event.mongo-stopped" ]]; then
+      STOPPED+=(mongo)
+    fi
+    if ((monitor_result != 0 && monitor_result != 2)); then
+      bad "no se pudo ejecutar la accion de caos durante PROCESSING (exit=$monitor_result)"
+      return 1
+    fi
+  fi
 }
 
 stop_service() {
   local svc="$1"
   compose stop "$svc" >/dev/null
   STOPPED+=("$svc")
+}
+
+worker_replicas_running() {
+  local expected="$1" attempt cid status running
+  local containers=()
+  for ((attempt = 1; attempt <= 45; attempt++)); do
+    mapfile -t containers < <(compose --profile full ps -q extraction-worker 2>/dev/null)
+    running=0
+    for cid in "${containers[@]}"; do
+      [[ -n "$cid" ]] || continue
+      status="$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || true)"
+      [[ "$status" == "running" ]] && running=$((running + 1))
+    done
+    ((running == expected)) && return 0
+    sleep 2
+  done
+  bad "extraction-worker: se esperaban $expected replicas running; observadas $running"
+  return 1
+}
+
+scale_worker() {
+  local replicas="$1"
+  compose --profile full up -d --scale "extraction-worker=$replicas" extraction-worker
+}
+
+restore_one_worker() {
+  ((WORKER_SCALE_REQUIRED == 1)) || return 0
+  if scale_worker 1 && worker_replicas_running 1; then
+    WORKER_SCALE_REQUIRED=0
+    pass "extraction-worker restaurado a una replica"
+    return 0
+  fi
+  bad "no se pudo restaurar extraction-worker a una replica"
+  return 1
 }
 
 restore_services() {
@@ -212,25 +314,63 @@ kill_doc_service() {
 }
 
 reconcile_once() {
-  compose exec -T doc-service wget -qO- \
+  local output exit_code
+  if output="$(compose exec -T doc-service wget -O- \
     --header="X-Internal-Token: ${INTERNAL_TOKEN}" \
-    --post-data='{}' http://localhost:8080/internal/reconcile 2>/dev/null
+    --post-data='{}' http://localhost:8080/internal/reconcile 2>&1)"; then
+    exit_code=0
+  else
+    exit_code=$?
+  fi
+  output="${output//$'\r'/ }"
+  output="${output//$'\n'/ }"
+
+  if ((exit_code != 0)); then
+    bad "reconciliador fallo (exit=$exit_code): ${output:-sin respuesta}"
+    return 1
+  fi
+  if [[ "$output" != *'"lock_acquired":true'* ]]; then
+    bad "reconciliador no adquirio el lock (HTTP/error observado, exit=$exit_code): ${output:-cuerpo vacio}"
+    return 1
+  fi
+  note "reconciliador adquirio el lock"
 }
 
 worker_present() {
-  compose --profile full config --services 2>/dev/null | grep -qx "extraction-worker"
+  local attempt output
+  for ((attempt = 1; attempt <= 3; attempt++)); do
+    if compose --profile full config --services 2>/dev/null | grep -qx "extraction-worker"; then
+      return 0
+    fi
+    if docker ps --filter name=extraction-worker --filter status=running \
+      --format '{{.Names}}' 2>/dev/null | grep -q 'extraction-worker'; then
+      return 0
+    fi
+    if ((attempt < 3)); then
+      sleep 1
+    fi
+  done
+
+  output="$(compose --profile full config --services 2>&1 | tail -3)" || true
+  note "salida final de compose --profile full config --services: ${output:-sin salida}"
+  return 1
 }
 
 require_full_worker() {
+  local container_status
   if ((FULL == 1)) && ! worker_present; then
-    bad "--full requiere un servicio extraction-worker en Compose"
+    container_status="$(docker ps --filter name=extraction-worker --format '{{.Names}} {{.Status}}' 2>&1)" || true
+    bad "--full requiere un servicio extraction-worker en Compose (contenedor observado: ${container_status:-ninguno})"
     return 1
   fi
   return 0
 }
 
 cleanup() {
+  local previous_compose_timeout="${P4_COMPOSE_TIMEOUT:-}"
+  export P4_COMPOSE_TIMEOUT=15s
   restore_services
+  restore_one_worker || TOTAL_FAIL=$((TOTAL_FAIL + 1))
   local i
   for i in "${!CURRENT_DOCS[@]}"; do
     mongo_delete "${CURRENT_DOCS[$i]}"
@@ -243,6 +383,11 @@ cleanup() {
       [[ -n "$entry" ]] && stream_delete "$entry"
     done < <(chaos_stream_entries_for "$id" 2>/dev/null || true)
   done
+  if [[ -n "$previous_compose_timeout" ]]; then
+    export P4_COMPOSE_TIMEOUT="$previous_compose_timeout"
+  else
+    unset P4_COMPOSE_TIMEOUT
+  fi
   rm -rf "$TMP_DIR"
 }
 trap cleanup EXIT INT TERM
@@ -305,10 +450,141 @@ doc_terminal_ok() {
 wait_doc_terminal() {
   local id="$1" tries="${2:-60}" i
   for ((i = 1; i <= tries; i++)); do
-    doc_terminal_ok "$id" && return 0
+    if ((i % 2 == 0 || i == tries)); then
+      doc_terminal_ok "$id" && return 0
+    fi
     sleep 1
   done
   return 1
+}
+
+wait_document_status() {
+  local id="$1" max_seconds="$2" interval="${3:-10}" started="$SECONDS"
+  local state status elapsed
+  while :; do
+    state="$(mongo_doc_state "$id")"
+    status="$(jq -r '.status // empty' <<<"$state" 2>/dev/null || true)"
+    if [[ "$status" == "COMPLETED" || "$status" == "FAILED" ]]; then
+      printf '%s\n' "$state"
+      return 0
+    fi
+    elapsed=$((SECONDS - started))
+    ((elapsed >= max_seconds)) && break
+    sleep "$interval"
+  done
+  printf '%s\n' "${state:-}"
+  return 1
+}
+
+worker_container_for_document() {
+  local id="$1" cid logs
+  local matches=()
+  while IFS= read -r cid; do
+    [[ -n "$cid" ]] || continue
+    logs="$(docker logs --since 10m "$cid" 2>&1 || true)"
+    [[ "$logs" == *"$id"* ]] && matches+=("$cid")
+  done < <(compose --profile full ps -q extraction-worker 2>/dev/null)
+  if ((${#matches[@]} == 1)); then
+    printf '%s\n' "${matches[0]}"
+    return 0
+  fi
+  return 1
+}
+
+minio_txt_count_for_document() {
+  local id="$1" user pass network
+  local net_args=()
+  user="$(env_value MINIO_ROOT_USER)"
+  pass="$(env_value MINIO_ROOT_PASSWORD)"
+  network="$(data_network || true)"
+  [[ -n "$network" ]] && net_args=(--network "$network")
+  MC_HOST_local="http://${user}:${pass}@minio:9000" docker run --rm \
+    "${net_args[@]}" -e MC_HOST_local "$MC_IMAGE" find local/extracted-txt \
+    --name "*${id}*" 2>/dev/null |
+    awk -v id="$id" 'index($0,id)>0 && $0 ~ /\.(txt|md)$/ {count++} END {print count+0}'
+}
+
+assert_completed_once() {
+  local id="$1" state status txt_ref completions txt_count stream_count
+  state="$(mongo_doc_state "$id")"
+  status="$(jq -r '.status // empty' <<<"$state")"
+  txt_ref="$(jq -r '.txt_ref // empty' <<<"$state")"
+  completions="$(jq -r '[.history[]? | select(.status=="COMPLETED")] | length' <<<"$state")"
+  stream_count="$(chaos_stream_count "$id")"
+  txt_count="$(minio_txt_count_for_document "$id")"
+  [[ "$status" == "COMPLETED" ]] || { bad "$id: status=$status (esperado COMPLETED)"; return 1; }
+  [[ "$completions" == "1" ]] || { bad "$id: transiciones COMPLETED=$completions"; return 1; }
+  [[ -n "$txt_ref" && ( "$txt_ref" == *.txt || "$txt_ref" == *.md ) ]] \
+    || { bad "$id: referencia del artefacto de texto ausente ($txt_ref)"; return 1; }
+  minio_exists "extracted-txt/$txt_ref" \
+    || { bad "$id: no existe extracted-txt/$txt_ref"; return 1; }
+  [[ "$txt_count" == "1" ]] || { bad "$id: archivos .txt asociados=$txt_count (esperado 1)"; return 1; }
+  [[ "$stream_count" == "0" || "$stream_count" == "1" ]] \
+    || { bad "$id: entradas duplicadas en stream=$stream_count"; return 1; }
+  pass "$id: COMPLETED, una transicion, un .txt y sin entradas duplicadas"
+}
+
+wait_mongo_healthy() {
+  local attempt cid status
+  for ((attempt = 1; attempt <= 90; attempt++)); do
+    cid="$(compose ps -q mongo 2>/dev/null)"
+    status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid" 2>/dev/null || true)"
+    [[ "$status" == "healthy" || "$status" == "running" ]] && return 0
+    sleep 2
+  done
+  bad "mongo no alcanzo estado healthy (ultimo estado=$status)"
+  return 1
+}
+
+monitor_processing_action() {
+  local id="$1" action="$2" event_file="$3" fifo watcher_pid marker
+  local cid attribution killed_at status
+  local worker_ids=()
+  fifo="${event_file}.pipe"
+  mkfifo "$fifo" || return 1
+  P4_COMPOSE_TIMEOUT=90s mongo_eval \
+    "var c=db.documents.watch([{\$match:{operationType:'update','documentKey._id':'$id','updateDescription.updatedFields.status':'PROCESSING'}}]); print('WATCH_READY'); var e=c.next(); print(e?'PROCESSING':'NO_EVENT')" \
+    > "$fifo" 2> "${event_file}.error" &
+  watcher_pid=$!
+  while IFS= read -r marker; do
+    if [[ "$marker" == "WATCH_READY" ]]; then
+      touch "${event_file}.ready"
+      continue
+    fi
+    [[ "$marker" == "PROCESSING" ]] || continue
+    if [[ "$action" == "kill-worker" ]]; then
+      cid="$(worker_container_for_document "$id" || true)"
+      attribution="logs"
+      if [[ -z "$cid" ]]; then
+        mapfile -t worker_ids < <(compose --profile full ps -q extraction-worker 2>/dev/null)
+        ((${#worker_ids[@]} > 0)) || { wait "$watcher_pid" || true; return 1; }
+        cid="${worker_ids[$((RANDOM % ${#worker_ids[@]}))]:-}"
+        attribution="aleatoria; no se pudo atribuir por logs/actividad"
+      fi
+      killed_at="$(date +%s)"
+      docker kill -s KILL "$cid" >/dev/null || { wait "$watcher_pid" || true; return 1; }
+      printf 'PROCESSING|%s|%s|%s\n' "$cid" "$attribution" "$killed_at" > "$event_file"
+      break
+    fi
+    if [[ "$action" == "stop-mongo" ]]; then
+      stop_service mongo || { wait "$watcher_pid" || true; return 1; }
+      touch "${event_file}.mongo-stopped"
+      sleep 25
+      restore_services
+      wait_mongo_healthy || { wait "$watcher_pid" || true; return 1; }
+      printf 'PROCESSING|mongo-detenido-25s|healthy\n' > "$event_file"
+      break
+    fi
+    wait "$watcher_pid" || true
+    return 1
+  done < "$fifo"
+  wait "$watcher_pid" || true
+  if [[ ! -s "$event_file" ]]; then
+    status="$(mongo_status "$id")"
+    printf 'NO_WINDOW|%s\n' "${status:-MISSING}" > "$event_file"
+    return 2
+  fi
+  return 0
 }
 
 # Exito si aparece una entrada O si el mensaje ya fue consumido y el documento
@@ -321,7 +597,9 @@ wait_entry_or_consumed() {
       return 0
     fi
     [[ "$count" != "0" ]] && return 1
-    doc_terminal_ok "$id" && return 0
+    if ((i % 2 == 0 || i == tries)); then
+      doc_terminal_ok "$id" && return 0
+    fi
     sleep 1
   done
   return 1
@@ -371,7 +649,12 @@ chaos1_race() {
   require_full_worker || return 1
 
   for ((i = 1; i <= runs; i++)); do
-    new_document "chaos1-race" || { restore_services; return 1; }
+    new_document "chaos1-race" || {
+      local create_result=$?
+      restore_services
+      ((create_result == 2)) && return 0
+      return 1
+    }
     id="$NEW_DOC_ID"
     note "iteracion $i/$runs: document_id=$id"
 
@@ -419,13 +702,21 @@ chaos1_race() {
         note "iteracion $i: el webhook no proceso (status=$status_after); se prueba el reconciliador"
       fi
 
-      mongo_age_document "$id" >/dev/null
-      reconcile_once >/dev/null || true
+      if [[ "$status_after" == "PENDING_UPLOAD" ]]; then
+        mongo_age_document "$id" >/dev/null
+      else
+        mongo_age_queued_document "$id" >/dev/null
+      fi
+      if ! reconcile_once; then
+        note "iteracion $i: se evaluara la recuperacion observada aunque falle reconcile"
+      fi
       if ! wait_entry_or_consumed "$id" 30; then
         # Segundo pase: PENDING_UPLOAD -> UPLOADED y, si el relay sigue roto,
         # UPLOADED estancado -> reencolado directo por el reconciliador.
-        mongo_age_document "$id" >/dev/null
-        reconcile_once >/dev/null || true
+        mongo_age_queued_document "$id" >/dev/null
+        if ! reconcile_once; then
+          note "iteracion $i: segundo reconcile fallo; se evaluara la recuperacion observada"
+        fi
         if ! wait_entry_or_consumed "$id" 30; then
           bad "iteracion $i: ni relay ni reconciliador encolaron $id (o hay entradas duplicadas)"
           return 1
@@ -460,7 +751,12 @@ chaos1_kill() {
 
   stop_service redis-streams
   note "Redis detenido; el webhook no podra encolar"
-  new_document "chaos1" || { restore_services; return 1; }
+  new_document "chaos1" || {
+    local create_result=$?
+    restore_services
+    ((create_result == 2)) && return 0
+    return 1
+  }
   id="$NEW_DOC_ID"
   for ((i = 1; i <= 40; i++)); do
     status="$(mongo_status "$id")"
@@ -487,8 +783,10 @@ chaos1_kill() {
     recovered="relay"
   else
     note "relay no recupero el evento; se fuerza un ciclo de reconciliacion"
-    mongo_age_document "$id" >/dev/null
-    reconcile_once >/dev/null || true
+    mongo_age_queued_document "$id" >/dev/null
+    if ! reconcile_once; then
+      note "reconciliacion fallo; se evaluara la recuperacion observada"
+    fi
     if wait_entry_or_consumed "$id" 60; then
       recovered="reconciler"
     fi
@@ -525,7 +823,12 @@ chaos3() {
   require_full_worker || return 1
 
   for i in 1 2; do
-    new_document "chaos3-pre" || { restore_services; return 1; }
+    new_document "chaos3-pre" || {
+      local create_result=$?
+      ((create_result == 2)) && return 0
+      restore_services
+      return 1
+    }
     id="$NEW_DOC_ID"
     original_ids+=("$id")
     wait_entry_or_consumed "$id" 40 || { bad "documento previo no encolado: $id"; return 1; }
@@ -535,7 +838,12 @@ chaos3() {
   start=$SECONDS
   stop_service redis-streams
   note "Redis detenido; se sube un documento durante la caida"
-  new_document "chaos3-during" || { restore_services; return 1; }
+  new_document "chaos3-during" || {
+    local create_result=$?
+    restore_services
+    ((create_result == 2)) && return 0
+    return 1
+  }
   id="$NEW_DOC_ID"
   for ((i = 1; i <= 40; i++)); do
     status="$(mongo_status "$id")"
@@ -568,8 +876,10 @@ chaos3() {
     recovered="relay"
   else
     note "relay no recupero el documento de la caida; se fuerza reconciliacion"
-    mongo_age_document "$id" >/dev/null
-    reconcile_once >/dev/null || true
+    mongo_age_queued_document "$id" >/dev/null
+    if ! reconcile_once; then
+      note "reconciliacion fallo; se evaluara la recuperacion observada"
+    fi
     if wait_entry_or_consumed "$id" 60; then
       recovered="reconciler"
     fi
@@ -600,9 +910,113 @@ chaos3() {
   pass "S4-P4-03 parcial"
 }
 
+chaos2() {
+  local runs="$CHAOS2_RUNS" i id state event_type cid attribution killed_at
+  local recovery_seconds completed=0 missed=0 log_output xautoclaim killed_at_iso
+  log "S4-P4-02: worker muere durante la extraccion ($runs repeticiones)"
+  WORKER_SCALE_REQUIRED=1
+  scale_worker 2 || { bad "no se pudieron escalar dos replicas de extraction-worker"; return 1; }
+  worker_replicas_running 2 || return 1
+  pass "dos replicas reales de extraction-worker estan running"
+
+  for ((i = 1; i <= runs; i++)); do
+    new_document "chaos2" "kill-worker" || {
+      local create_result=$?
+      ((create_result == 2)) && return 0
+      return 1
+    }
+    id="$NEW_DOC_ID"
+    note "iteracion $i/$runs: document_id=$id"
+    IFS='|' read -r event_type cid attribution killed_at < "$TMP_DIR/${id}.event"
+    if [[ "$event_type" != "PROCESSING" ]]; then
+      state="$(mongo_doc_state "$id")"
+      note "iteracion $i: cobertura no alcanzada; estado=${event_type#NO_WINDOW} $(jq -r '.status // empty' <<<"$state")"
+      missed=$((missed + 1))
+      continue
+    fi
+    pass "iteracion $i: ventana PROCESSING alcanzada"
+    note "iteracion $i: SIGKILL al worker $cid (atribucion=$attribution)"
+
+    if ! state="$(wait_document_status "$id" 720 15)"; then
+      state="$(mongo_doc_state "$id")"
+      bad "iteracion $i: no convergio en 720 s; status=$(jq -r '.status // empty' <<<"$state") history=$(jq -c '.history // []' <<<"$state")"
+      return 1
+    fi
+    recovery_seconds=$(($(date +%s) - killed_at))
+    if ! assert_completed_once "$id"; then
+      state="$(mongo_doc_state "$id")"
+      bad "iteracion $i: estado final observado=$(jq -c '{status:.status,history:.history,txt_ref:.txt_ref}' <<<"$state")"
+      return 1
+    fi
+    killed_at_iso="$(date -d "@$killed_at" --iso-8601=seconds)"
+    log_output="$(compose --profile full logs --no-color --since "$killed_at_iso" extraction-worker 2>&1 || true)"
+    xautoclaim="no observado en logs"
+    if [[ "$log_output" =~ [Xx][Aa][Uu][Tt][Oo][Cc][Ll][Aa][Ii][Mm] ]]; then
+      xautoclaim="si, registrado en logs"
+    elif ((recovery_seconds >= 600)); then
+      xautoclaim="probable por umbral de 600001 ms; sin linea explicita en logs"
+    fi
+    note "iteracion $i: recuperacion=${recovery_seconds}s; XAUTOCLAIM=$xautoclaim"
+    completed=$((completed + 1))
+  done
+  note "cobertura PROCESSING: alcanzada=$completed/$runs no_alcanzada=$missed/$runs"
+  pass "S4-P4-02: $completed repeticiones convergieron; cobertura no alcanzada=$missed"
+}
+
+chaos4() {
+  local id state status txt_ref completions terminal_count orphan_count event_type event_detail
+  log "S4-P4-04: Mongo cae durante el cierre"
+  require_full_worker || return 1
+  new_document "chaos4" "stop-mongo" || {
+    local create_result=$?
+    ((create_result == 2)) && return 0
+    return 1
+  }
+  id="$NEW_DOC_ID"
+  note "document_id=$id"
+  IFS='|' read -r event_type event_detail _ < "$TMP_DIR/${id}.event"
+  if [[ "$event_type" != "PROCESSING" ]]; then
+    state="$(mongo_doc_state "$id")"
+    bad "no se observo PROCESSING antes de detener Mongo; evento=$event_type estado=$(jq -r '.status // empty' <<<"$state")"
+    return 1
+  fi
+  pass "documento en PROCESSING; Mongo detenido 25 s y restaurado healthy ($event_detail)"
+  reconcile_once || note "reconciliador no confirmo lock; se esperara la convergencia observada"
+
+  if ! state="$(wait_document_status "$id" 300 10)"; then
+    state="$(mongo_doc_state "$id")"
+    bad "S4-P4-04 no convergio; status=$(jq -r '.status // empty' <<<"$state") history=$(jq -c '.history // []' <<<"$state") txt_ref=$(jq -r '.txt_ref // empty' <<<"$state")"
+    return 1
+  fi
+  status="$(jq -r '.status // empty' <<<"$state")"
+  txt_ref="$(jq -r '.txt_ref // empty' <<<"$state")"
+  terminal_count="$(mongo_eval "db.documents.countDocuments({status:{\$nin:['COMPLETED','FAILED','REJECTED','UPLOAD_EXPIRED']}})" | tail -n1)"
+  [[ "$terminal_count" == "0" ]] \
+    || { bad "documentos no terminales al final del barrido=$terminal_count"; return 1; }
+  if [[ "$status" == "COMPLETED" ]]; then
+    completions="$(jq -r '[.history[]? | select(.status=="COMPLETED")] | length' <<<"$state")"
+    [[ "$completions" == "1" ]] || { bad "COMPLETED history=$completions (esperado 1)"; return 1; }
+    orphan_count="$(minio_txt_count_for_document "$id")"
+    [[ "$orphan_count" == "1" && -n "$txt_ref" ]] \
+      || { bad "COMPLETED: .txt asociados=$orphan_count txt_ref=$txt_ref"; return 1; }
+    minio_exists "extracted-txt/$txt_ref" \
+      || { bad "COMPLETED: falta extracted-txt/$txt_ref"; return 1; }
+    pass "S4-P4-04 COMPLETED: una transicion COMPLETED y un .txt; sin .txt huerfano"
+  elif [[ "$status" == "FAILED" ]]; then
+    orphan_count="$(minio_txt_count_for_document "$id")"
+    [[ "$orphan_count" == "0" ]] \
+      || { bad "FAILED: .txt huerfanos asociados=$orphan_count"; return 1; }
+    pass "S4-P4-04 FAILED: sin .txt huerfano"
+  else
+    bad "estado terminal inesperado: $status"
+    return 1
+  fi
+  pass "S4-P4-04: estado terminal $status; cero documentos no terminales al final del barrido"
+}
+
 preflight() {
   local tool
-  for tool in docker curl jq openssl; do
+  for tool in docker curl jq openssl timeout; do
     command -v "$tool" >/dev/null 2>&1 || { bad "falta $tool"; exit 1; }
   done
   require_mc_image || exit 1
@@ -617,33 +1031,58 @@ preflight() {
   redis_available || { bad "Redis no autentica con $ENV_FILE"; exit 1; }
 }
 
-log "API_BASE=$API_BASE proyecto=$PROJECT redis_down=${REDIS_DOWN_SECONDS}s chaos1_runs=${CHAOS1_RACE_RUNS} full=$FULL strict_relay=$STRICT_RELAY"
-preflight
-
-if ((RUN_CHAOS1 == 1)); then
-  if chaos1_race; then
+record_case() {
+  local result=0
+  CASE_ENV_BLOCKED=0
+  "$@" || result=$?
+  ((CASE_ENV_BLOCKED == 1)) && return 0
+  if ((result == 0)); then
     TOTAL_PASS=$((TOTAL_PASS + 1))
   else
     TOTAL_FAIL=$((TOTAL_FAIL + 1))
   fi
+}
+
+log "API_BASE=$API_BASE proyecto=$PROJECT redis_down=${REDIS_DOWN_SECONDS}s chaos1_runs=${CHAOS1_RACE_RUNS} chaos2_runs=${CHAOS2_RUNS} full=$FULL strict_relay=$STRICT_RELAY"
+preflight
+
+if ((RUN_CHAOS1 == 1)); then
+  record_case chaos1_race
   restore_services
 fi
 
 if ((RUN_CHAOS1_KILL == 1)); then
-  if chaos1_kill; then
-    TOTAL_PASS=$((TOTAL_PASS + 1))
-  else
+  record_case chaos1_kill
+  restore_services
+fi
+
+if ((RUN_CHAOS3 == 1)); then
+  record_case chaos3
+  restore_services
+fi
+
+if ((RUN_CHAOS2 == 1)); then
+  CASE_ENV_BLOCKED=0
+  case_result=0
+  restore_failed=0
+  chaos2 || case_result=$?
+  if ! restore_one_worker; then
+    restore_failed=1
+  fi
+  if ((CASE_ENV_BLOCKED == 0)); then
+    if ((case_result == 0 && restore_failed == 0)); then
+      TOTAL_PASS=$((TOTAL_PASS + 1))
+    else
+      TOTAL_FAIL=$((TOTAL_FAIL + 1))
+    fi
+  elif ((restore_failed == 1)); then
     TOTAL_FAIL=$((TOTAL_FAIL + 1))
   fi
   restore_services
 fi
 
-if ((RUN_CHAOS3 == 1)); then
-  if chaos3; then
-    TOTAL_PASS=$((TOTAL_PASS + 1))
-  else
-    TOTAL_FAIL=$((TOTAL_FAIL + 1))
-  fi
+if ((RUN_CHAOS4 == 1)); then
+  record_case chaos4
   restore_services
 fi
 

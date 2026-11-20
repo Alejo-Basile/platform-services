@@ -57,8 +57,6 @@ command -v jq >/dev/null 2>&1 || fail "jq no esta instalado"
 source "$E2E_DIR/lib.sh"
 COMPOSE_FILES+=(-f "$BUILD_FILE" -f "$OVERRIDE_FILE")
 
-HTTP_STATUS=0
-
 precheck() {
   log "precheck: stack"
   compose ps >>"$LOG" 2>&1
@@ -66,7 +64,6 @@ precheck() {
   ready="$(docker exec infra-doc-service-1 wget -qO- http://localhost:8080/readyz 2>&1 || true)"
   log "readyz: $ready"
   code="$(curl -sk -o /dev/null -w '%{http_code}' --max-time 5 "$BASE_URL/healthz" || true)"
-  HTTP_STATUS="$code"
   log "GET $BASE_URL/healthz -> $code"
   [[ "$code" == "200" ]] || fail "el stack no responde en $BASE_URL/healthz"
 }
@@ -229,7 +226,7 @@ print(JSON.stringify({total:total,nonTerminal:nonTerminal,byStatus:byStatus}));
 metrics() {
   local f rel txt p95 failed checks reqs thr
   while IFS= read -r -d '' f; do
-    rel="${f#$OUT_DIR/}"
+    rel="${f#"$OUT_DIR"/}"
     p95="$(jq -r '.metrics.http_req_duration["p(95)"] // 0' "$f")"
     failed="$(jq -r '.metrics.http_req_failed.value // 0' "$f")"
     checks="$(jq -r '.metrics.checks.value // 0' "$f")"

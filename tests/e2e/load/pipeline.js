@@ -6,6 +6,7 @@ import exec from 'k6/execution';
 
 const BASE_URL = __ENV.BASE_URL || 'https://api.localhost:8543';
 const FIXTURE = __ENV.FIXTURE || '../../fixtures/pdf/baseline-0001.pdf';
+const FIXTURE_BYTES = open(FIXTURE, 'b'); // open() solo es valido en el init (global scope), no dentro de la iteracion.
 const POLL_INTERVAL = Number(__ENV.POLL_INTERVAL || 2);
 const POLL_MAX = Number(__ENV.POLL_MAX || 300);
 const RUN_ID = __ENV.RUN_ID || `load-${Date.now()}`;
@@ -58,8 +59,7 @@ export default function () {
   const data = {};
   Object.keys(formFields).forEach((k) => { data[k] = formFields[k]; });
   // Attach file - k6 can read file
-  const f = open(FIXTURE, 'b');
-  data['file'] = http.file(f, 'doc.pdf', 'application/pdf');
+  data['file'] = http.file(FIXTURE_BYTES, 'doc.pdf', 'application/pdf');
   
   const u = http.post(uploadUrl, data, { tags: { endpoint: 'upload' }, timeout: '60s' });
   if (!check(u, { 'upload 2xx': (r) => r.status >= 200 && r.status < 300 })) {

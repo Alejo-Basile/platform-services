@@ -135,10 +135,17 @@ case_completed() {
   upload="$UPLOAD_CODE"
   [[ "$upload" =~ ^2[0-9][0-9]$ ]] || { bad "subida HTTP $upload"; return 1; }
   expect_terminal "$id" COMPLETED || return 1
-  local txt
-  txt="$(doc_field "$id" txt_ref)"
-  [[ -n "$txt" ]] || { bad "txt_ref vacio"; return 1; }
-  minio_exists "extracted-txt/$txt" || { bad "falta extracted-txt/$txt"; return 1; }
+  # Contrato vigente: el worker cierra con `md_ref` (clave desnuda `<id>.md`) y
+  # sube el objeto a `extracted-md`; `txt_ref` queda como compatibilidad legacy (D5).
+  local ref bucket
+  ref="$(doc_field "$id" md_ref)"
+  bucket="extracted-md"
+  if [[ -z "$ref" ]]; then
+    ref="$(doc_field "$id" txt_ref)"
+    bucket="extracted-txt"
+  fi
+  [[ -n "$ref" ]] || { bad "COMPLETED sin md_ref ni txt_ref"; return 1; }
+  minio_exists "$bucket/$ref" || { bad "falta $bucket/$ref"; return 1; }
   return 0
 }
 

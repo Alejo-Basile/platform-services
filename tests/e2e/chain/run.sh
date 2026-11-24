@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Arnés E2E cadena real (S3-P4-01) — F3 Worker
 #
-# Flujo: crear -> prefirmar -> subir a MinIO -> webhook -> relay -> worker -> .txt -> COMPLETED -> descarga
+# Flujo: crear -> prefirmar -> subir a MinIO -> webhook -> relay -> worker -> .md -> COMPLETED -> descarga
 # Requiere: G-B (worker real + servicio extraction-worker)
 #
 # Uso:
@@ -75,29 +75,41 @@ run_once(){
   uc="$(curl -sk -o /dev/null -w '%{http_code}' --max-time 60 -X POST "$upload_url" "${form_args[@]}" -F "file=@${fixture};type=application/pdf" || true)"
   [[ "$uc" =~ ^2[0-9][0-9]$ ]] || { bad "subida $uc"; return 1; }
   
-  # Esperar COMPLETED
-  local status="" txt_ref="" i
+  # Esperar COMPLETED y la referencia del artefacto en MinIO.
+  # Contrato vigente (worker F3, seccion 11.4): el worker cierra con `md_ref`
+  # (clave desnuda `<id>.md`) y sube el objeto a `extracted-md`. `txt_ref` queda
+  # solo como compatibilidad de lectura para documentos legacy (D5).
+  local status="" md_ref="" txt_ref="" ref="" bucket="" i
   for ((i=1;i<=180;i++)); do
     status="$(mongo_get "$doc_id" status)"
-    txt_ref="$(mongo_get "$doc_id" txt_ref)"
-    [[ "$status" == "COMPLETED" && -n "$txt_ref" ]] && break
+    md_ref="$(mongo_get "$doc_id" md_ref)"
+    if [[ "$status" == "COMPLETED" ]]; then
+      [[ -n "$md_ref" ]] && break
+      txt_ref="$(mongo_get "$doc_id" txt_ref)"
+      [[ -n "$txt_ref" ]] && break
+    fi
     sleep 2
   done
   [[ "$status" == "COMPLETED" ]] || { bad "estado $status (esperado COMPLETED)"; return 1; }
-  [[ -n "$txt_ref" ]] || { bad "txt_ref vacío"; return 1; }
+  if [[ -n "$md_ref" ]]; then
+    ref="$md_ref"; bucket="extracted-md"
+  else
+    ref="$txt_ref"; bucket="extracted-txt"
+  fi
+  [[ -n "$ref" ]] || { bad "COMPLETED sin md_ref ni txt_ref"; return 1; }
   
-  # Verificar .txt existe
-  minio_exists "extracted-txt/$txt_ref" || { bad ".txt no existe: extracted-txt/$txt_ref"; return 1; }
+  # Verificar que el artefacto exista en el bucket que corresponde al contrato
+  minio_exists "$bucket/$ref" || { bad "artefacto no existe: $bucket/$ref"; return 1; }
   
   # Verificar descarga
   local dl
   dl="$(curl -sk -o /dev/null -w '%{http_code}' --max-time 30 "$API_BASE/api/v2/documents/$doc_id/download" || true)"
   [[ "$dl" == "200" ]] || { bad "download $dl"; return 1; }
   
-  pass "run $n: $doc_id COMPLETED txt=$txt_ref"
+  pass "run $n: $doc_id COMPLETED $bucket/$ref"
   mongo_eval "db.documents.deleteOne({_id:'$doc_id'})" >/dev/null 2>&1 || true
   minio_delete "$object_key" 2>/dev/null || true
-  minio_delete "$txt_ref" 2>/dev/null || true
+  minio_delete "$bucket/$ref" 2>/dev/null || true
   return 0
 }
 

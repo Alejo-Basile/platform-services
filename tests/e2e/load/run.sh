@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLATFORM_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+PLATFORM_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 DOCS="${DOCS:-1000}"
 VUS="${VUS:-20}"

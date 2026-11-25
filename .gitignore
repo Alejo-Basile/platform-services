@@ -13,6 +13,11 @@ results/
 # del workflow; en git solo se versionan los *-summary.json y resultados.csv.
 benchmarks/**/*.json.gz
 
+# Salida cruda del arnes de carga (decenas de MB por corrida): solo se versiona
+# el *-summary.json.
+docs/evidencias/**/*-k6.json
+docs/evidencias/**/*-k6-run.txt
+
 # Binario compilado del slo-exporter (se construye en CI)
 /slo-exporter/slo_exporter
 

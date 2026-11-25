@@ -1,4 +1,4 @@
-time="2026-11-16T16:02:23-03:00" level=warning msg="\"cli\" level configuration overrode scenarios configuration entirely"
+time="2026-11-18T15:36:41-03:00" level=warning msg="\"cli\" level configuration overrode scenarios configuration entirely"
 
          /\      Grafana   /‾‾/  
     /\  /  \     |\  __   /  /   
@@ -8,74 +8,79 @@ time="2026-11-16T16:02:23-03:00" level=warning msg="\"cli\" level configuration 
 
 
      execution: local
-        script: /home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/tests/k6/v2/create.js
+        script: /home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/tests/k6/v2/create.js
         output: -
 
      scenarios: (100.00%) 1 scenario, 1 max VUs, 40s max duration (incl. graceful stop):
               * default: 1 looping VUs for 10s (gracefulStop: 30s)
 
 
-running (01.0s), 1/1 VUs, 58 complete and 0 interrupted iterations
+running (01.0s), 1/1 VUs, 578 complete and 0 interrupted iterations
 default   [  10% ] 1 VUs  01.0s/10s
 
-running (02.0s), 1/1 VUs, 143 complete and 0 interrupted iterations
+running (02.0s), 1/1 VUs, 1028 complete and 0 interrupted iterations
 default   [  20% ] 1 VUs  02.0s/10s
 
-running (03.0s), 1/1 VUs, 215 complete and 0 interrupted iterations
+running (03.0s), 1/1 VUs, 1192 complete and 0 interrupted iterations
 default   [  30% ] 1 VUs  03.0s/10s
 
-running (04.0s), 1/1 VUs, 271 complete and 0 interrupted iterations
+running (04.0s), 1/1 VUs, 1367 complete and 0 interrupted iterations
 default   [  40% ] 1 VUs  04.0s/10s
 
-running (05.0s), 1/1 VUs, 317 complete and 0 interrupted iterations
+running (05.0s), 1/1 VUs, 1519 complete and 0 interrupted iterations
 default   [  50% ] 1 VUs  05.0s/10s
 
-running (06.0s), 1/1 VUs, 360 complete and 0 interrupted iterations
+running (06.0s), 1/1 VUs, 1664 complete and 0 interrupted iterations
 default   [  60% ] 1 VUs  06.0s/10s
 
-running (07.0s), 1/1 VUs, 397 complete and 0 interrupted iterations
+running (07.0s), 1/1 VUs, 1787 complete and 0 interrupted iterations
 default   [  70% ] 1 VUs  07.0s/10s
 
-running (08.0s), 1/1 VUs, 426 complete and 0 interrupted iterations
+running (08.0s), 1/1 VUs, 1930 complete and 0 interrupted iterations
 default   [  80% ] 1 VUs  08.0s/10s
 
-running (09.0s), 1/1 VUs, 462 complete and 0 interrupted iterations
+running (09.0s), 1/1 VUs, 2012 complete and 0 interrupted iterations
 default   [  90% ] 1 VUs  09.0s/10s
 
-running (10.0s), 1/1 VUs, 522 complete and 0 interrupted iterations
+running (10.0s), 1/1 VUs, 2079 complete and 0 interrupted iterations
 default   [ 100% ] 1 VUs  10.0s/10s
 
 
   █ TOTAL RESULTS 
 
-    checks_total.......: 2615    261.431084/s
-    checks_succeeded...: 100.00% 2615 out of 2615
-    checks_failed......: 0.00%   0 out of 2615
+    checks_total.......: 10400  1036.132133/s
+    checks_succeeded...: 2.88%  300 out of 10400
+    checks_failed......: 97.11% 10100 out of 10400
 
-    ✓ create 201
-    ✓ create document_id
-    ✓ create presigned url
-    ✓ create form_fields
-    ✓ create expires_at
+    ✗ create 201
+      ↳  2% — ✓ 60 / ✗ 2020
+    ✗ create document_id
+      ↳  2% — ✓ 60 / ✗ 2020
+    ✗ create presigned url
+      ↳  2% — ✓ 60 / ✗ 2020
+    ✗ create form_fields
+      ↳  2% — ✓ 60 / ✗ 2020
+    ✗ create expires_at
+      ↳  2% — ✓ 60 / ✗ 2020
 
     HTTP
-    http_req_duration..............: avg=17.37ms min=6.91ms med=13.05ms max=146.32ms p(90)=31.24ms p(95)=42.54ms
-      { expected_response:true }...: avg=17.37ms min=6.91ms med=13.05ms max=146.32ms p(90)=31.24ms p(95)=42.54ms
-    http_req_failed................: 0.00%  0 out of 523
-    http_reqs......................: 523    52.286217/s
+    http_req_duration..............: avg=4.44ms  min=87.72µs  med=2.12ms  max=120.85ms p(90)=8.93ms  p(95)=14.28ms
+      { expected_response:true }...: avg=25.29ms min=3.88ms   med=17.14ms max=120.85ms p(90)=60.93ms p(95)=72.6ms 
+    http_req_failed................: 97.11% 2020 out of 2080
+    http_reqs......................: 2080   207.226427/s
 
     EXECUTION
-    iteration_duration.............: avg=19.01ms min=7.87ms med=14.25ms max=147.74ms p(90)=34.76ms p(95)=44.77ms
-    iterations.....................: 523    52.286217/s
-    vus............................: 1      min=1        max=1
-    vus_max........................: 1      min=1        max=1
+    iteration_duration.............: avg=4.8ms   min=582.71µs med=2.44ms  max=121.18ms p(90)=9.66ms  p(95)=15.01ms
+    iterations.....................: 2080   207.226427/s
+    vus............................: 1      min=1            max=1
+    vus_max........................: 1      min=1            max=1
 
     NETWORK
-    data_received..................: 969 kB 97 kB/s
-    data_sent......................: 113 kB 11 kB/s
+    data_received..................: 349 kB 35 kB/s
+    data_sent......................: 307 kB 31 kB/s
 
 
 
 
-running (10.0s), 0/1 VUs, 523 complete and 0 interrupted iterations
+running (10.0s), 0/1 VUs, 2080 complete and 0 interrupted iterations
 default ✓ [ 100% ] 1 VUs  10s

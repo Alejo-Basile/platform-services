@@ -7,8 +7,8 @@
 
 
      execution: local
-        script: /home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/tests/k6/v2/create.js
-        output: json (/home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/benchmarks/v2/create-run1.json)
+        script: /home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/tests/k6/v2/create.js
+        output: json (/home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/benchmarks/v2/create-run1.json)
 
      scenarios: (100.00%) 1 scenario, 5 max VUs, 15s max duration (incl. graceful stop):
               * create: 5.00 iterations/s for 10s (maxVUs: 2-5, gracefulStop: 5s)
@@ -56,7 +56,7 @@ create   [ 100% ] 0/2 VUs  10.0s/10s  5.00 iters/s
 
   █ TOTAL RESULTS 
 
-    checks_total.......: 255     25.466829/s
+    checks_total.......: 255     25.362656/s
     checks_succeeded...: 100.00% 255 out of 255
     checks_failed......: 0.00%   0 out of 255
 
@@ -67,23 +67,23 @@ create   [ 100% ] 0/2 VUs  10.0s/10s  5.00 iters/s
     ✓ create expires_at
 
     HTTP
-    http_req_duration..............: avg=22.1ms  min=10.01ms med=15.28ms max=74.43ms p(90)=42.42ms p(95)=55.31ms
-      { expected_response:true }...: avg=22.1ms  min=10.01ms med=15.28ms max=74.43ms p(90)=42.42ms p(95)=55.31ms
+    http_req_duration..............: avg=47.55ms min=11.19ms med=60.11ms max=95.04ms p(90)=75.07ms p(95)=82.22ms
+      { expected_response:true }...: avg=47.55ms min=11.19ms med=60.11ms max=95.04ms p(90)=75.07ms p(95)=82.22ms
     http_req_failed................: 0.00% 0 out of 51
-    http_reqs......................: 51    5.093366/s
+    http_reqs......................: 51    5.072531/s
 
     EXECUTION
-    iteration_duration.............: avg=23.53ms min=10.9ms  med=16.63ms max=77.65ms p(90)=43.29ms p(95)=56.82ms
-    iterations.....................: 51    5.093366/s
-    vus............................: 0     min=0       max=0
+    iteration_duration.............: avg=48.56ms min=11.44ms med=61.47ms max=95.42ms p(90)=75.7ms  p(95)=82.69ms
+    iterations.....................: 51    5.072531/s
+    vus............................: 1     min=0       max=1
     vus_max........................: 2     min=2       max=2
 
     NETWORK
-    data_received..................: 93 kB 9.3 kB/s
+    data_received..................: 95 kB 9.5 kB/s
     data_sent......................: 11 kB 1.1 kB/s
 
 
 
 
-running (10.0s), 0/2 VUs, 51 complete and 0 interrupted iterations
+running (10.1s), 0/2 VUs, 51 complete and 0 interrupted iterations
 create ✓ [ 100% ] 0/2 VUs  10s  5.00 iters/s

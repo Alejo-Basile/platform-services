@@ -1,0 +1,652 @@
+{
+  "info": {
+    "_postman_id": "bc1a2608-7f31-4c3c-987a-334985d4ddac",
+    "name": "doc-service v2 · E2E (PDF → MinIO → worker → Markdown)",
+    "description": "Prueba E2E completa del camino v2 del doc-service, autocontenida en un solo archivo.\n\nFlujo: health → crear documento (URL prefirmada) → subir PDF a MinIO → poll hasta COMPLETED → URL de descarga → descargar el Markdown extraído → resumen.\n\nEl PDF de prueba va embebido en la variable `pdf_template` (ASCII plano): no hace falta ningún archivo local.\n\nFunciona con el contrato nuevo (`md_ref` / bucket `extracted-md`) y con el fallback legacy (`txt_ref` / `extracted-txt`), así que da verde con el worker actual en migración.\n\n## Requisitos\n- Stack levantado con el worker: `docker compose --profile full up -d` (desde `infra/`).\n- En Postman: Settings → General → **SSL certificate verification = OFF** (certs mkcert locales).\n- Ajustá `base_url` / `s3_url` si tu `TRAEFIK_HTTPS_PORT` no es 8543.\n\n## Cómo correrlo\n- **Collection Runner** (recomendado): seleccioná la colección y Run. El poll se auto-repite cada 2 s.\n- **CLI**: `newman run doc-service-v2-e2e.postman_collection.json --insecure`.\n\nCada request deja su resultado en los tests; el último (`7 · Summary`) resume PASS/FAIL.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://api.localhost:8543",
+      "type": "string",
+      "description": "Gateway HTTPS del API (Traefik). Ajustar el puerto a TRAEFIK_HTTPS_PORT."
+    },
+    {
+      "key": "s3_url",
+      "value": "https://s3.localhost:8543",
+      "type": "string",
+      "description": "Host público de MinIO vía Traefik (MINIO_PUBLIC_ENDPOINT)."
+    },
+    {
+      "key": "pdf_template",
+      "value": "%PDF-1.4\n%POSTMAN E2E ASCII PDF\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n4 0 obj\n<< /Length 63 >>\nstream\nBT /F1 12 Tf 72 720 Td (POSTMAN E2E SAMPLE DOCUMENT 2026) Tj ET\nendstream\nendobj\n5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\nxref\n0 6\n0000000000 65535 f \n0000000032 00000 n \n0000000081 00000 n \n0000000138 00000 n \n0000000264 00000 n \n0000000377 00000 n \ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n447\n%%EOF\n",
+      "type": "string",
+      "description": "PDF de prueba embebido (ASCII). No editar."
+    },
+    {
+      "key": "pdf_size_bytes",
+      "value": "",
+      "type": "string",
+      "description": "Tamaño del PDF, calculado en el pre-request del create."
+    },
+    {
+      "key": "idempotency_key",
+      "value": "",
+      "type": "string",
+      "description": "Clave/id del documento de esta corrida."
+    },
+    {
+      "key": "correlation_id",
+      "value": "",
+      "type": "string",
+      "description": "X-Correlation-Id de esta corrida."
+    },
+    {
+      "key": "document_id",
+      "value": "",
+      "type": "string",
+      "description": "document_id devuelto por el create."
+    },
+    {
+      "key": "upload_url",
+      "value": "",
+      "type": "string",
+      "description": "URL prefirmada POST de MinIO."
+    },
+    {
+      "key": "form_fields",
+      "value": "",
+      "type": "string",
+      "description": "Campos multipart de la política, serializados como JSON."
+    },
+    {
+      "key": "multipart_boundary",
+      "value": "",
+      "type": "string",
+      "description": "Boundary del cuerpo multipart de la subida."
+    },
+    {
+      "key": "multipart_body",
+      "value": "",
+      "type": "string",
+      "description": "Cuerpo multipart armado en el pre-request de la subida."
+    },
+    {
+      "key": "poll_attempts",
+      "value": "0",
+      "type": "string",
+      "description": "Intentos de polling ejecutados."
+    },
+    {
+      "key": "final_status",
+      "value": "",
+      "type": "string",
+      "description": "Estado terminal observado del documento."
+    },
+    {
+      "key": "md_ref",
+      "value": "",
+      "type": "string",
+      "description": "Clave del .md en extracted-md."
+    },
+    {
+      "key": "download_url",
+      "value": "",
+      "type": "string",
+      "description": "URL prefirmada GET del Markdown."
+    },
+    {
+      "key": "markdown_body",
+      "value": "",
+      "type": "string",
+      "description": "Contenido descargado del Markdown."
+    },
+    {
+      "key": "dl_host",
+      "value": "",
+      "type": "string",
+      "description": "Componente parseado de download_url (runtime)."
+    },
+    {
+      "key": "dl_segment_1",
+      "value": "",
+      "type": "string",
+      "description": "Componente parseado de download_url (runtime)."
+    },
+    {
+      "key": "dl_segment_2",
+      "value": "",
+      "type": "string",
+      "description": "Componente parseado de download_url (runtime)."
+    },
+    {
+      "key": "dl_q_algorithm",
+      "value": "",
+      "type": "string",
+      "description": "Componente parseado de download_url (runtime)."
+    },
+    {
+      "key": "dl_q_credential",
+      "value": "",
+      "type": "string",
+      "description": "Componente parseado de download_url (runtime)."
+    },
+    {
+      "key": "dl_q_date",
+      "value": "",
+      "type": "string",
+      "description": "Componente parseado de download_url (runtime)."
+    },
+    {
+      "key": "dl_q_expires",
+      "value": "",
+      "type": "string",
+      "description": "Componente parseado de download_url (runtime)."
+    },
+    {
+      "key": "dl_q_signedheaders",
+      "value": "",
+      "type": "string",
+      "description": "Componente parseado de download_url (runtime)."
+    },
+    {
+      "key": "dl_q_signature",
+      "value": "",
+      "type": "string",
+      "description": "Componente parseado de download_url (runtime)."
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health check",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('doc-service responde /healthz 200', () => {",
+              "  pm.expect(pm.response.code, 'status HTTP').to.eql(200);",
+              "});",
+              "if (pm.response.code !== 200) {",
+              "  postman.setNextRequest('7. Summary');",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/healthz",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "healthz"
+          ]
+        }
+      }
+    },
+    {
+      "name": "2. Create document",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Reset del estado de la corrida + identificadores únicos.",
+              "const pdf = pm.collectionVariables.get('pdf_template') || '';",
+              "pm.collectionVariables.set('pdf_size_bytes', String(pdf.length));",
+              "pm.collectionVariables.set('idempotency_key', 'postman-e2e-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10));",
+              "pm.collectionVariables.set('correlation_id', 'postman-corr-' + Date.now());",
+              "pm.collectionVariables.set('document_id', '');",
+              "pm.collectionVariables.set('upload_url', '');",
+              "pm.collectionVariables.set('form_fields', '');",
+              "pm.collectionVariables.set('multipart_boundary', '');",
+              "pm.collectionVariables.set('multipart_body', '');",
+              "pm.collectionVariables.set('download_url', '');",
+              "pm.collectionVariables.set('markdown_body', '');",
+              "pm.collectionVariables.set('final_status', '');",
+              "pm.collectionVariables.set('poll_attempts', '0');",
+              "pm.collectionVariables.set('md_ref', '');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('create responde 201 (o 200 si es idempotente)', () => {",
+              "  pm.expect(pm.response.code, 'status HTTP').to.be.oneOf([200, 201]);",
+              "});",
+              "let body = {};",
+              "try { body = pm.response.json(); } catch (e) { body = {}; }",
+              "",
+              "pm.test('devuelve document_id', () => {",
+              "  pm.expect(body.document_id || '', 'document_id').to.be.a('string').and.not.empty;",
+              "});",
+              "pm.test('estado inicial PENDING_UPLOAD', () => {",
+              "  pm.expect(body.status).to.eql('PENDING_UPLOAD');",
+              "});",
+              "pm.test('upload_url apunta al MinIO público', () => {",
+              "  pm.expect(body.upload_url || '', 'upload_url').to.match(/^https?:\\/\\/[^/]+\\/.+/);",
+              "});",
+              "pm.test('form_fields trae los campos de la política', () => {",
+              "  pm.expect(Object.keys(body.form_fields || {}).length, 'campos').to.be.above(3);",
+              "});",
+              "",
+              "pm.collectionVariables.set('document_id', body.document_id || '');",
+              "pm.collectionVariables.set('upload_url', body.upload_url || '');",
+              "pm.collectionVariables.set('form_fields', JSON.stringify(body.form_fields || {}));",
+              "",
+              "if (pm.response.code !== 200 && pm.response.code !== 201) {",
+              "  postman.setNextRequest('7. Summary');",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Correlation-Id",
+            "value": "{{correlation_id}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"idempotency_key\": \"{{idempotency_key}}\",\n  \"size_bytes\": {{pdf_size_bytes}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v2/documents",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v2",
+            "documents"
+          ]
+        }
+      }
+    },
+    {
+      "name": "3. Upload PDF to MinIO",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Arma el cuerpo multipart/form-data a partir de los form_fields de la política.",
+              "// El PDF embebido es ASCII puro, así que Postman lo envía byte a byte sin corromperlo.",
+              "const fieldsRaw = pm.collectionVariables.get('form_fields');",
+              "if (!fieldsRaw) {",
+              "  throw new Error('form_fields vacío: corré primero \"2 · Create document\".');",
+              "}",
+              "const fields = JSON.parse(fieldsRaw);",
+              "const pdf = pm.collectionVariables.get('pdf_template') || '';",
+              "const boundary = '----PostmanE2EBoundary' + Date.now().toString(16);",
+              "let body = '';",
+              "Object.keys(fields).forEach(function (k) {",
+              "  body += '--' + boundary + '\\r\\n';",
+              "  body += 'Content-Disposition: form-data; name=\"' + k + '\"\\r\\n\\r\\n';",
+              "  body += String(fields[k]) + '\\r\\n';",
+              "});",
+              "body += '--' + boundary + '\\r\\n';",
+              "body += 'Content-Disposition: form-data; name=\"file\"; filename=\"postman-e2e.pdf\"\\r\\n';",
+              "body += 'Content-Type: application/pdf\\r\\n\\r\\n';",
+              "body += pdf + '\\r\\n';",
+              "body += '--' + boundary + '--\\r\\n';",
+              "pm.collectionVariables.set('multipart_boundary', boundary);",
+              "pm.collectionVariables.set('multipart_body', body);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('MinIO acepta la subida prefirmada (2xx)', () => {",
+              "  pm.expect(pm.response.code, 'status HTTP').to.be.oneOf([200, 201, 204]);",
+              "});",
+              "if (pm.response.code < 200 || pm.response.code >= 300) {",
+              "  postman.setNextRequest('7. Summary');",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "multipart/form-data; boundary={{multipart_boundary}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{{multipart_body}}"
+        },
+        "url": "{{upload_url}}"
+      }
+    },
+    {
+      "name": "4. Poll document status",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const id = pm.collectionVariables.get('document_id');",
+              "if (!id) {",
+              "  throw new Error('document_id vacío: la creación falló.');",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "const status = body.status;",
+              "const attempts = Number(pm.collectionVariables.get('poll_attempts') || 0) + 1;",
+              "pm.collectionVariables.set('poll_attempts', String(attempts));",
+              "const ref = body.md_ref || body.txt_ref || '';",
+              "pm.collectionVariables.set('md_ref', ref);",
+              "const terminalFail = ['FAILED', 'REJECTED', 'UPLOAD_EXPIRED', 'EXTRACTION_FAILED', 'COMPENSATING'];",
+              "const intermediate = ['PENDING_UPLOAD', 'UPLOADED', 'QUEUED', 'PROCESSING', 'RETRYING'];",
+              "",
+              "if (status === 'COMPLETED') {",
+              "  pm.collectionVariables.set('final_status', 'COMPLETED');",
+              "  pm.test('documento COMPLETED', () => pm.expect(status).to.eql('COMPLETED'));",
+              "  pm.test('referencia extraída presente (md_ref o txt_ref)', () => pm.expect(ref, 'md_ref/txt_ref').to.be.a('string').and.not.empty);",
+              "} else if (terminalFail.indexOf(status) !== -1) {",
+              "  pm.collectionVariables.set('final_status', status);",
+              "  pm.test('documento COMPLETED (terminó en ' + status + ')', () => {",
+              "    pm.expect(status, 'failure_reason=' + (body.failure_reason || 'n/a')).to.eql('COMPLETED');",
+              "  });",
+              "  postman.setNextRequest('7. Summary');",
+              "} else if (attempts >= 90) {",
+              "  pm.collectionVariables.set('final_status', 'TIMEOUT:' + status);",
+              "  pm.test('documento COMPLETED antes del timeout', () => pm.expect(status).to.eql('COMPLETED'));",
+              "  postman.setNextRequest('7. Summary');",
+              "} else {",
+              "  pm.test('esperando COMPLETED (status=' + status + ', intento ' + attempts + ')', () => {",
+              "    pm.expect(status).to.be.oneOf(intermediate);",
+              "  });",
+              "  const jump = function () { postman.setNextRequest('4. Poll document status'); };",
+              "  try { setTimeout(jump, 2000); } catch (e) { jump(); }",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Correlation-Id",
+            "value": "{{correlation_id}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v2/documents/{{document_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v2",
+            "documents",
+            "{{document_id}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "5. Get download URL",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('download devuelve 200', () => {",
+              "  pm.expect(pm.response.code, 'status HTTP').to.eql(200);",
+              "});",
+              "let body = {};",
+              "try { body = pm.response.json(); } catch (e) { body = {}; }",
+              "pm.test('download_url presente', () => {",
+              "  pm.expect(body.download_url || '', 'download_url').to.be.a('string').and.not.empty;",
+              "});",
+              "pm.collectionVariables.set('download_url', body.download_url || '');",
+              "if (pm.response.code !== 200) {",
+              "  postman.setNextRequest('7. Summary');",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Correlation-Id",
+            "value": "{{correlation_id}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v2/documents/{{document_id}}/download",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v2",
+            "documents",
+            "{{document_id}}",
+            "download"
+          ]
+        }
+      }
+    },
+    {
+      "name": "6. Download extracted markdown",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Parse the presigned URL into explicit components so Postman does NOT",
+              "// normalize the path/query. An empty path makes Postman append a trailing",
+              "// \"/\" after the signature, which breaks SigV4 -> SignatureDoesNotMatch.",
+              "// (No \"new URL()\" here: the Postman sandbox does not expose the URL global.)",
+              "const dl = pm.collectionVariables.get('download_url');",
+              "if (!dl) {",
+              "  throw new Error('download_url vacío: corré primero \"5. Get download URL\".');",
+              "}",
+              "function safeDecode(v) {",
+              "  try { return decodeURIComponent(v); } catch (e) { return v; }",
+              "}",
+              "const noHash = dl.split('#')[0];",
+              "const qIndex = noHash.indexOf('?');",
+              "const base = qIndex >= 0 ? noHash.slice(0, qIndex) : noHash;",
+              "const queryString = qIndex >= 0 ? noHash.slice(qIndex + 1) : '';",
+              "const match = /^([a-z]+):\\/\\/([^/]+)(\\/.*)?$/i.exec(base);",
+              "const host = match ? match[2] : '';",
+              "const path = match && match[3] ? match[3] : '/';",
+              "const segments = path.split('/').filter(function (s) { return s !== ''; }).map(safeDecode);",
+              "function param(name) {",
+              "  const parts = queryString.split('&');",
+              "  for (let i = 0; i < parts.length; i++) {",
+              "    const eq = parts[i].indexOf('=');",
+              "    const key = eq >= 0 ? parts[i].slice(0, eq) : parts[i];",
+              "    if (safeDecode(key) === name) {",
+              "      return safeDecode(eq >= 0 ? parts[i].slice(eq + 1) : '');",
+              "    }",
+              "  }",
+              "  return '';",
+              "}",
+              "pm.collectionVariables.set('dl_host', host);",
+              "pm.collectionVariables.set('dl_segment_1', segments[0] || '');",
+              "pm.collectionVariables.set('dl_segment_2', segments.slice(1).join('/'));",
+              "pm.collectionVariables.set('dl_q_algorithm', param('X-Amz-Algorithm'));",
+              "pm.collectionVariables.set('dl_q_credential', param('X-Amz-Credential'));",
+              "pm.collectionVariables.set('dl_q_date', param('X-Amz-Date'));",
+              "pm.collectionVariables.set('dl_q_expires', param('X-Amz-Expires'));",
+              "pm.collectionVariables.set('dl_q_signedheaders', param('X-Amz-SignedHeaders'));",
+              "pm.collectionVariables.set('dl_q_signature', param('X-Amz-Signature'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const text = pm.response.text() || '';",
+              "pm.collectionVariables.set('markdown_body', text);",
+              "pm.test('MinIO devuelve el Markdown extraído (200)', () => {",
+              "  pm.expect(pm.response.code, 'status HTTP').to.eql(200);",
+              "});",
+              "pm.test('el Markdown contiene el texto del PDF de prueba', () => {",
+              "  pm.expect(text.length, 'bytes').to.be.above(0);",
+              "  pm.expect(text).to.include('POSTMAN');",
+              "  pm.expect(text).to.include('E2E');",
+              "  pm.expect(text).to.include('SAMPLE');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "*/*"
+          }
+        ],
+        "url": {
+          "raw": "https://{{dl_host}}/{{dl_segment_1}}/{{dl_segment_2}}?X-Amz-Algorithm={{dl_q_algorithm}}&X-Amz-Credential={{dl_q_credential}}&X-Amz-Date={{dl_q_date}}&X-Amz-Expires={{dl_q_expires}}&X-Amz-SignedHeaders={{dl_q_signedheaders}}&X-Amz-Signature={{dl_q_signature}}",
+          "protocol": "https",
+          "host": [
+            "{{dl_host}}"
+          ],
+          "path": [
+            "{{dl_segment_1}}",
+            "{{dl_segment_2}}"
+          ],
+          "query": [
+            {
+              "key": "X-Amz-Algorithm",
+              "value": "{{dl_q_algorithm}}"
+            },
+            {
+              "key": "X-Amz-Credential",
+              "value": "{{dl_q_credential}}"
+            },
+            {
+              "key": "X-Amz-Date",
+              "value": "{{dl_q_date}}"
+            },
+            {
+              "key": "X-Amz-Expires",
+              "value": "{{dl_q_expires}}"
+            },
+            {
+              "key": "X-Amz-SignedHeaders",
+              "value": "{{dl_q_signedheaders}}"
+            },
+            {
+              "key": "X-Amz-Signature",
+              "value": "{{dl_q_signature}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "7. Summary",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const finalStatus = pm.collectionVariables.get('final_status');",
+              "const md = pm.collectionVariables.get('markdown_body') || '';",
+              "pm.test('E2E OK: el documento llegó a COMPLETED', () => {",
+              "  pm.expect(finalStatus, 'final_status').to.eql('COMPLETED');",
+              "});",
+              "pm.test('E2E OK: se descargó el Markdown extraído', () => {",
+              "  pm.expect(md.trim().length, 'bytes de markdown').to.be.above(0);",
+              "});",
+              "console.log('E2E resumen → document_id=' + pm.collectionVariables.get('document_id') +",
+              "            ' | md_ref=' + pm.collectionVariables.get('md_ref') +",
+              "            ' | status=' + finalStatus +",
+              "            ' | poll_attempts=' + pm.collectionVariables.get('poll_attempts'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/healthz",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "healthz"
+          ]
+        }
+      }
+    }
+  ]
+}

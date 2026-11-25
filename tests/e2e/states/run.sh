@@ -135,10 +135,17 @@ case_completed() {
   upload="$UPLOAD_CODE"
   [[ "$upload" =~ ^2[0-9][0-9]$ ]] || { bad "subida HTTP $upload"; return 1; }
   expect_terminal "$id" COMPLETED || return 1
-  local txt
-  txt="$(doc_field "$id" txt_ref)"
-  [[ -n "$txt" ]] || { bad "txt_ref vacio"; return 1; }
-  minio_exists "extracted-txt/$txt" || { bad "falta extracted-txt/$txt"; return 1; }
+  # Regla de doc-service (ExtractedRef, D5): md_ref/extracted-md primero;
+  # fallback a txt_ref/extracted-txt (legacy, todavía en uso por el worker).
+  local ref bucket
+  ref="$(doc_field "$id" md_ref)"
+  bucket="extracted-md"
+  if [[ -z "$ref" ]]; then
+    ref="$(doc_field "$id" txt_ref)"
+    bucket="extracted-txt"
+  fi
+  [[ -n "$ref" ]] || { bad "sin artefacto (md_ref y txt_ref vacios)"; return 1; }
+  minio_exists "$bucket/$ref" || { bad "falta $bucket/$ref"; return 1; }
   return 0
 }
 

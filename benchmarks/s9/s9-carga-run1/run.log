@@ -1,0 +1,6 @@
+[s9-carga] RUN_ID=s9-carga-run1 MODE=run1 BASE_URL=https://api.localhost:8543 OUT_DIR=/home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/benchmarks/s9/s9-carga-run1
+[s9-carga] run1: matriz v2 BASE_URL=https://api.localhost:8543 OUT_DIR=/home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/benchmarks/s9/s9-carga-run1/v2
+[s9-carga] run1 health warm-up (10s)
+[s9-carga] run1 health run 1 (p95_ms=0)
+[s9-carga] run1 health run 2 (p95_ms=0)
+[s9-carga] run1 health run 3 (p95_ms=0)

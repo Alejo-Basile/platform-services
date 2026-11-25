@@ -13,6 +13,9 @@ results/
 # del workflow; en git solo se versionan los *-summary.json y resultados.csv.
 benchmarks/**/*.json.gz
 
+# Binario compilado del slo-exporter (se construye en CI)
+/slo-exporter/slo_exporter
+
 # Secretos y entornos locales — NUNCA commitear (repo publico)
 *.env
 !.env.example

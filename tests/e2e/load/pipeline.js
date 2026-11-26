@@ -57,7 +57,9 @@ export default function () {
   const formFields = createJson.form_fields || {};
   const key = formFields.key || '';
   
-  // Build multipart explicitly with deterministic field order (file last)
+  // Build multipart explicitly with deterministic field order (file last).
+  // k6 serializes a JS object through a Go map, so the part order is random;
+  // MinIO requires the key field before the file part.
   const enc = new TextEncoder();
   const boundary = '----k6boundary' + Math.random().toString(16).slice(2);
   const parts = [];

@@ -1,4 +1,4 @@
-time="2026-11-16T15:54:56-03:00" level=warning msg="\"cli\" level configuration overrode scenarios configuration entirely"
+time="2026-11-18T15:31:37-03:00" level=warning msg="\"cli\" level configuration overrode scenarios configuration entirely"
 
          /\      Grafana   /‾‾/  
     /\  /  \     |\  __   /  /   
@@ -8,71 +8,71 @@ time="2026-11-16T15:54:56-03:00" level=warning msg="\"cli\" level configuration 
 
 
      execution: local
-        script: /home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/tests/k6/v2/health.js
+        script: /home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/tests/k6/v2/health.js
         output: -
 
      scenarios: (100.00%) 1 scenario, 1 max VUs, 40s max duration (incl. graceful stop):
               * default: 1 looping VUs for 10s (gracefulStop: 30s)
 
 
-running (01.0s), 1/1 VUs, 369 complete and 0 interrupted iterations
+running (01.0s), 1/1 VUs, 36 complete and 0 interrupted iterations
 default   [  10% ] 1 VUs  01.0s/10s
 
-running (02.0s), 1/1 VUs, 749 complete and 0 interrupted iterations
+running (02.0s), 1/1 VUs, 60 complete and 0 interrupted iterations
 default   [  20% ] 1 VUs  02.0s/10s
 
-running (03.0s), 1/1 VUs, 1421 complete and 0 interrupted iterations
+running (03.0s), 1/1 VUs, 112 complete and 0 interrupted iterations
 default   [  30% ] 1 VUs  03.0s/10s
 
-running (04.0s), 1/1 VUs, 2004 complete and 0 interrupted iterations
+running (04.0s), 1/1 VUs, 152 complete and 0 interrupted iterations
 default   [  40% ] 1 VUs  04.0s/10s
 
-running (05.0s), 1/1 VUs, 2565 complete and 0 interrupted iterations
+running (05.0s), 1/1 VUs, 172 complete and 0 interrupted iterations
 default   [  50% ] 1 VUs  05.0s/10s
 
-running (06.0s), 1/1 VUs, 2991 complete and 0 interrupted iterations
+running (06.0s), 1/1 VUs, 213 complete and 0 interrupted iterations
 default   [  60% ] 1 VUs  06.0s/10s
 
-running (07.0s), 1/1 VUs, 3431 complete and 0 interrupted iterations
+running (07.0s), 1/1 VUs, 280 complete and 0 interrupted iterations
 default   [  70% ] 1 VUs  07.0s/10s
 
-running (08.0s), 1/1 VUs, 3886 complete and 0 interrupted iterations
+running (08.0s), 1/1 VUs, 341 complete and 0 interrupted iterations
 default   [  80% ] 1 VUs  08.0s/10s
 
-running (09.0s), 1/1 VUs, 4568 complete and 0 interrupted iterations
+running (09.0s), 1/1 VUs, 442 complete and 0 interrupted iterations
 default   [  90% ] 1 VUs  09.0s/10s
 
-running (10.0s), 1/1 VUs, 5135 complete and 0 interrupted iterations
+running (10.0s), 1/1 VUs, 543 complete and 0 interrupted iterations
 default   [ 100% ] 1 VUs  10.0s/10s
 
 
   █ TOTAL RESULTS 
 
-    checks_total.......: 10284   1027.189893/s
-    checks_succeeded...: 100.00% 10284 out of 10284
-    checks_failed......: 0.00%   0 out of 10284
+    checks_total.......: 1088    108.785855/s
+    checks_succeeded...: 100.00% 1088 out of 1088
+    checks_failed......: 0.00%   0 out of 1088
 
     ✓ healthz 200
     ✓ healthz healthy
 
     HTTP
-    http_req_duration..............: avg=1.39ms min=506.44µs med=1.01ms max=34.87ms p(90)=2.1ms  p(95)=2.97ms
-      { expected_response:true }...: avg=1.39ms min=506.44µs med=1.01ms max=34.87ms p(90)=2.1ms  p(95)=2.97ms
-    http_req_failed................: 0.00%  0 out of 5142
-    http_reqs......................: 5142   513.594947/s
+    http_req_duration..............: avg=17.72ms min=843.01µs med=11.34ms max=152.34ms p(90)=39.55ms p(95)=60.28ms
+      { expected_response:true }...: avg=17.72ms min=843.01µs med=11.34ms max=152.34ms p(90)=39.55ms p(95)=60.28ms
+    http_req_failed................: 0.00%  0 out of 544
+    http_reqs......................: 544    54.392927/s
 
     EXECUTION
-    iteration_duration.............: avg=1.89ms min=793.97µs med=1.41ms max=35.23ms p(90)=2.83ms p(95)=4.14ms
-    iterations.....................: 5142   513.594947/s
-    vus............................: 1      min=1         max=1
-    vus_max........................: 1      min=1         max=1
+    iteration_duration.............: avg=18.33ms min=1.01ms   med=11.89ms max=152.54ms p(90)=40.7ms  p(95)=60.67ms
+    iterations.....................: 544    54.392927/s
+    vus............................: 1      min=1        max=1
+    vus_max........................: 1      min=1        max=1
 
     NETWORK
-    data_received..................: 1.3 MB 133 kB/s
-    data_sent......................: 401 kB 40 kB/s
+    data_received..................: 101 kB 10 kB/s
+    data_sent......................: 22 kB  2.2 kB/s
 
 
 
 
-running (10.0s), 0/1 VUs, 5142 complete and 0 interrupted iterations
+running (10.0s), 0/1 VUs, 544 complete and 0 interrupted iterations
 default ✓ [ 100% ] 1 VUs  10s

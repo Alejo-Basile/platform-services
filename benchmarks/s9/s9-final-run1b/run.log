@@ -1,0 +1,50 @@
+[s9-carga] RUN_ID=s9-final-run1b MODE=precheck BASE_URL=https://api.localhost:8543 OUT_DIR=/home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/benchmarks/s9/s9-final-run1b
+[s9-carga] precheck: stack
+NAME                              IMAGE                                                                                                     COMMAND                  SERVICE                   CREATED        STATUS                  PORTS
+infra-alertmanager-1              prom/alertmanager:v0.34.1                                                                                 "/bin/alertmanager -…"   alertmanager              3 hours ago    Up 3 hours (healthy)    9093/tcp
+infra-consul-1                    hashicorp/consul:1.22.7                                                                                   "docker-entrypoint.s…"   consul                    19 hours ago   Up 11 hours (healthy)   8300-8302/tcp, 8500/tcp, 8301-8302/udp, 8600/tcp, 8600/udp
+infra-consul-agent-1              hashicorp/consul:1.22.7                                                                                   "docker-entrypoint.s…"   consul-agent              20 hours ago   Up 11 hours (healthy)   8300-8302/tcp, 8500/tcp, 8301-8302/udp, 8600/tcp, 8600/udp
+infra-doc-service-1               ghcr.io/alejo-basile/doc-service:latest                                                                   "/bin/sh /entrypoint…"   doc-service               11 hours ago   Up 3 hours (healthy)    8080/tcp
+infra-doc-service-canary-1        ghcr.io/alejo-basile/doc-service:latest                                                                   "/bin/sh /entrypoint…"   doc-service-canary        3 hours ago    Up 3 hours (healthy)    8080/tcp
+infra-extraction-worker-1         ghcr.io/alejo-basile/extraction-worker:latest                                                             "/entrypoint.sh /usr…"   extraction-worker         3 hours ago    Up 3 hours (healthy)    8081/tcp
+infra-grafana-1                   grafana/grafana:11.6.0                                                                                    "/run.sh"                grafana                   3 hours ago    Up 3 hours              3000/tcp
+infra-loki-1                      grafana/loki:3.4.2                                                                                        "/usr/bin/loki -conf…"   loki                      3 hours ago    Up 3 hours              3100/tcp
+infra-minio-1                     bitnamilegacy/minio:2025.7.23-debian-12-r5                                                                "/opt/bitnami/script…"   minio                     3 days ago     Up 23 hours (healthy)   9000-9001/tcp
+infra-mongo-1                     mongo:7.0                                                                                                 "docker-entrypoint.s…"   mongo                     11 hours ago   Up 11 hours (healthy)   27017/tcp
+infra-monolito-1                  monolito:latest                                                                                           "uvicorn src.interfa…"   monolito                  2 days ago     Up 23 hours (healthy)   8000/tcp
+infra-ocr-worker-1                ghcr.io/alejo-basile/ocr-worker@sha256:3e10b697a35f5fe22b4a3d4bbb148c6bbbd6e7e4fefeb7c341639f7210d0d83b   "/bin/sh /entrypoint…"   ocr-worker                3 hours ago    Up 3 hours (healthy)    8080/tcp
+infra-prometheus-1                prom/prometheus:v2.53.4                                                                                   "/bin/prometheus --c…"   prometheus                3 hours ago    Up 3 hours              9090/tcp
+infra-promtail-1                  grafana/promtail@sha256:6140a3158fddd7ef2276908bd321ad5265ee6ad2abd9fb3c937394827df3ea4d                  "/usr/bin/promtail -…"   promtail                  5 days ago     Up 23 hours (healthy)   
+infra-ratelimitd-1                ratelimitd:p4-04                                                                                          "/usr/local/bin/rate…"   ratelimitd                11 hours ago   Up 3 hours (healthy)    8090/tcp
+infra-redis-exporter-1            oliver006/redis_exporter:v1.93.0                                                                          "/redis_exporter"        redis-exporter            3 hours ago    Up 3 hours              9121/tcp
+infra-redis-ratelimit-1           redis:7.2                                                                                                 "/bin/sh -c 'export …"   redis-ratelimit           2 days ago     Up 23 hours (healthy)   6379/tcp
+infra-redis-streams-1             redis:7.2                                                                                                 "/bin/sh -c 'export …"   redis-streams             3 days ago     Up 23 hours (healthy)   6379/tcp
+infra-redis-streams-replica-1-1   redis:7.2-alpine3.22@sha256:ea0b4a0bac3988a3129908075d6219d78cc7b2a0a4b643b14ce857333026177a              "/bin/sh -c 'export …"   redis-streams-replica-1   7 days ago     Up 23 hours (healthy)   6379/tcp
+infra-redis-streams-replica-2-1   redis:7.2-alpine3.22@sha256:ea0b4a0bac3988a3129908075d6219d78cc7b2a0a4b643b14ce857333026177a              "/bin/sh -c 'export …"   redis-streams-replica-2   7 days ago     Up 23 hours (healthy)   6379/tcp
+infra-sentinel-1-1                redis:7.2-alpine3.22@sha256:ea0b4a0bac3988a3129908075d6219d78cc7b2a0a4b643b14ce857333026177a              "/bin/sh /usr/local/…"   sentinel-1                7 days ago     Up 23 hours (healthy)   6379/tcp
+infra-sentinel-2-1                redis:7.2-alpine3.22@sha256:ea0b4a0bac3988a3129908075d6219d78cc7b2a0a4b643b14ce857333026177a              "/bin/sh /usr/local/…"   sentinel-2                7 days ago     Up 23 hours (healthy)   6379/tcp
+infra-sentinel-3-1                redis:7.2-alpine3.22@sha256:ea0b4a0bac3988a3129908075d6219d78cc7b2a0a4b643b14ce857333026177a              "/bin/sh /usr/local/…"   sentinel-3                7 days ago     Up 23 hours (healthy)   6379/tcp
+infra-slo-exporter-1              slo-exporter:s5-p4-03                                                                                     "/usr/local/bin/slo-…"   slo-exporter              3 hours ago    Up 3 hours (healthy)    9100/tcp
+infra-traefik-1                   traefik:v3.7                                                                                              "/entrypoint.sh trae…"   traefik                   12 hours ago   Up 12 hours (healthy)   0.0.0.0:8088->80/tcp, [::]:8088->80/tcp, 0.0.0.0:8543->443/tcp, [::]:8543->443/tcp
+[s9-carga] readyz: {"status":"ready","timestamp":"2026-11-18T18:26:54Z","service":"doc-service","checks":{"minio":"ok","mongo":"ok","redis":"ok"}}
+[s9-carga] GET https://api.localhost:8543/healthz -> 200
+[s9-carga] listo: /home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/benchmarks/s9/s9-final-run1b
+[s9-carga] RUN_ID=s9-final-run1b MODE=run1 BASE_URL=https://api.localhost:8543 OUT_DIR=/home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/benchmarks/s9/s9-final-run1b
+[s9-carga] run1: matriz v2 BASE_URL=https://api.localhost:8543 OUT_DIR=/home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/benchmarks/s9/s9-final-run1b/v2
+[s9-carga] run1 health warm-up (10s)
+[s9-carga] run1 health run 1 (p95_ms=0 sleep_s=0)
+[s9-carga] run1 health run 2 (p95_ms=0 sleep_s=0)
+[s9-carga] run1 health run 3 (p95_ms=0 sleep_s=0)
+[s9-carga] run1 list warm-up (10s)
+[s9-carga] run1 list run 1 (p95_ms=252.6 sleep_s=1.5)
+[s9-carga] run1 list run 2 (p95_ms=252.6 sleep_s=1.5)
+[s9-carga] run1 list run 3 (p95_ms=252.6 sleep_s=1.5)
+[s9-carga] run1 create warm-up (10s)
+[s9-carga] run1 create run 1 (p95_ms=0 sleep_s=0)
+[s9-carga] run1 create run 2 (p95_ms=0 sleep_s=0)
+[s9-carga] run1 create run 3 (p95_ms=0 sleep_s=0)
+[s9-carga] run1 state warm-up (10s)
+[s9-carga] run1 state run 1 (p95_ms=0 sleep_s=1.5)
+[s9-carga] run1 state run 2 (p95_ms=0 sleep_s=1.5)
+[s9-carga] run1 state run 3 (p95_ms=0 sleep_s=1.5)
+[s9-carga] run1 fallos de threshold: 4

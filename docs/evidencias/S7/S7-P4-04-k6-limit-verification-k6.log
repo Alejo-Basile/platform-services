@@ -7,138 +7,42 @@
 
 
      execution: local
-        script: /home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/tests/k6/ratelimit/limit-verification.js
+        script: /home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/tests/k6/ratelimit/limit-verification.js
         output: -
 
      scenarios: (100.00%) 1 scenario, 120 max VUs, 40s max duration (incl. graceful stop):
               * paced: 20.00 iterations/s for 10s (maxVUs: 60-120, gracefulStop: 30s)
 
 
-running (00.8s), 001/060 VUs, 15 complete and 0 interrupted iterations
-paced   [   8% ] 001/060 VUs  00.8s/10s  20.00 iters/s
+running (01.0s), 000/060 VUs, 20 complete and 0 interrupted iterations
+paced   [  10% ] 000/060 VUs  01.0s/10s  20.00 iters/s
 
-running (01.8s), 003/060 VUs, 33 complete and 0 interrupted iterations
-paced   [  18% ] 003/060 VUs  01.8s/10s  20.00 iters/s
+running (02.0s), 000/060 VUs, 40 complete and 0 interrupted iterations
+paced   [  20% ] 000/060 VUs  02.0s/10s  20.00 iters/s
 
-running (02.8s), 007/060 VUs, 49 complete and 0 interrupted iterations
-paced   [  28% ] 007/060 VUs  02.8s/10s  20.00 iters/s
+running (03.0s), 000/060 VUs, 60 complete and 0 interrupted iterations
+paced   [  30% ] 000/060 VUs  03.0s/10s  20.00 iters/s
 
-running (03.8s), 000/060 VUs, 76 complete and 0 interrupted iterations
-paced   [  38% ] 000/060 VUs  03.8s/10s  20.00 iters/s
+running (04.0s), 000/060 VUs, 80 complete and 0 interrupted iterations
+paced   [  40% ] 000/060 VUs  04.0s/10s  20.00 iters/s
 
-running (04.8s), 000/060 VUs, 96 complete and 0 interrupted iterations
-paced   [  48% ] 000/060 VUs  04.8s/10s  20.00 iters/s
+running (05.0s), 000/060 VUs, 100 complete and 0 interrupted iterations
+paced   [  50% ] 000/060 VUs  05.0s/10s  20.00 iters/s
 
-running (05.8s), 000/060 VUs, 116 complete and 0 interrupted iterations
-paced   [  58% ] 000/060 VUs  05.8s/10s  20.00 iters/s
+running (06.0s), 000/060 VUs, 120 complete and 0 interrupted iterations
+paced   [  60% ] 000/060 VUs  06.0s/10s  20.00 iters/s
 
-running (06.8s), 000/060 VUs, 136 complete and 0 interrupted iterations
-paced   [  68% ] 000/060 VUs  06.8s/10s  20.00 iters/s
+running (07.0s), 000/060 VUs, 140 complete and 0 interrupted iterations
+paced   [  70% ] 000/060 VUs  07.0s/10s  20.00 iters/s
 
-running (07.8s), 000/060 VUs, 156 complete and 0 interrupted iterations
-paced   [  78% ] 000/060 VUs  07.8s/10s  20.00 iters/s
+running (08.0s), 000/060 VUs, 160 complete and 0 interrupted iterations
+paced   [  80% ] 000/060 VUs  08.0s/10s  20.00 iters/s
 
-running (08.8s), 000/060 VUs, 176 complete and 0 interrupted iterations
-paced   [  88% ] 000/060 VUs  08.8s/10s  20.00 iters/s
-
-running (09.8s), 000/060 VUs, 196 complete and 0 interrupted iterations
-paced   [  98% ] 000/060 VUs  09.8s/10s  20.00 iters/s
-
-
-  █ THRESHOLDS 
-
-    checks
-    ✓ 'rate==1' rate=100.00%
-
-    dropped_iterations
-    ✓ 'count==0' count=0
-
-    unexpected_status_total
-    ✓ 'count==0' count=0
-
-
-  █ TOTAL RESULTS 
-
-    checks_total.......: 200     19.994978/s
-    checks_succeeded...: 100.00% 200 out of 200
-    checks_failed......: 0.00%   0 out of 200
-
-    ✓ status 200 o 429
-
-    CUSTOM
-    allowed_total..................: 119    11.897012/s
-    denied_total...................: 81     8.097966/s
-    request_end_offset_ms..........: avg=5047.01 min=42     med=4983.5  max=9962     p(90)=8968.2   p(95)=9480.6  
-    request_start_offset_ms........: avg=4976.83 min=12     med=4976    max=9950     p(90)=8955     p(95)=9452.55 
-    unexpected_status_total........: 0      0/s
-
-    HTTP
-    http_req_duration..............: avg=45.76ms min=4.03ms med=11.49ms max=415.27ms p(90)=130.33ms p(95)=211.85ms
-      { expected_response:true }...: avg=52.4ms  min=7ms    med=13.81ms max=415.27ms p(90)=188.04ms p(95)=218.36ms
-    http_req_failed................: 40.50% 81 out of 200
-    http_reqs......................: 200    19.994978/s
-
-    EXECUTION
-    dropped_iterations.............: 0      0/s
-    iteration_duration.............: avg=70.9ms  min=4.66ms med=14.4ms  max=612.57ms p(90)=260.35ms p(95)=389.2ms 
-    iterations.....................: 200    19.994978/s
-    vus............................: 0      min=0         max=7 
-    vus_max........................: 60     min=60        max=60
-
-    NETWORK
-    data_received..................: 224 kB 22 kB/s
-    data_sent......................: 116 kB 12 kB/s
-
-
-
+running (09.0s), 000/060 VUs, 180 complete and 0 interrupted iterations
+paced   [  90% ] 000/060 VUs  09.0s/10s  20.00 iters/s
 
 running (10.0s), 000/060 VUs, 200 complete and 0 interrupted iterations
-paced ✓ [ 100% ] 000/060 VUs  10s  20.00 iters/s
-
-         /\      Grafana   /‾‾/  
-    /\  /  \     |\  __   /  /   
-   /  \/    \    | |/ /  /   ‾‾\ 
-  /          \   |   (  |  (‾)  |
- / __________ \  |_|\_\  \_____/ 
-
-
-     execution: local
-        script: /home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/tests/k6/ratelimit/limit-verification.js
-        output: -
-
-     scenarios: (100.00%) 1 scenario, 120 max VUs, 40s max duration (incl. graceful stop):
-              * paced: 20.00 iterations/s for 10s (maxVUs: 60-120, gracefulStop: 30s)
-
-
-running (00.8s), 009/060 VUs, 8 complete and 0 interrupted iterations
-paced   [   8% ] 009/060 VUs  00.8s/10s  20.00 iters/s
-
-running (01.8s), 001/060 VUs, 36 complete and 0 interrupted iterations
-paced   [  18% ] 001/060 VUs  01.8s/10s  20.00 iters/s
-
-running (02.8s), 001/060 VUs, 56 complete and 0 interrupted iterations
-paced   [  28% ] 001/060 VUs  02.8s/10s  20.00 iters/s
-
-running (03.8s), 000/060 VUs, 77 complete and 0 interrupted iterations
-paced   [  38% ] 000/060 VUs  03.8s/10s  20.00 iters/s
-
-running (04.8s), 000/060 VUs, 97 complete and 0 interrupted iterations
-paced   [  48% ] 000/060 VUs  04.8s/10s  20.00 iters/s
-
-running (05.8s), 000/060 VUs, 117 complete and 0 interrupted iterations
-paced   [  58% ] 000/060 VUs  05.8s/10s  20.00 iters/s
-
-running (06.8s), 000/060 VUs, 137 complete and 0 interrupted iterations
-paced   [  68% ] 000/060 VUs  06.8s/10s  20.00 iters/s
-
-running (07.8s), 000/060 VUs, 157 complete and 0 interrupted iterations
-paced   [  78% ] 000/060 VUs  07.8s/10s  20.00 iters/s
-
-running (08.8s), 000/060 VUs, 177 complete and 0 interrupted iterations
-paced   [  88% ] 000/060 VUs  08.8s/10s  20.00 iters/s
-
-running (09.8s), 000/060 VUs, 197 complete and 0 interrupted iterations
-paced   [  98% ] 000/060 VUs  09.8s/10s  20.00 iters/s
+paced   [ 100% ] 000/060 VUs  10.0s/10s  20.00 iters/s
 
 
   █ THRESHOLDS 
@@ -155,34 +59,34 @@ paced   [  98% ] 000/060 VUs  09.8s/10s  20.00 iters/s
 
   █ TOTAL RESULTS 
 
-    checks_total.......: 201     20.076298/s
+    checks_total.......: 201     20.090093/s
     checks_succeeded...: 100.00% 201 out of 201
     checks_failed......: 0.00%   0 out of 201
 
     ✓ status 200 o 429
 
     CUSTOM
-    allowed_total..................: 118    11.786085/s
-    denied_total...................: 83     8.290213/s
-    request_end_offset_ms..........: avg=5048.562189 min=149    med=5009    max=10012    p(90)=9012     p(95)=9559    
-    request_start_offset_ms........: avg=5001.855721 min=5      med=5001    max=10001    p(90)=9002     p(95)=9501    
+    allowed_total..................: 119    11.894134/s
+    denied_total...................: 82     8.195958/s
+    request_end_offset_ms..........: avg=5003.616915 min=12       med=5001   max=10004   p(90)=9001   p(95)=9501  
+    request_start_offset_ms........: avg=5000.39801  min=3        med=5000   max=10001   p(90)=9000   p(95)=9500  
     unexpected_status_total........: 0      0/s
 
     HTTP
-    http_req_duration..............: avg=27.88ms     min=3.47ms med=8.8ms   max=377.25ms p(90)=61.77ms  p(95)=196ms   
-      { expected_response:true }...: avg=42.5ms      min=6.02ms med=10.43ms max=377.25ms p(90)=132.62ms p(95)=220.62ms
-    http_req_failed................: 41.29% 83 out of 201
-    http_reqs......................: 201    20.076298/s
+    http_req_duration..............: avg=2.1ms       min=823.81µs med=2.09ms max=10.31ms p(90)=3.14ms p(95)=4ms   
+      { expected_response:true }...: avg=2.65ms      min=1.97ms   med=2.23ms max=10.31ms p(90)=3.75ms p(95)=4.73ms
+    http_req_failed................: 40.79% 82 out of 201
+    http_reqs......................: 201    20.090093/s
 
     EXECUTION
     dropped_iterations.............: 0      0/s
-    iteration_duration.............: avg=47.33ms     min=4.02ms med=11.09ms max=551.85ms p(90)=91.46ms  p(95)=313.47ms
-    iterations.....................: 201    20.076298/s
-    vus............................: 0      min=0         max=9 
+    iteration_duration.............: avg=3.33ms      min=1.19ms   med=2.54ms max=20.22ms p(90)=5.33ms p(95)=6.06ms
+    iterations.....................: 201    20.090093/s
+    vus............................: 0      min=0         max=0 
     vus_max........................: 60     min=60        max=60
 
     NETWORK
-    data_received..................: 223 kB 22 kB/s
+    data_received..................: 248 kB 25 kB/s
     data_sent......................: 116 kB 12 kB/s
 
 
@@ -199,42 +103,42 @@ paced ✓ [ 100% ] 000/060 VUs  10s  20.00 iters/s
 
 
      execution: local
-        script: /home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/tests/k6/ratelimit/limit-verification.js
+        script: /home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/tests/k6/ratelimit/limit-verification.js
         output: -
 
      scenarios: (100.00%) 1 scenario, 120 max VUs, 40s max duration (incl. graceful stop):
               * paced: 20.00 iterations/s for 10s (maxVUs: 60-120, gracefulStop: 30s)
 
 
-running (00.8s), 003/060 VUs, 14 complete and 0 interrupted iterations
-paced   [   8% ] 003/060 VUs  00.8s/10s  20.00 iters/s
+running (01.0s), 000/060 VUs, 20 complete and 0 interrupted iterations
+paced   [  10% ] 000/060 VUs  01.0s/10s  20.00 iters/s
 
-running (01.8s), 001/060 VUs, 36 complete and 0 interrupted iterations
-paced   [  18% ] 001/060 VUs  01.8s/10s  20.00 iters/s
+running (02.0s), 000/060 VUs, 40 complete and 0 interrupted iterations
+paced   [  20% ] 000/060 VUs  02.0s/10s  20.00 iters/s
 
-running (02.8s), 000/060 VUs, 56 complete and 0 interrupted iterations
-paced   [  28% ] 000/060 VUs  02.8s/10s  20.00 iters/s
+running (03.0s), 000/060 VUs, 60 complete and 0 interrupted iterations
+paced   [  30% ] 000/060 VUs  03.0s/10s  20.00 iters/s
 
-running (03.8s), 000/060 VUs, 76 complete and 0 interrupted iterations
-paced   [  38% ] 000/060 VUs  03.8s/10s  20.00 iters/s
+running (04.0s), 000/060 VUs, 80 complete and 0 interrupted iterations
+paced   [  40% ] 000/060 VUs  04.0s/10s  20.00 iters/s
 
-running (04.8s), 000/060 VUs, 96 complete and 0 interrupted iterations
-paced   [  48% ] 000/060 VUs  04.8s/10s  20.00 iters/s
+running (05.0s), 000/060 VUs, 100 complete and 0 interrupted iterations
+paced   [  50% ] 000/060 VUs  05.0s/10s  20.00 iters/s
 
-running (05.8s), 001/060 VUs, 116 complete and 0 interrupted iterations
-paced   [  58% ] 001/060 VUs  05.8s/10s  20.00 iters/s
+running (06.0s), 000/060 VUs, 120 complete and 0 interrupted iterations
+paced   [  60% ] 000/060 VUs  06.0s/10s  20.00 iters/s
 
-running (06.8s), 001/060 VUs, 136 complete and 0 interrupted iterations
-paced   [  68% ] 001/060 VUs  06.8s/10s  20.00 iters/s
+running (07.0s), 000/060 VUs, 140 complete and 0 interrupted iterations
+paced   [  70% ] 000/060 VUs  07.0s/10s  20.00 iters/s
 
-running (07.8s), 000/060 VUs, 156 complete and 0 interrupted iterations
-paced   [  78% ] 000/060 VUs  07.8s/10s  20.00 iters/s
+running (08.0s), 000/060 VUs, 160 complete and 0 interrupted iterations
+paced   [  80% ] 000/060 VUs  08.0s/10s  20.00 iters/s
 
-running (08.8s), 001/060 VUs, 176 complete and 0 interrupted iterations
-paced   [  88% ] 001/060 VUs  08.8s/10s  20.00 iters/s
+running (09.0s), 000/060 VUs, 180 complete and 0 interrupted iterations
+paced   [  90% ] 000/060 VUs  09.0s/10s  20.00 iters/s
 
-running (09.8s), 000/060 VUs, 196 complete and 0 interrupted iterations
-paced   [  98% ] 000/060 VUs  09.8s/10s  20.00 iters/s
+running (10.0s), 000/060 VUs, 200 complete and 0 interrupted iterations
+paced   [ 100% ] 000/060 VUs  10.0s/10s  20.00 iters/s
 
 
   █ THRESHOLDS 
@@ -251,34 +155,34 @@ paced   [  98% ] 000/060 VUs  09.8s/10s  20.00 iters/s
 
   █ TOTAL RESULTS 
 
-    checks_total.......: 200     19.996402/s
+    checks_total.......: 200     19.999298/s
     checks_succeeded...: 100.00% 200 out of 200
     checks_failed......: 0.00%   0 out of 200
 
     ✓ status 200 o 429
 
     CUSTOM
-    allowed_total..................: 118    11.797877/s
-    denied_total...................: 82     8.198525/s
-    request_end_offset_ms..........: avg=5000.865 min=90     med=4984.5  max=9962     p(90)=9014.7  p(95)=9486.15
-    request_start_offset_ms........: avg=4976.905 min=26     med=4976    max=9951     p(90)=8956.2  p(95)=9465.85
+    allowed_total..................: 119    11.899582/s
+    denied_total...................: 81     8.099716/s
+    request_end_offset_ms..........: avg=4979.225 min=8        med=4977.5 max=9954    p(90)=8958.4 p(95)=9455.45
+    request_start_offset_ms........: avg=4975.28  min=2        med=4975   max=9951    p(90)=8955   p(95)=9453.5 
     unexpected_status_total........: 0      0/s
 
     HTTP
-    http_req_duration..............: avg=15.33ms  min=3.41ms med=11.42ms max=75.7ms   p(90)=28.62ms p(95)=60.7ms 
-      { expected_response:true }...: avg=20.26ms  min=6.41ms med=13.74ms max=75.7ms   p(90)=43.37ms p(95)=64ms   
-    http_req_failed................: 41.00% 82 out of 200
-    http_reqs......................: 200    19.996402/s
+    http_req_duration..............: avg=2.96ms   min=910.83µs med=2.15ms max=17.21ms p(90)=5.98ms p(95)=7.9ms  
+      { expected_response:true }...: avg=3.54ms   min=1.96ms   med=2.21ms max=17.21ms p(90)=6.57ms p(95)=10.79ms
+    http_req_failed................: 40.50% 81 out of 200
+    http_reqs......................: 200    19.999298/s
 
     EXECUTION
     dropped_iterations.............: 0      0/s
-    iteration_duration.............: avg=24.78ms  min=4.03ms med=15.27ms max=133.33ms p(90)=61.44ms p(95)=70.87ms
-    iterations.....................: 200    19.996402/s
-    vus............................: 1      min=1         max=3 
+    iteration_duration.............: avg=4.14ms   min=1.25ms   med=3.58ms max=17.55ms p(90)=7.02ms p(95)=9.8ms  
+    iterations.....................: 200    19.999298/s
+    vus............................: 0      min=0         max=0 
     vus_max........................: 60     min=60        max=60
 
     NETWORK
-    data_received..................: 224 kB 22 kB/s
+    data_received..................: 248 kB 25 kB/s
     data_sent......................: 116 kB 12 kB/s
 
 
@@ -295,42 +199,42 @@ paced ✓ [ 100% ] 000/060 VUs  10s  20.00 iters/s
 
 
      execution: local
-        script: /home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/tests/k6/ratelimit/limit-verification.js
+        script: /home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/tests/k6/ratelimit/limit-verification.js
         output: -
 
      scenarios: (100.00%) 1 scenario, 120 max VUs, 40s max duration (incl. graceful stop):
               * paced: 20.00 iterations/s for 10s (maxVUs: 60-120, gracefulStop: 30s)
 
 
-running (00.9s), 001/060 VUs, 17 complete and 0 interrupted iterations
-paced   [   9% ] 001/060 VUs  00.9s/10s  20.00 iters/s
+running (01.0s), 000/060 VUs, 20 complete and 0 interrupted iterations
+paced   [  10% ] 000/060 VUs  01.0s/10s  20.00 iters/s
 
-running (01.9s), 001/060 VUs, 37 complete and 0 interrupted iterations
-paced   [  19% ] 001/060 VUs  01.9s/10s  20.00 iters/s
+running (02.0s), 000/060 VUs, 40 complete and 0 interrupted iterations
+paced   [  20% ] 000/060 VUs  02.0s/10s  20.00 iters/s
 
-running (02.9s), 001/060 VUs, 57 complete and 0 interrupted iterations
-paced   [  29% ] 001/060 VUs  02.9s/10s  20.00 iters/s
+running (03.0s), 000/060 VUs, 60 complete and 0 interrupted iterations
+paced   [  30% ] 000/060 VUs  03.0s/10s  20.00 iters/s
 
-running (03.9s), 000/060 VUs, 78 complete and 0 interrupted iterations
-paced   [  39% ] 000/060 VUs  03.9s/10s  20.00 iters/s
+running (04.0s), 000/060 VUs, 80 complete and 0 interrupted iterations
+paced   [  40% ] 000/060 VUs  04.0s/10s  20.00 iters/s
 
-running (04.9s), 000/060 VUs, 98 complete and 0 interrupted iterations
-paced   [  49% ] 000/060 VUs  04.9s/10s  20.00 iters/s
+running (05.0s), 000/060 VUs, 100 complete and 0 interrupted iterations
+paced   [  50% ] 000/060 VUs  05.0s/10s  20.00 iters/s
 
-running (05.9s), 001/060 VUs, 117 complete and 0 interrupted iterations
-paced   [  59% ] 001/060 VUs  05.9s/10s  20.00 iters/s
+running (06.0s), 000/060 VUs, 120 complete and 0 interrupted iterations
+paced   [  60% ] 000/060 VUs  06.0s/10s  20.00 iters/s
 
-running (06.9s), 000/060 VUs, 138 complete and 0 interrupted iterations
-paced   [  69% ] 000/060 VUs  06.9s/10s  20.00 iters/s
+running (07.0s), 000/060 VUs, 140 complete and 0 interrupted iterations
+paced   [  70% ] 000/060 VUs  07.0s/10s  20.00 iters/s
 
-running (07.9s), 000/060 VUs, 158 complete and 0 interrupted iterations
-paced   [  79% ] 000/060 VUs  07.9s/10s  20.00 iters/s
+running (08.0s), 000/060 VUs, 160 complete and 0 interrupted iterations
+paced   [  80% ] 000/060 VUs  08.0s/10s  20.00 iters/s
 
-running (08.9s), 000/060 VUs, 178 complete and 0 interrupted iterations
-paced   [  89% ] 000/060 VUs  08.9s/10s  20.00 iters/s
+running (09.0s), 000/060 VUs, 180 complete and 0 interrupted iterations
+paced   [  90% ] 000/060 VUs  09.0s/10s  20.00 iters/s
 
-running (09.9s), 001/060 VUs, 197 complete and 0 interrupted iterations
-paced   [  99% ] 001/060 VUs  09.9s/10s  20.00 iters/s
+running (10.0s), 000/060 VUs, 200 complete and 0 interrupted iterations
+paced   [ 100% ] 000/060 VUs  10.0s/10s  20.00 iters/s
 
 
   █ THRESHOLDS 
@@ -347,226 +251,34 @@ paced   [  99% ] 001/060 VUs  09.9s/10s  20.00 iters/s
 
   █ TOTAL RESULTS 
 
-    checks_total.......: 201     20.010435/s
-    checks_succeeded...: 100.00% 201 out of 201
-    checks_failed......: 0.00%   0 out of 201
-
-    ✓ status 200 o 429
-
-    CUSTOM
-    allowed_total..................: 119    11.846974/s
-    denied_total...................: 82     8.163461/s
-    request_end_offset_ms..........: avg=5025.378109 min=50     med=5006    max=10042    p(90)=9012    p(95)=9546   
-    request_start_offset_ms........: avg=5002.174129 min=15     med=5002    max=10003    p(90)=9002    p(95)=9501   
-    unexpected_status_total........: 0      0/s
-
-    HTTP
-    http_req_duration..............: avg=16.3ms      min=4ms    med=10.52ms max=95.3ms   p(90)=43.54ms p(95)=53.58ms
-      { expected_response:true }...: avg=18.83ms     min=7.24ms med=12.59ms max=82.69ms  p(90)=48.88ms p(95)=57.62ms
-    http_req_failed................: 40.79% 82 out of 201
-    http_reqs......................: 201    20.010435/s
-
-    EXECUTION
-    dropped_iterations.............: 0      0/s
-    iteration_duration.............: avg=23.79ms     min=4.82ms med=16.52ms max=128.44ms p(90)=49.75ms p(95)=62.56ms
-    iterations.....................: 201    20.010435/s
-    vus............................: 0      min=0         max=1 
-    vus_max........................: 60     min=60        max=60
-
-    NETWORK
-    data_received..................: 223 kB 22 kB/s
-    data_sent......................: 116 kB 12 kB/s
-
-
-
-
-running (10.0s), 000/060 VUs, 201 complete and 0 interrupted iterations
-paced ✓ [ 100% ] 000/060 VUs  10s  20.00 iters/s
-
-         /\      Grafana   /‾‾/  
-    /\  /  \     |\  __   /  /   
-   /  \/    \    | |/ /  /   ‾‾\ 
-  /          \   |   (  |  (‾)  |
- / __________ \  |_|\_\  \_____/ 
-
-
-     execution: local
-        script: /home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/tests/k6/ratelimit/limit-verification.js
-        output: -
-
-     scenarios: (100.00%) 1 scenario, 120 max VUs, 40s max duration (incl. graceful stop):
-              * paced: 20.00 iterations/s for 10s (maxVUs: 60-120, gracefulStop: 30s)
-
-
-running (00.8s), 001/060 VUs, 16 complete and 0 interrupted iterations
-paced   [   8% ] 001/060 VUs  00.8s/10s  20.00 iters/s
-
-running (01.8s), 001/060 VUs, 36 complete and 0 interrupted iterations
-paced   [  18% ] 001/060 VUs  01.8s/10s  20.00 iters/s
-
-running (02.8s), 001/060 VUs, 56 complete and 0 interrupted iterations
-paced   [  28% ] 001/060 VUs  02.8s/10s  20.00 iters/s
-
-running (03.8s), 001/060 VUs, 76 complete and 0 interrupted iterations
-paced   [  38% ] 001/060 VUs  03.8s/10s  20.00 iters/s
-
-running (04.8s), 000/060 VUs, 97 complete and 0 interrupted iterations
-paced   [  48% ] 000/060 VUs  04.8s/10s  20.00 iters/s
-
-running (05.8s), 001/060 VUs, 116 complete and 0 interrupted iterations
-paced   [  58% ] 001/060 VUs  05.8s/10s  20.00 iters/s
-
-running (06.8s), 001/060 VUs, 136 complete and 0 interrupted iterations
-paced   [  68% ] 001/060 VUs  06.8s/10s  20.00 iters/s
-
-running (07.8s), 001/060 VUs, 156 complete and 0 interrupted iterations
-paced   [  78% ] 001/060 VUs  07.8s/10s  20.00 iters/s
-
-running (08.8s), 001/060 VUs, 176 complete and 0 interrupted iterations
-paced   [  88% ] 001/060 VUs  08.8s/10s  20.00 iters/s
-
-running (09.8s), 001/060 VUs, 196 complete and 0 interrupted iterations
-paced   [  98% ] 001/060 VUs  09.8s/10s  20.00 iters/s
-
-
-  █ THRESHOLDS 
-
-    checks
-    ✓ 'rate==1' rate=100.00%
-
-    dropped_iterations
-    ✓ 'count==0' count=0
-
-    unexpected_status_total
-    ✓ 'count==0' count=0
-
-
-  █ TOTAL RESULTS 
-
-    checks_total.......: 201     19.960782/s
-    checks_succeeded...: 100.00% 201 out of 201
-    checks_failed......: 0.00%   0 out of 201
-
-    ✓ status 200 o 429
-
-    CUSTOM
-    allowed_total..................: 119    11.817577/s
-    denied_total...................: 82     8.143205/s
-    request_end_offset_ms..........: avg=5027.313433 min=51     med=5008    max=10069    p(90)=9011    p(95)=9509   
-    request_start_offset_ms........: avg=5002.238806 min=7      med=5001    max=10003    p(90)=9001    p(95)=9501   
-    unexpected_status_total........: 0      0/s
-
-    HTTP
-    http_req_duration..............: avg=17.32ms     min=4.18ms med=11.17ms max=117.29ms p(90)=37.64ms p(95)=61.72ms
-      { expected_response:true }...: avg=20.08ms     min=7.44ms med=13.62ms max=117.29ms p(90)=38.46ms p(95)=53.08ms
-    http_req_failed................: 40.79% 82 out of 201
-    http_reqs......................: 201    19.960782/s
-
-    EXECUTION
-    dropped_iterations.............: 0      0/s
-    iteration_duration.............: avg=25.84ms     min=4.98ms med=17.74ms max=190.95ms p(90)=47.06ms p(95)=66.5ms 
-    iterations.....................: 201    19.960782/s
-    vus............................: 1      min=0         max=1 
-    vus_max........................: 60     min=60        max=60
-
-    NETWORK
-    data_received..................: 223 kB 22 kB/s
-    data_sent......................: 116 kB 12 kB/s
-
-
-
-
-running (10.1s), 000/060 VUs, 201 complete and 0 interrupted iterations
-paced ✓ [ 100% ] 000/060 VUs  10s  20.00 iters/s
-
-         /\      Grafana   /‾‾/  
-    /\  /  \     |\  __   /  /   
-   /  \/    \    | |/ /  /   ‾‾\ 
-  /          \   |   (  |  (‾)  |
- / __________ \  |_|\_\  \_____/ 
-
-
-     execution: local
-        script: /home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/tests/k6/ratelimit/limit-verification.js
-        output: -
-
-     scenarios: (100.00%) 1 scenario, 120 max VUs, 40s max duration (incl. graceful stop):
-              * paced: 20.00 iterations/s for 10s (maxVUs: 60-120, gracefulStop: 30s)
-
-
-running (00.9s), 005/060 VUs, 13 complete and 0 interrupted iterations
-paced   [   9% ] 005/060 VUs  00.9s/10s  20.00 iters/s
-
-running (01.9s), 004/060 VUs, 34 complete and 0 interrupted iterations
-paced   [  19% ] 004/060 VUs  01.9s/10s  20.00 iters/s
-
-running (02.9s), 000/060 VUs, 58 complete and 0 interrupted iterations
-paced   [  29% ] 000/060 VUs  02.9s/10s  20.00 iters/s
-
-running (03.9s), 000/060 VUs, 78 complete and 0 interrupted iterations
-paced   [  39% ] 000/060 VUs  03.9s/10s  20.00 iters/s
-
-running (04.9s), 000/060 VUs, 98 complete and 0 interrupted iterations
-paced   [  49% ] 000/060 VUs  04.9s/10s  20.00 iters/s
-
-running (05.9s), 000/060 VUs, 118 complete and 0 interrupted iterations
-paced   [  59% ] 000/060 VUs  05.9s/10s  20.00 iters/s
-
-running (06.9s), 000/060 VUs, 138 complete and 0 interrupted iterations
-paced   [  69% ] 000/060 VUs  06.9s/10s  20.00 iters/s
-
-running (07.9s), 000/060 VUs, 158 complete and 0 interrupted iterations
-paced   [  79% ] 000/060 VUs  07.9s/10s  20.00 iters/s
-
-running (08.9s), 000/060 VUs, 178 complete and 0 interrupted iterations
-paced   [  89% ] 000/060 VUs  08.9s/10s  20.00 iters/s
-
-running (09.9s), 000/060 VUs, 198 complete and 0 interrupted iterations
-paced   [  99% ] 000/060 VUs  09.9s/10s  20.00 iters/s
-
-
-  █ THRESHOLDS 
-
-    checks
-    ✓ 'rate==1' rate=100.00%
-
-    dropped_iterations
-    ✓ 'count==0' count=0
-
-    unexpected_status_total
-    ✓ 'count==0' count=0
-
-
-  █ TOTAL RESULTS 
-
-    checks_total.......: 200     19.995467/s
+    checks_total.......: 200     19.998707/s
     checks_succeeded...: 100.00% 200 out of 200
     checks_failed......: 0.00%   0 out of 200
 
     ✓ status 200 o 429
 
     CUSTOM
-    allowed_total..................: 119    11.897303/s
-    denied_total...................: 81     8.098164/s
-    request_end_offset_ms..........: avg=5055.7  min=52     med=4989    max=9972     p(90)=8971     p(95)=9468.5  
-    request_start_offset_ms........: avg=4977.41 min=17     med=4977    max=9952     p(90)=8956     p(95)=9454.65 
+    allowed_total..................: 119    11.899231/s
+    denied_total...................: 81     8.099476/s
+    request_end_offset_ms..........: avg=4978.68  min=10       med=4977   max=9953    p(90)=8957.9 p(95)=9463.95
+    request_start_offset_ms........: avg=4975.505 min=1        med=4975   max=9951    p(90)=8955.1 p(95)=9453.45
     unexpected_status_total........: 0      0/s
 
     HTTP
-    http_req_duration..............: avg=46.91ms min=3.54ms med=11.91ms max=490.55ms p(90)=118.04ms p(95)=254.68ms
-      { expected_response:true }...: avg=70.79ms min=7.77ms med=15.69ms max=490.55ms p(90)=210.38ms p(95)=322.44ms
+    http_req_duration..............: avg=2.27ms   min=829.51µs med=2.09ms max=12.44ms p(90)=3.32ms p(95)=4.46ms 
+      { expected_response:true }...: avg=2.83ms   min=1.88ms   med=2.21ms max=12.44ms p(90)=3.88ms p(95)=5.82ms 
     http_req_failed................: 40.50% 81 out of 200
-    http_reqs......................: 200    19.995467/s
+    http_reqs......................: 200    19.998707/s
 
     EXECUTION
     dropped_iterations.............: 0      0/s
-    iteration_duration.............: avg=78.91ms min=5ms    med=15.19ms max=694.61ms p(90)=296.72ms p(95)=417.91ms
-    iterations.....................: 200    19.995467/s
-    vus............................: 0      min=0         max=5 
+    iteration_duration.............: avg=3.36ms   min=1.19ms   med=2.57ms max=14.52ms p(90)=5.3ms  p(95)=7.33ms 
+    iterations.....................: 200    19.998707/s
+    vus............................: 0      min=0         max=0 
     vus_max........................: 60     min=60        max=60
 
     NETWORK
-    data_received..................: 223 kB 22 kB/s
+    data_received..................: 248 kB 25 kB/s
     data_sent......................: 116 kB 12 kB/s
 
 
@@ -583,42 +295,42 @@ paced ✓ [ 100% ] 000/060 VUs  10s  20.00 iters/s
 
 
      execution: local
-        script: /home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/tests/k6/ratelimit/limit-verification.js
+        script: /home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/tests/k6/ratelimit/limit-verification.js
         output: -
 
      scenarios: (100.00%) 1 scenario, 120 max VUs, 40s max duration (incl. graceful stop):
               * paced: 20.00 iterations/s for 10s (maxVUs: 60-120, gracefulStop: 30s)
 
 
-running (00.9s), 001/060 VUs, 17 complete and 0 interrupted iterations
-paced   [   9% ] 001/060 VUs  00.9s/10s  20.00 iters/s
+running (01.0s), 000/060 VUs, 20 complete and 0 interrupted iterations
+paced   [  10% ] 000/060 VUs  01.0s/10s  20.00 iters/s
 
-running (01.9s), 001/060 VUs, 37 complete and 0 interrupted iterations
-paced   [  19% ] 001/060 VUs  01.9s/10s  20.00 iters/s
+running (02.0s), 000/060 VUs, 40 complete and 0 interrupted iterations
+paced   [  20% ] 000/060 VUs  02.0s/10s  20.00 iters/s
 
-running (02.9s), 001/060 VUs, 57 complete and 0 interrupted iterations
-paced   [  29% ] 001/060 VUs  02.9s/10s  20.00 iters/s
+running (03.0s), 000/060 VUs, 60 complete and 0 interrupted iterations
+paced   [  30% ] 000/060 VUs  03.0s/10s  20.00 iters/s
 
-running (03.9s), 001/060 VUs, 77 complete and 0 interrupted iterations
-paced   [  39% ] 001/060 VUs  03.9s/10s  20.00 iters/s
+running (04.0s), 000/060 VUs, 80 complete and 0 interrupted iterations
+paced   [  40% ] 000/060 VUs  04.0s/10s  20.00 iters/s
 
-running (04.9s), 001/060 VUs, 97 complete and 0 interrupted iterations
-paced   [  49% ] 001/060 VUs  04.9s/10s  20.00 iters/s
+running (05.0s), 000/060 VUs, 100 complete and 0 interrupted iterations
+paced   [  50% ] 000/060 VUs  05.0s/10s  20.00 iters/s
 
-running (05.9s), 001/060 VUs, 117 complete and 0 interrupted iterations
-paced   [  59% ] 001/060 VUs  05.9s/10s  20.00 iters/s
+running (06.0s), 000/060 VUs, 120 complete and 0 interrupted iterations
+paced   [  60% ] 000/060 VUs  06.0s/10s  20.00 iters/s
 
-running (06.9s), 001/060 VUs, 137 complete and 0 interrupted iterations
-paced   [  69% ] 001/060 VUs  06.9s/10s  20.00 iters/s
+running (07.0s), 000/060 VUs, 140 complete and 0 interrupted iterations
+paced   [  70% ] 000/060 VUs  07.0s/10s  20.00 iters/s
 
-running (07.9s), 001/060 VUs, 157 complete and 0 interrupted iterations
-paced   [  79% ] 001/060 VUs  07.9s/10s  20.00 iters/s
+running (08.0s), 000/060 VUs, 160 complete and 0 interrupted iterations
+paced   [  80% ] 000/060 VUs  08.0s/10s  20.00 iters/s
 
-running (08.9s), 001/060 VUs, 177 complete and 0 interrupted iterations
-paced   [  89% ] 001/060 VUs  08.9s/10s  20.00 iters/s
+running (09.0s), 000/060 VUs, 180 complete and 0 interrupted iterations
+paced   [  90% ] 000/060 VUs  09.0s/10s  20.00 iters/s
 
-running (09.9s), 001/060 VUs, 197 complete and 0 interrupted iterations
-paced   [  99% ] 001/060 VUs  09.9s/10s  20.00 iters/s
+running (10.0s), 000/060 VUs, 200 complete and 0 interrupted iterations
+paced   [ 100% ] 000/060 VUs  10.0s/10s  20.00 iters/s
 
 
   █ THRESHOLDS 
@@ -635,130 +347,34 @@ paced   [  99% ] 001/060 VUs  09.9s/10s  20.00 iters/s
 
   █ TOTAL RESULTS 
 
-    checks_total.......: 201     20.033101/s
-    checks_succeeded...: 100.00% 201 out of 201
-    checks_failed......: 0.00%   0 out of 201
-
-    ✓ status 200 o 429
-
-    CUSTOM
-    allowed_total..................: 119    11.860393/s
-    denied_total...................: 82     8.172708/s
-    request_end_offset_ms..........: avg=5021.746269 min=83     med=5008    max=10030   p(90)=9011    p(95)=9511   
-    request_start_offset_ms........: avg=5001.512438 min=25     med=5000    max=10023   p(90)=9001    p(95)=9501   
-    unexpected_status_total........: 0      0/s
-
-    HTTP
-    http_req_duration..............: avg=13.57ms     min=4.03ms med=9.82ms  max=91.43ms p(90)=19.8ms  p(95)=40.48ms
-      { expected_response:true }...: avg=17.11ms     min=7.24ms med=12.75ms max=91.43ms p(90)=36.19ms p(95)=53.65ms
-    http_req_failed................: 40.79% 82 out of 201
-    http_reqs......................: 201    20.033101/s
-
-    EXECUTION
-    dropped_iterations.............: 0      0/s
-    iteration_duration.............: avg=20.97ms     min=4.73ms med=14.81ms max=93.4ms  p(90)=40.84ms p(95)=50.03ms
-    iterations.....................: 201    20.033101/s
-    vus............................: 1      min=1         max=1 
-    vus_max........................: 60     min=60        max=60
-
-    NETWORK
-    data_received..................: 223 kB 22 kB/s
-    data_sent......................: 116 kB 12 kB/s
-
-
-
-
-running (10.0s), 000/060 VUs, 201 complete and 0 interrupted iterations
-paced ✓ [ 100% ] 000/060 VUs  10s  20.00 iters/s
-
-         /\      Grafana   /‾‾/  
-    /\  /  \     |\  __   /  /   
-   /  \/    \    | |/ /  /   ‾‾\ 
-  /          \   |   (  |  (‾)  |
- / __________ \  |_|\_\  \_____/ 
-
-
-     execution: local
-        script: /home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/tests/k6/ratelimit/limit-verification.js
-        output: -
-
-     scenarios: (100.00%) 1 scenario, 120 max VUs, 40s max duration (incl. graceful stop):
-              * paced: 20.00 iterations/s for 10s (maxVUs: 60-120, gracefulStop: 30s)
-
-
-running (00.9s), 001/060 VUs, 17 complete and 0 interrupted iterations
-paced   [   9% ] 001/060 VUs  00.9s/10s  20.00 iters/s
-
-running (01.9s), 000/060 VUs, 38 complete and 0 interrupted iterations
-paced   [  19% ] 000/060 VUs  01.9s/10s  20.00 iters/s
-
-running (02.9s), 001/060 VUs, 57 complete and 0 interrupted iterations
-paced   [  29% ] 001/060 VUs  02.9s/10s  20.00 iters/s
-
-running (03.9s), 000/060 VUs, 78 complete and 0 interrupted iterations
-paced   [  39% ] 000/060 VUs  03.9s/10s  20.00 iters/s
-
-running (04.9s), 000/060 VUs, 98 complete and 0 interrupted iterations
-paced   [  49% ] 000/060 VUs  04.9s/10s  20.00 iters/s
-
-running (05.9s), 000/060 VUs, 118 complete and 0 interrupted iterations
-paced   [  59% ] 000/060 VUs  05.9s/10s  20.00 iters/s
-
-running (06.9s), 001/060 VUs, 138 complete and 0 interrupted iterations
-paced   [  69% ] 001/060 VUs  06.9s/10s  20.00 iters/s
-
-running (07.9s), 000/060 VUs, 158 complete and 0 interrupted iterations
-paced   [  79% ] 000/060 VUs  07.9s/10s  20.00 iters/s
-
-running (08.9s), 000/060 VUs, 178 complete and 0 interrupted iterations
-paced   [  89% ] 000/060 VUs  08.9s/10s  20.00 iters/s
-
-running (09.9s), 000/060 VUs, 198 complete and 0 interrupted iterations
-paced   [  99% ] 000/060 VUs  09.9s/10s  20.00 iters/s
-
-
-  █ THRESHOLDS 
-
-    checks
-    ✓ 'rate==1' rate=100.00%
-
-    dropped_iterations
-    ✓ 'count==0' count=0
-
-    unexpected_status_total
-    ✓ 'count==0' count=0
-
-
-  █ TOTAL RESULTS 
-
-    checks_total.......: 200     19.995947/s
+    checks_total.......: 200     19.995942/s
     checks_succeeded...: 100.00% 200 out of 200
     checks_failed......: 0.00%   0 out of 200
 
     ✓ status 200 o 429
 
     CUSTOM
-    allowed_total..................: 119    11.897589/s
-    denied_total...................: 81     8.098359/s
-    request_end_offset_ms..........: avg=5001.635 min=58     med=4985.5  max=9961     p(90)=8965.3  p(95)=9508.05
-    request_start_offset_ms........: avg=4976.46  min=22     med=4977.5  max=9951     p(90)=8956    p(95)=9453.5 
+    allowed_total..................: 119    11.897586/s
+    denied_total...................: 81     8.098357/s
+    request_end_offset_ms..........: avg=4980.27 min=9       med=4977.5 max=9957    p(90)=8958.8 p(95)=9455.45
+    request_start_offset_ms........: avg=4975.79 min=2       med=4975.5 max=9952    p(90)=8956   p(95)=9453.5 
     unexpected_status_total........: 0      0/s
 
     HTTP
-    http_req_duration..............: avg=17.69ms  min=4.06ms med=10.83ms max=111.17ms p(90)=41.36ms p(95)=57.57ms
-      { expected_response:true }...: avg=22.92ms  min=7.45ms med=13.63ms max=111.17ms p(90)=52.31ms p(95)=77.92ms
+    http_req_duration..............: avg=2.9ms   min=868.6µs med=2.18ms max=61.14ms p(90)=4.37ms p(95)=7.23ms 
+      { expected_response:true }...: avg=3.78ms  min=2ms     med=2.61ms max=61.14ms p(90)=5.21ms p(95)=7.87ms 
     http_req_failed................: 40.50% 81 out of 200
-    http_reqs......................: 200    19.995947/s
+    http_reqs......................: 200    19.995942/s
 
     EXECUTION
     dropped_iterations.............: 0      0/s
-    iteration_duration.............: avg=25.92ms  min=4.95ms med=16.81ms max=136.74ms p(90)=53.86ms p(95)=79.43ms
-    iterations.....................: 200    19.995947/s
-    vus............................: 0      min=0         max=1 
+    iteration_duration.............: avg=4.67ms  min=1.21ms  med=2.78ms max=61.6ms  p(90)=8.14ms p(95)=13.83ms
+    iterations.....................: 200    19.995942/s
+    vus............................: 0      min=0         max=0 
     vus_max........................: 60     min=60        max=60
 
     NETWORK
-    data_received..................: 223 kB 22 kB/s
+    data_received..................: 249 kB 25 kB/s
     data_sent......................: 116 kB 12 kB/s
 
 
@@ -775,42 +391,42 @@ paced ✓ [ 100% ] 000/060 VUs  10s  20.00 iters/s
 
 
      execution: local
-        script: /home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/tests/k6/ratelimit/limit-verification.js
+        script: /home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/tests/k6/ratelimit/limit-verification.js
         output: -
 
      scenarios: (100.00%) 1 scenario, 120 max VUs, 40s max duration (incl. graceful stop):
               * paced: 20.00 iterations/s for 10s (maxVUs: 60-120, gracefulStop: 30s)
 
 
-running (00.8s), 001/060 VUs, 16 complete and 0 interrupted iterations
-paced   [   8% ] 001/060 VUs  00.8s/10s  20.00 iters/s
+running (01.0s), 000/060 VUs, 20 complete and 0 interrupted iterations
+paced   [  10% ] 000/060 VUs  01.0s/10s  20.00 iters/s
 
-running (01.8s), 001/060 VUs, 36 complete and 0 interrupted iterations
-paced   [  18% ] 001/060 VUs  01.8s/10s  20.00 iters/s
+running (02.0s), 000/060 VUs, 40 complete and 0 interrupted iterations
+paced   [  20% ] 000/060 VUs  02.0s/10s  20.00 iters/s
 
-running (02.8s), 001/060 VUs, 56 complete and 0 interrupted iterations
-paced   [  28% ] 001/060 VUs  02.8s/10s  20.00 iters/s
+running (03.0s), 000/060 VUs, 60 complete and 0 interrupted iterations
+paced   [  30% ] 000/060 VUs  03.0s/10s  20.00 iters/s
 
-running (03.8s), 000/060 VUs, 77 complete and 0 interrupted iterations
-paced   [  38% ] 000/060 VUs  03.8s/10s  20.00 iters/s
+running (04.0s), 000/060 VUs, 80 complete and 0 interrupted iterations
+paced   [  40% ] 000/060 VUs  04.0s/10s  20.00 iters/s
 
-running (04.8s), 001/060 VUs, 96 complete and 0 interrupted iterations
-paced   [  48% ] 001/060 VUs  04.8s/10s  20.00 iters/s
+running (05.0s), 000/060 VUs, 100 complete and 0 interrupted iterations
+paced   [  50% ] 000/060 VUs  05.0s/10s  20.00 iters/s
 
-running (05.8s), 000/060 VUs, 117 complete and 0 interrupted iterations
-paced   [  58% ] 000/060 VUs  05.8s/10s  20.00 iters/s
+running (06.0s), 000/060 VUs, 120 complete and 0 interrupted iterations
+paced   [  60% ] 000/060 VUs  06.0s/10s  20.00 iters/s
 
-running (06.8s), 000/060 VUs, 137 complete and 0 interrupted iterations
-paced   [  68% ] 000/060 VUs  06.8s/10s  20.00 iters/s
+running (07.0s), 000/060 VUs, 140 complete and 0 interrupted iterations
+paced   [  70% ] 000/060 VUs  07.0s/10s  20.00 iters/s
 
-running (07.8s), 000/060 VUs, 157 complete and 0 interrupted iterations
-paced   [  78% ] 000/060 VUs  07.8s/10s  20.00 iters/s
+running (08.0s), 000/060 VUs, 160 complete and 0 interrupted iterations
+paced   [  80% ] 000/060 VUs  08.0s/10s  20.00 iters/s
 
-running (08.8s), 001/060 VUs, 176 complete and 0 interrupted iterations
-paced   [  88% ] 001/060 VUs  08.8s/10s  20.00 iters/s
+running (09.0s), 000/060 VUs, 180 complete and 0 interrupted iterations
+paced   [  90% ] 000/060 VUs  09.0s/10s  20.00 iters/s
 
-running (09.8s), 000/060 VUs, 197 complete and 0 interrupted iterations
-paced   [  98% ] 000/060 VUs  09.8s/10s  20.00 iters/s
+running (10.0s), 000/060 VUs, 200 complete and 0 interrupted iterations
+paced   [ 100% ] 000/060 VUs  10.0s/10s  20.00 iters/s
 
 
   █ THRESHOLDS 
@@ -827,34 +443,130 @@ paced   [  98% ] 000/060 VUs  09.8s/10s  20.00 iters/s
 
   █ TOTAL RESULTS 
 
-    checks_total.......: 201     20.075793/s
+    checks_total.......: 200     19.997813/s
+    checks_succeeded...: 100.00% 200 out of 200
+    checks_failed......: 0.00%   0 out of 200
+
+    ✓ status 200 o 429
+
+    CUSTOM
+    allowed_total..................: 119    11.898698/s
+    denied_total...................: 81     8.099114/s
+    request_end_offset_ms..........: avg=4979.11  min=11       med=4981   max=9955    p(90)=8961.7 p(95)=9455.45
+    request_start_offset_ms........: avg=4975.855 min=3        med=4976   max=9951    p(90)=8956.9 p(95)=9452.55
+    unexpected_status_total........: 0      0/s
+
+    HTTP
+    http_req_duration..............: avg=2.22ms   min=919.62µs med=2.1ms  max=12.02ms p(90)=3.42ms p(95)=4.42ms 
+      { expected_response:true }...: avg=2.68ms   min=1.99ms   med=2.21ms max=10.9ms  p(90)=3.95ms p(95)=4.88ms 
+    http_req_failed................: 40.50% 81 out of 200
+    http_reqs......................: 200    19.997813/s
+
+    EXECUTION
+    dropped_iterations.............: 0      0/s
+    iteration_duration.............: avg=3.43ms   min=1.23ms   med=2.51ms max=12.35ms p(90)=5.93ms p(95)=7.43ms 
+    iterations.....................: 200    19.997813/s
+    vus............................: 0      min=0         max=0 
+    vus_max........................: 60     min=60        max=60
+
+    NETWORK
+    data_received..................: 248 kB 25 kB/s
+    data_sent......................: 116 kB 12 kB/s
+
+
+
+
+running (10.0s), 000/060 VUs, 200 complete and 0 interrupted iterations
+paced ✓ [ 100% ] 000/060 VUs  10s  20.00 iters/s
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: /home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/tests/k6/ratelimit/limit-verification.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 120 max VUs, 40s max duration (incl. graceful stop):
+              * paced: 20.00 iterations/s for 10s (maxVUs: 60-120, gracefulStop: 30s)
+
+
+running (01.0s), 000/060 VUs, 20 complete and 0 interrupted iterations
+paced   [  10% ] 000/060 VUs  01.0s/10s  20.00 iters/s
+
+running (02.0s), 000/060 VUs, 40 complete and 0 interrupted iterations
+paced   [  20% ] 000/060 VUs  02.0s/10s  20.00 iters/s
+
+running (03.0s), 000/060 VUs, 60 complete and 0 interrupted iterations
+paced   [  30% ] 000/060 VUs  03.0s/10s  20.00 iters/s
+
+running (04.0s), 000/060 VUs, 80 complete and 0 interrupted iterations
+paced   [  40% ] 000/060 VUs  04.0s/10s  20.00 iters/s
+
+running (05.0s), 000/060 VUs, 100 complete and 0 interrupted iterations
+paced   [  50% ] 000/060 VUs  05.0s/10s  20.00 iters/s
+
+running (06.0s), 000/060 VUs, 120 complete and 0 interrupted iterations
+paced   [  60% ] 000/060 VUs  06.0s/10s  20.00 iters/s
+
+running (07.0s), 000/060 VUs, 140 complete and 0 interrupted iterations
+paced   [  70% ] 000/060 VUs  07.0s/10s  20.00 iters/s
+
+running (08.0s), 000/060 VUs, 160 complete and 0 interrupted iterations
+paced   [  80% ] 000/060 VUs  08.0s/10s  20.00 iters/s
+
+running (09.0s), 000/060 VUs, 180 complete and 0 interrupted iterations
+paced   [  90% ] 000/060 VUs  09.0s/10s  20.00 iters/s
+
+running (10.0s), 000/060 VUs, 200 complete and 0 interrupted iterations
+paced   [ 100% ] 000/060 VUs  10.0s/10s  20.00 iters/s
+
+
+  █ THRESHOLDS 
+
+    checks
+    ✓ 'rate==1' rate=100.00%
+
+    dropped_iterations
+    ✓ 'count==0' count=0
+
+    unexpected_status_total
+    ✓ 'count==0' count=0
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 201     20.095006/s
     checks_succeeded...: 100.00% 201 out of 201
     checks_failed......: 0.00%   0 out of 201
 
     ✓ status 200 o 429
 
     CUSTOM
-    allowed_total..................: 119    11.885668/s
-    denied_total...................: 82     8.190124/s
-    request_end_offset_ms..........: avg=5025.442786 min=65     med=5012    max=10011    p(90)=9056    p(95)=9506   
-    request_start_offset_ms........: avg=5001.751244 min=19     med=5002    max=10000    p(90)=9001    p(95)=9501   
+    allowed_total..................: 119    11.897043/s
+    denied_total...................: 82     8.197963/s
+    request_end_offset_ms..........: avg=5004.223881 min=11       med=5002   max=10002   p(90)=9032   p(95)=9502  
+    request_start_offset_ms........: avg=5000.432836 min=1        med=5000   max=10000   p(90)=9000   p(95)=9500  
     unexpected_status_total........: 0      0/s
 
     HTTP
-    http_req_duration..............: avg=16.14ms     min=3.8ms  med=11.16ms max=83.53ms  p(90)=33.85ms p(95)=47.51ms
-      { expected_response:true }...: avg=19.59ms     min=7.41ms med=13.8ms  max=79.92ms  p(90)=38.04ms p(95)=58.25ms
+    http_req_duration..............: avg=2.75ms      min=872.71µs med=2.13ms max=32.22ms p(90)=4.23ms p(95)=5.67ms
+      { expected_response:true }...: avg=3.53ms      min=1.93ms   med=2.27ms max=32.22ms p(90)=4.88ms p(95)=6.91ms
     http_req_failed................: 40.79% 82 out of 201
-    http_reqs......................: 201    20.075793/s
+    http_reqs......................: 201    20.095006/s
 
     EXECUTION
     dropped_iterations.............: 0      0/s
-    iteration_duration.............: avg=24.3ms      min=4.62ms med=20.37ms max=126.48ms p(90)=42.38ms p(95)=75.76ms
-    iterations.....................: 201    20.075793/s
-    vus............................: 0      min=0         max=1 
+    iteration_duration.............: avg=3.95ms      min=1.24ms   med=3.08ms max=33.03ms p(90)=6.42ms p(95)=8.75ms
+    iterations.....................: 201    20.095006/s
+    vus............................: 0      min=0         max=0 
     vus_max........................: 60     min=60        max=60
 
     NETWORK
-    data_received..................: 224 kB 22 kB/s
+    data_received..................: 249 kB 25 kB/s
     data_sent......................: 116 kB 12 kB/s
 
 
@@ -871,42 +583,42 @@ paced ✓ [ 100% ] 000/060 VUs  10s  20.00 iters/s
 
 
      execution: local
-        script: /home/mateo/Desarrollo_de_Software/proyecto/pdf-extractext-micro/platform-services/tests/k6/ratelimit/limit-verification.js
+        script: /home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/tests/k6/ratelimit/limit-verification.js
         output: -
 
      scenarios: (100.00%) 1 scenario, 120 max VUs, 40s max duration (incl. graceful stop):
               * paced: 20.00 iterations/s for 10s (maxVUs: 60-120, gracefulStop: 30s)
 
 
-running (00.9s), 001/060 VUs, 17 complete and 0 interrupted iterations
-paced   [   9% ] 001/060 VUs  00.9s/10s  20.00 iters/s
+running (01.0s), 000/060 VUs, 20 complete and 0 interrupted iterations
+paced   [  10% ] 000/060 VUs  01.0s/10s  20.00 iters/s
 
-running (01.9s), 004/060 VUs, 34 complete and 0 interrupted iterations
-paced   [  19% ] 004/060 VUs  01.9s/10s  20.00 iters/s
+running (02.0s), 000/060 VUs, 40 complete and 0 interrupted iterations
+paced   [  20% ] 000/060 VUs  02.0s/10s  20.00 iters/s
 
-running (02.9s), 011/060 VUs, 47 complete and 0 interrupted iterations
-paced   [  29% ] 011/060 VUs  02.9s/10s  20.00 iters/s
+running (03.0s), 000/060 VUs, 60 complete and 0 interrupted iterations
+paced   [  30% ] 000/060 VUs  03.0s/10s  20.00 iters/s
 
-running (03.9s), 000/060 VUs, 78 complete and 0 interrupted iterations
-paced   [  39% ] 000/060 VUs  03.9s/10s  20.00 iters/s
+running (04.0s), 000/060 VUs, 80 complete and 0 interrupted iterations
+paced   [  40% ] 000/060 VUs  04.0s/10s  20.00 iters/s
 
-running (04.9s), 000/060 VUs, 98 complete and 0 interrupted iterations
-paced   [  49% ] 000/060 VUs  04.9s/10s  20.00 iters/s
+running (05.0s), 000/060 VUs, 100 complete and 0 interrupted iterations
+paced   [  50% ] 000/060 VUs  05.0s/10s  20.00 iters/s
 
-running (05.9s), 000/060 VUs, 118 complete and 0 interrupted iterations
-paced   [  59% ] 000/060 VUs  05.9s/10s  20.00 iters/s
+running (06.0s), 000/060 VUs, 120 complete and 0 interrupted iterations
+paced   [  60% ] 000/060 VUs  06.0s/10s  20.00 iters/s
 
-running (06.9s), 000/060 VUs, 138 complete and 0 interrupted iterations
-paced   [  69% ] 000/060 VUs  06.9s/10s  20.00 iters/s
+running (07.0s), 000/060 VUs, 140 complete and 0 interrupted iterations
+paced   [  70% ] 000/060 VUs  07.0s/10s  20.00 iters/s
 
-running (07.9s), 000/060 VUs, 158 complete and 0 interrupted iterations
-paced   [  79% ] 000/060 VUs  07.9s/10s  20.00 iters/s
+running (08.0s), 000/060 VUs, 160 complete and 0 interrupted iterations
+paced   [  80% ] 000/060 VUs  08.0s/10s  20.00 iters/s
 
-running (08.9s), 000/060 VUs, 178 complete and 0 interrupted iterations
-paced   [  89% ] 000/060 VUs  08.9s/10s  20.00 iters/s
+running (09.0s), 000/060 VUs, 180 complete and 0 interrupted iterations
+paced   [  90% ] 000/060 VUs  09.0s/10s  20.00 iters/s
 
-running (09.9s), 001/060 VUs, 197 complete and 0 interrupted iterations
-paced   [  99% ] 001/060 VUs  09.9s/10s  20.00 iters/s
+running (10.0s), 000/060 VUs, 200 complete and 0 interrupted iterations
+paced   [ 100% ] 000/060 VUs  10.0s/10s  20.00 iters/s
 
 
   █ THRESHOLDS 
@@ -923,34 +635,322 @@ paced   [  99% ] 001/060 VUs  09.9s/10s  20.00 iters/s
 
   █ TOTAL RESULTS 
 
-    checks_total.......: 200     19.996478/s
+    checks_total.......: 200     19.99882/s
     checks_succeeded...: 100.00% 200 out of 200
     checks_failed......: 0.00%   0 out of 200
 
     ✓ status 200 o 429
 
     CUSTOM
-    allowed_total..................: 119    11.897904/s
-    denied_total...................: 81     8.098574/s
-    request_end_offset_ms..........: avg=5058.27  min=65     med=4990    max=9963     p(90)=8965.2   p(95)=9466.55 
-    request_start_offset_ms........: avg=4977.075 min=9      med=4978.5  max=9951     p(90)=8956     p(95)=9453.5  
+    allowed_total..................: 119    11.899298/s
+    denied_total...................: 81     8.099522/s
+    request_end_offset_ms..........: avg=4979.335 min=14       med=4977   max=9953    p(90)=8957.9 p(95)=9455.4 
+    request_start_offset_ms........: avg=4975.5   min=2        med=4975.5 max=9950    p(90)=8955   p(95)=9452.5 
     unexpected_status_total........: 0      0/s
 
     HTTP
-    http_req_duration..............: avg=48.49ms  min=3.82ms med=12.91ms max=480.54ms p(90)=190.1ms  p(95)=266.67ms
-      { expected_response:true }...: avg=53.88ms  min=7.17ms med=15.35ms max=480.54ms p(90)=207.34ms p(95)=267.7ms 
+    http_req_duration..............: avg=2.49ms   min=915.46µs med=2.11ms max=36.71ms p(90)=3.87ms p(95)=4.94ms 
+      { expected_response:true }...: avg=3.1ms    min=1.9ms    med=2.2ms  max=36.71ms p(90)=4.11ms p(95)=5.29ms 
     http_req_failed................: 40.50% 81 out of 200
-    http_reqs......................: 200    19.996478/s
+    http_reqs......................: 200    19.99882/s
 
     EXECUTION
     dropped_iterations.............: 0      0/s
-    iteration_duration.............: avg=81.98ms  min=4.62ms med=14.1ms  max=694.63ms p(90)=313.78ms p(95)=455.33ms
-    iterations.....................: 200    19.996478/s
-    vus............................: 0      min=0         max=11
+    iteration_duration.............: avg=3.98ms   min=1.18ms   med=2.48ms max=43.94ms p(90)=6.76ms p(95)=10.76ms
+    iterations.....................: 200    19.99882/s
+    vus............................: 0      min=0         max=0 
     vus_max........................: 60     min=60        max=60
 
     NETWORK
-    data_received..................: 223 kB 22 kB/s
+    data_received..................: 248 kB 25 kB/s
+    data_sent......................: 116 kB 12 kB/s
+
+
+
+
+running (10.0s), 000/060 VUs, 200 complete and 0 interrupted iterations
+paced ✓ [ 100% ] 000/060 VUs  10s  20.00 iters/s
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: /home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/tests/k6/ratelimit/limit-verification.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 120 max VUs, 40s max duration (incl. graceful stop):
+              * paced: 20.00 iterations/s for 10s (maxVUs: 60-120, gracefulStop: 30s)
+
+
+running (01.0s), 000/060 VUs, 20 complete and 0 interrupted iterations
+paced   [  10% ] 000/060 VUs  01.0s/10s  20.00 iters/s
+
+running (02.0s), 000/060 VUs, 40 complete and 0 interrupted iterations
+paced   [  20% ] 000/060 VUs  02.0s/10s  20.00 iters/s
+
+running (03.0s), 000/060 VUs, 60 complete and 0 interrupted iterations
+paced   [  30% ] 000/060 VUs  03.0s/10s  20.00 iters/s
+
+running (04.0s), 000/060 VUs, 80 complete and 0 interrupted iterations
+paced   [  40% ] 000/060 VUs  04.0s/10s  20.00 iters/s
+
+running (05.0s), 000/060 VUs, 100 complete and 0 interrupted iterations
+paced   [  50% ] 000/060 VUs  05.0s/10s  20.00 iters/s
+
+running (06.0s), 000/060 VUs, 120 complete and 0 interrupted iterations
+paced   [  60% ] 000/060 VUs  06.0s/10s  20.00 iters/s
+
+running (07.0s), 000/060 VUs, 140 complete and 0 interrupted iterations
+paced   [  70% ] 000/060 VUs  07.0s/10s  20.00 iters/s
+
+running (08.0s), 000/060 VUs, 160 complete and 0 interrupted iterations
+paced   [  80% ] 000/060 VUs  08.0s/10s  20.00 iters/s
+
+running (09.0s), 000/060 VUs, 180 complete and 0 interrupted iterations
+paced   [  90% ] 000/060 VUs  09.0s/10s  20.00 iters/s
+
+running (10.0s), 000/060 VUs, 200 complete and 0 interrupted iterations
+paced   [ 100% ] 000/060 VUs  10.0s/10s  20.00 iters/s
+
+
+  █ THRESHOLDS 
+
+    checks
+    ✓ 'rate==1' rate=100.00%
+
+    dropped_iterations
+    ✓ 'count==0' count=0
+
+    unexpected_status_total
+    ✓ 'count==0' count=0
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 201     20.094726/s
+    checks_succeeded...: 100.00% 201 out of 201
+    checks_failed......: 0.00%   0 out of 201
+
+    ✓ status 200 o 429
+
+    CUSTOM
+    allowed_total..................: 119    11.896877/s
+    denied_total...................: 82     8.197848/s
+    request_end_offset_ms..........: avg=5004.41791  min=13       med=5003   max=10003   p(90)=9002   p(95)=9509  
+    request_start_offset_ms........: avg=5001.119403 min=5        med=5001   max=10001   p(90)=9001   p(95)=9502  
+    unexpected_status_total........: 0      0/s
+
+    HTTP
+    http_req_duration..............: avg=2.31ms      min=832.23µs med=2.1ms  max=12.39ms p(90)=3.62ms p(95)=4.57ms
+      { expected_response:true }...: avg=2.77ms      min=1.96ms   med=2.22ms max=9.02ms  p(90)=3.95ms p(95)=5.36ms
+    http_req_failed................: 40.79% 82 out of 201
+    http_reqs......................: 201    20.094726/s
+
+    EXECUTION
+    dropped_iterations.............: 0      0/s
+    iteration_duration.............: avg=3.46ms      min=1.12ms   med=2.84ms max=17.34ms p(90)=5.57ms p(95)=7.17ms
+    iterations.....................: 201    20.094726/s
+    vus............................: 0      min=0         max=0 
+    vus_max........................: 60     min=60        max=60
+
+    NETWORK
+    data_received..................: 248 kB 25 kB/s
+    data_sent......................: 116 kB 12 kB/s
+
+
+
+
+running (10.0s), 000/060 VUs, 201 complete and 0 interrupted iterations
+paced ✓ [ 100% ] 000/060 VUs  10s  20.00 iters/s
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: /home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/tests/k6/ratelimit/limit-verification.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 120 max VUs, 40s max duration (incl. graceful stop):
+              * paced: 20.00 iterations/s for 10s (maxVUs: 60-120, gracefulStop: 30s)
+
+
+running (01.0s), 000/060 VUs, 20 complete and 0 interrupted iterations
+paced   [  10% ] 000/060 VUs  01.0s/10s  20.00 iters/s
+
+running (02.0s), 000/060 VUs, 40 complete and 0 interrupted iterations
+paced   [  20% ] 000/060 VUs  02.0s/10s  20.00 iters/s
+
+running (03.0s), 000/060 VUs, 60 complete and 0 interrupted iterations
+paced   [  30% ] 000/060 VUs  03.0s/10s  20.00 iters/s
+
+running (04.0s), 000/060 VUs, 80 complete and 0 interrupted iterations
+paced   [  40% ] 000/060 VUs  04.0s/10s  20.00 iters/s
+
+running (05.0s), 000/060 VUs, 100 complete and 0 interrupted iterations
+paced   [  50% ] 000/060 VUs  05.0s/10s  20.00 iters/s
+
+running (06.0s), 000/060 VUs, 120 complete and 0 interrupted iterations
+paced   [  60% ] 000/060 VUs  06.0s/10s  20.00 iters/s
+
+running (07.0s), 000/060 VUs, 140 complete and 0 interrupted iterations
+paced   [  70% ] 000/060 VUs  07.0s/10s  20.00 iters/s
+
+running (08.0s), 000/060 VUs, 160 complete and 0 interrupted iterations
+paced   [  80% ] 000/060 VUs  08.0s/10s  20.00 iters/s
+
+running (09.0s), 000/060 VUs, 180 complete and 0 interrupted iterations
+paced   [  90% ] 000/060 VUs  09.0s/10s  20.00 iters/s
+
+running (10.0s), 000/060 VUs, 200 complete and 0 interrupted iterations
+paced   [ 100% ] 000/060 VUs  10.0s/10s  20.00 iters/s
+
+
+  █ THRESHOLDS 
+
+    checks
+    ✓ 'rate==1' rate=100.00%
+
+    dropped_iterations
+    ✓ 'count==0' count=0
+
+    unexpected_status_total
+    ✓ 'count==0' count=0
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 200     19.998958/s
+    checks_succeeded...: 100.00% 200 out of 200
+    checks_failed......: 0.00%   0 out of 200
+
+    ✓ status 200 o 429
+
+    CUSTOM
+    allowed_total..................: 119    11.89938/s
+    denied_total...................: 81     8.099578/s
+    request_end_offset_ms..........: avg=4978.45 min=9        med=4976.5 max=9953    p(90)=8962.6 p(95)=9454.5
+    request_start_offset_ms........: avg=4975.41 min=2        med=4975   max=9950    p(90)=8955.1 p(95)=9452.5
+    unexpected_status_total........: 0      0/s
+
+    HTTP
+    http_req_duration..............: avg=2.1ms   min=864.14µs med=2.07ms max=13.93ms p(90)=3.34ms p(95)=3.79ms
+      { expected_response:true }...: avg=2.65ms  min=1.89ms   med=2.18ms max=13.93ms p(90)=3.67ms p(95)=4.17ms
+    http_req_failed................: 40.50% 81 out of 200
+    http_reqs......................: 200    19.998958/s
+
+    EXECUTION
+    dropped_iterations.............: 0      0/s
+    iteration_duration.............: avg=3.21ms  min=1.15ms   med=2.53ms max=14.27ms p(90)=5.18ms p(95)=7.12ms
+    iterations.....................: 200    19.998958/s
+    vus............................: 0      min=0         max=0 
+    vus_max........................: 60     min=60        max=60
+
+    NETWORK
+    data_received..................: 248 kB 25 kB/s
+    data_sent......................: 116 kB 12 kB/s
+
+
+
+
+running (10.0s), 000/060 VUs, 200 complete and 0 interrupted iterations
+paced ✓ [ 100% ] 000/060 VUs  10s  20.00 iters/s
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: /home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/tests/k6/ratelimit/limit-verification.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 120 max VUs, 40s max duration (incl. graceful stop):
+              * paced: 20.00 iterations/s for 10s (maxVUs: 60-120, gracefulStop: 30s)
+
+
+running (01.0s), 000/060 VUs, 20 complete and 0 interrupted iterations
+paced   [  10% ] 000/060 VUs  01.0s/10s  20.00 iters/s
+
+running (02.0s), 000/060 VUs, 40 complete and 0 interrupted iterations
+paced   [  20% ] 000/060 VUs  02.0s/10s  20.00 iters/s
+
+running (03.0s), 000/060 VUs, 60 complete and 0 interrupted iterations
+paced   [  30% ] 000/060 VUs  03.0s/10s  20.00 iters/s
+
+running (04.0s), 000/060 VUs, 80 complete and 0 interrupted iterations
+paced   [  40% ] 000/060 VUs  04.0s/10s  20.00 iters/s
+
+running (05.0s), 000/060 VUs, 100 complete and 0 interrupted iterations
+paced   [  50% ] 000/060 VUs  05.0s/10s  20.00 iters/s
+
+running (06.0s), 000/060 VUs, 120 complete and 0 interrupted iterations
+paced   [  60% ] 000/060 VUs  06.0s/10s  20.00 iters/s
+
+running (07.0s), 000/060 VUs, 140 complete and 0 interrupted iterations
+paced   [  70% ] 000/060 VUs  07.0s/10s  20.00 iters/s
+
+running (08.0s), 000/060 VUs, 160 complete and 0 interrupted iterations
+paced   [  80% ] 000/060 VUs  08.0s/10s  20.00 iters/s
+
+running (09.0s), 000/060 VUs, 180 complete and 0 interrupted iterations
+paced   [  90% ] 000/060 VUs  09.0s/10s  20.00 iters/s
+
+running (10.0s), 000/060 VUs, 200 complete and 0 interrupted iterations
+paced   [ 100% ] 000/060 VUs  10.0s/10s  20.00 iters/s
+
+
+  █ THRESHOLDS 
+
+    checks
+    ✓ 'rate==1' rate=100.00%
+
+    dropped_iterations
+    ✓ 'count==0' count=0
+
+    unexpected_status_total
+    ✓ 'count==0' count=0
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 200     19.998831/s
+    checks_succeeded...: 100.00% 200 out of 200
+    checks_failed......: 0.00%   0 out of 200
+
+    ✓ status 200 o 429
+
+    CUSTOM
+    allowed_total..................: 119    11.899304/s
+    denied_total...................: 81     8.099526/s
+    request_end_offset_ms..........: avg=4978.905 min=12       med=4977.5 max=9953    p(90)=8957   p(95)=9456.4
+    request_start_offset_ms........: avg=4975.405 min=1        med=4975.5 max=9950    p(90)=8955.1 p(95)=9453.5
+    unexpected_status_total........: 0      0/s
+
+    HTTP
+    http_req_duration..............: avg=2.47ms   min=937.65µs med=2.15ms max=10ms    p(90)=4.07ms p(95)=6.19ms
+      { expected_response:true }...: avg=3.02ms   min=1.97ms   med=2.27ms max=10ms    p(90)=5.48ms p(95)=6.51ms
+    http_req_failed................: 40.50% 81 out of 200
+    http_reqs......................: 200    19.998831/s
+
+    EXECUTION
+    dropped_iterations.............: 0      0/s
+    iteration_duration.............: avg=3.66ms   min=1.22ms   med=3.08ms max=12.36ms p(90)=6.49ms p(95)=7.56ms
+    iterations.....................: 200    19.998831/s
+    vus............................: 0      min=0         max=0 
+    vus_max........................: 60     min=60        max=60
+
+    NETWORK
+    data_received..................: 248 kB 25 kB/s
     data_sent......................: 116 kB 12 kB/s
 
 

@@ -1,0 +1,86 @@
+time="2026-11-18T15:31:56-03:00" level=warning msg="\"cli\" level configuration overrode scenarios configuration entirely"
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: /home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/tests/k6/v2/create.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 1 max VUs, 40s max duration (incl. graceful stop):
+              * default: 1 looping VUs for 10s (gracefulStop: 30s)
+
+
+running (01.0s), 1/1 VUs, 36 complete and 0 interrupted iterations
+default   [  10% ] 1 VUs  01.0s/10s
+
+running (02.0s), 1/1 VUs, 88 complete and 0 interrupted iterations
+default   [  20% ] 1 VUs  02.0s/10s
+
+running (03.0s), 1/1 VUs, 130 complete and 0 interrupted iterations
+default   [  30% ] 1 VUs  03.0s/10s
+
+running (04.0s), 1/1 VUs, 162 complete and 0 interrupted iterations
+default   [  40% ] 1 VUs  04.0s/10s
+
+running (05.0s), 1/1 VUs, 211 complete and 0 interrupted iterations
+default   [  50% ] 1 VUs  05.0s/10s
+
+running (06.0s), 1/1 VUs, 256 complete and 0 interrupted iterations
+default   [  60% ] 1 VUs  06.0s/10s
+
+running (07.0s), 1/1 VUs, 302 complete and 0 interrupted iterations
+default   [  70% ] 1 VUs  07.0s/10s
+
+running (08.0s), 1/1 VUs, 346 complete and 0 interrupted iterations
+default   [  80% ] 1 VUs  08.0s/10s
+
+running (09.0s), 1/1 VUs, 377 complete and 0 interrupted iterations
+default   [  90% ] 1 VUs  09.0s/10s
+
+running (10.0s), 1/1 VUs, 404 complete and 0 interrupted iterations
+default   [ 100% ] 1 VUs  10.0s/10s
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 2025   201.809973/s
+    checks_succeeded...: 7.16%  145 out of 2025
+    checks_failed......: 92.83% 1880 out of 2025
+
+    ✗ create 201
+      ↳  7% — ✓ 29 / ✗ 376
+    ✗ create document_id
+      ↳  7% — ✓ 29 / ✗ 376
+    ✗ create presigned url
+      ↳  7% — ✓ 29 / ✗ 376
+    ✗ create form_fields
+      ↳  7% — ✓ 29 / ✗ 376
+    ✗ create expires_at
+      ↳  7% — ✓ 29 / ✗ 376
+
+    HTTP
+    http_req_duration..............: avg=23.47ms min=365.2µs  med=15.12ms max=244.37ms p(90)=53.34ms  p(95)=65.02ms 
+      { expected_response:true }...: avg=69.92ms min=17.7ms   med=58.8ms  max=244.37ms p(90)=117.43ms p(95)=160.69ms
+    http_req_failed................: 92.83% 376 out of 405
+    http_reqs......................: 405    40.361995/s
+
+    EXECUTION
+    iteration_duration.............: avg=24.7ms  min=945.76µs med=16.54ms max=244.61ms p(90)=55.32ms  p(95)=66.35ms 
+    iterations.....................: 405    40.361995/s
+    vus............................: 1      min=1          max=1
+    vus_max........................: 1      min=1          max=1
+
+    NETWORK
+    data_received..................: 99 kB  9.9 kB/s
+    data_sent......................: 61 kB  6.1 kB/s
+
+
+
+
+running (10.0s), 0/1 VUs, 405 complete and 0 interrupted iterations
+default ✓ [ 100% ] 1 VUs  10s

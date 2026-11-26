@@ -1,0 +1,61 @@
+[s9-carga] RUN_ID=s9-carga-run1 MODE=run1 BASE_URL=https://api.localhost:8543 OUT_DIR=/home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/benchmarks/s9/s9-carga-run1
+[s9-carga] run1: matriz v2 BASE_URL=https://api.localhost:8543 OUT_DIR=/home/alejobasilesoca/Desktop/Desarrollo-de-Software/proyecto-microservicio/platform-services/benchmarks/s9/s9-carga-run1/v2
+[s9-carga] run1 health warm-up (10s)
+[s9-carga] run1 health run 1 (p95_ms=0)
+[s9-carga] run1 health run 2 (p95_ms=0)
+[s9-carga] run1 health run 3 (p95_ms=0)
+[s9-carga] run1 list warm-up (10s)
+[s9-carga] run1 list run 1 (p95_ms=252.6)
+[s9-carga] run1 list run 2 (p95_ms=252.6)
+[s9-carga] run1 list run 3 (p95_ms=252.6)
+[s9-carga] run1 create warm-up (10s)
+[s9-carga] run1 create run 1 (p95_ms=0)
+[s9-carga] run1 create run 2 (p95_ms=0)
+[s9-carga] run1 create run 3 (p95_ms=0)
+[s9-carga] run1 state warm-up (10s)
+[s9-carga] run1 state run 1 (p95_ms=0)
+[s9-carga] run1 state run 2 (p95_ms=0)
+[s9-carga] run1 state run 3 (p95_ms=0)
+[s9-carga] run1 fallos de threshold: 6
+[s9-carga] RUN_ID=s9-carga-20261118T180736Z MODE=metrics BASE_URL=https://api.localhost:8543 OUT_DIR=benchmarks/s9/s9-carga-run1-contaminado
+[s9-carga] metrics: v2/create-run1-summary.json  p95_ms=17.4367975  http_req_failed=0  checks=1  http_reqs=0  failed_thresholds=rate==0,rate==1
+[s9-carga] metrics: v2/create-run2-summary.json  p95_ms=18.81644  http_req_failed=0  checks=1  http_reqs=0  failed_thresholds=rate==1,rate==0
+[s9-carga] metrics: v2/create-run3-summary.json  p95_ms=18.974142  http_req_failed=0  checks=1  http_reqs=0  failed_thresholds=rate==0,rate==1
+[s9-carga] metrics: v2/health-run1-summary.json  p95_ms=40.77422459999999  http_req_failed=0  checks=1  http_reqs=0  failed_thresholds=rate==1,rate==0
+[s9-carga] metrics: v2/health-run2-summary.json  p95_ms=38.79212625  http_req_failed=0  checks=1  http_reqs=0  failed_thresholds=rate==1,rate==0
+[s9-carga] metrics: v2/health-run3-summary.json  p95_ms=48.26949285  http_req_failed=0  checks=1  http_reqs=0  failed_thresholds=rate==1,rate==0
+[s9-carga] metrics: v2/list-run1-summary.json  p95_ms=68.50631199999998  http_req_failed=0.9985704074338814  checks=0.001431980906921241  http_reqs=0  failed_thresholds=p(95)<252.6
+[s9-carga] metrics: v2/list-run2-summary.json  p95_ms=51.49723545  http_req_failed=1  checks=0  http_reqs=0  failed_thresholds=p(95)<252.6
+[s9-carga] metrics: v2/list-run3-summary.json  p95_ms=82.25115509999999  http_req_failed=1  checks=0  http_reqs=0  failed_thresholds=p(95)<252.6
+[s9-carga] metrics: v2/state-run1-summary.json  p95_ms=15.653923  http_req_failed=0.9926623983886051  checks=0.0038850318356775425  http_reqs=0  failed_thresholds=none
+[s9-carga] metrics: v2/state-run2-summary.json  p95_ms=11.372895399999999  http_req_failed=1  checks=0  http_reqs=0  failed_thresholds=none
+[s9-carga] metrics: v2/state-run3-summary.json  p95_ms=17.3154897  http_req_failed=1  checks=0  http_reqs=0  failed_thresholds=none
+[s9-carga] listo: benchmarks/s9/s9-carga-run1-contaminado
+[s9-carga] RUN_ID=spotcheck MODE=metrics BASE_URL=https://api.localhost:8543 OUT_DIR=benchmarks/s9/s9-carga-run1-contaminado
+[s9-carga] metrics: v2/create-run1-summary.json  p95_ms=17.4367975  http_req_failed=0  checks=1  http_reqs=0  failed_thresholds=rate==0,rate==1
+[s9-carga] metrics: v2/create-run2-summary.json  p95_ms=18.81644  http_req_failed=0  checks=1  http_reqs=0  failed_thresholds=rate==1,rate==0
+[s9-carga] metrics: v2/create-run3-summary.json  p95_ms=18.974142  http_req_failed=0  checks=1  http_reqs=0  failed_thresholds=rate==0,rate==1
+[s9-carga] metrics: v2/health-run1-summary.json  p95_ms=40.77422459999999  http_req_failed=0  checks=1  http_reqs=0  failed_thresholds=rate==1,rate==0
+[s9-carga] metrics: v2/health-run2-summary.json  p95_ms=38.79212625  http_req_failed=0  checks=1  http_reqs=0  failed_thresholds=rate==1,rate==0
+[s9-carga] metrics: v2/health-run3-summary.json  p95_ms=48.26949285  http_req_failed=0  checks=1  http_reqs=0  failed_thresholds=rate==1,rate==0
+[s9-carga] metrics: v2/list-run1-summary.json  p95_ms=68.50631199999998  http_req_failed=0.9985704074338814  checks=0.001431980906921241  http_reqs=0  failed_thresholds=p(95)<252.6
+[s9-carga] metrics: v2/list-run2-summary.json  p95_ms=51.49723545  http_req_failed=1  checks=0  http_reqs=0  failed_thresholds=p(95)<252.6
+[s9-carga] metrics: v2/list-run3-summary.json  p95_ms=82.25115509999999  http_req_failed=1  checks=0  http_reqs=0  failed_thresholds=p(95)<252.6
+[s9-carga] metrics: v2/state-run1-summary.json  p95_ms=15.653923  http_req_failed=0.9926623983886051  checks=0.0038850318356775425  http_reqs=0  failed_thresholds=none
+[s9-carga] metrics: v2/state-run2-summary.json  p95_ms=11.372895399999999  http_req_failed=1  checks=0  http_reqs=0  failed_thresholds=none
+[s9-carga] metrics: v2/state-run3-summary.json  p95_ms=17.3154897  http_req_failed=1  checks=0  http_reqs=0  failed_thresholds=none
+[s9-carga] listo: benchmarks/s9/s9-carga-run1-contaminado
+[s9-carga] RUN_ID=spotcheck MODE=metrics BASE_URL=https://api.localhost:8543 OUT_DIR=benchmarks/s9/s9-carga-run1-contaminado
+[s9-carga] metrics: v2/create-run1-summary.json  p95_ms=17.4367975  http_req_failed=0  checks=1  http_reqs=51  failed_thresholds=rate==0,rate==1
+[s9-carga] metrics: v2/create-run2-summary.json  p95_ms=18.81644  http_req_failed=0  checks=1  http_reqs=51  failed_thresholds=rate==1,rate==0
+[s9-carga] metrics: v2/create-run3-summary.json  p95_ms=18.974142  http_req_failed=0  checks=1  http_reqs=51  failed_thresholds=rate==0,rate==1
+[s9-carga] metrics: v2/health-run1-summary.json  p95_ms=40.77422459999999  http_req_failed=0  checks=1  http_reqs=31700  failed_thresholds=rate==1,rate==0
+[s9-carga] metrics: v2/health-run2-summary.json  p95_ms=38.79212625  http_req_failed=0  checks=1  http_reqs=27954  failed_thresholds=rate==1,rate==0
+[s9-carga] metrics: v2/health-run3-summary.json  p95_ms=48.26949285  http_req_failed=0  checks=1  http_reqs=26890  failed_thresholds=rate==1,rate==0
+[s9-carga] metrics: v2/list-run1-summary.json  p95_ms=68.50631199999998  http_req_failed=0.9985704074338814  checks=0.001431980906921241  http_reqs=1399  failed_thresholds=p(95)<252.6
+[s9-carga] metrics: v2/list-run2-summary.json  p95_ms=51.49723545  http_req_failed=1  checks=0  http_reqs=22134  failed_thresholds=p(95)<252.6
+[s9-carga] metrics: v2/list-run3-summary.json  p95_ms=82.25115509999999  http_req_failed=1  checks=0  http_reqs=20979  failed_thresholds=p(95)<252.6
+[s9-carga] metrics: v2/state-run1-summary.json  p95_ms=15.653923  http_req_failed=0.9926623983886051  checks=0.0038850318356775425  http_reqs=13901  failed_thresholds=none
+[s9-carga] metrics: v2/state-run2-summary.json  p95_ms=11.372895399999999  http_req_failed=1  checks=0  http_reqs=244  failed_thresholds=none
+[s9-carga] metrics: v2/state-run3-summary.json  p95_ms=17.3154897  http_req_failed=1  checks=0  http_reqs=30079  failed_thresholds=none
+[s9-carga] listo: benchmarks/s9/s9-carga-run1-contaminado

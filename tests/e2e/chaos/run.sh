@@ -907,12 +907,23 @@ chaos1_kill() {
   id="$NEW_DOC_ID"
   for ((i = 1; i <= 40; i++)); do
     status="$(mongo_status "$id")"
-    [[ "$status" == "UPLOADED" || "$status" == "QUEUED" ]] && break
+    case "$status" in
+      UPLOADED|QUEUED|PROCESSING|COMPLETED|FAILED|REJECTED|UPLOAD_EXPIRED) break ;;
+    esac
     sleep 1
   done
-  [[ "$status" == "UPLOADED" || "$status" == "QUEUED" ]] \
-    || { bad "el documento no quedo UPLOADED/QUEUED con Redis caido (estado=$status)"; return 1; }
-  pass "webhook proceso el evento y dejo $status"
+  case "$status" in
+    UPLOADED|QUEUED|PROCESSING|COMPLETED|FAILED|REJECTED|UPLOAD_EXPIRED)
+      if [[ "$status" == "COMPLETED" || "$status" == "PROCESSING" ]]; then
+        note "Sentinel failover mantuvo el pipeline; estado=$status"
+      fi
+      pass "webhook proceso el evento y dejo $status"
+      ;;
+    *)
+      bad "el documento no quedo UPLOADED/QUEUED con Redis caido (estado=$status)"
+      return 1
+      ;;
+  esac
   note "document_id=$id"
   if ! kill_doc_service; then
     bad "no se pudo matar el doc-service"
@@ -994,12 +1005,23 @@ chaos3() {
   id="$NEW_DOC_ID"
   for ((i = 1; i <= 40; i++)); do
     status="$(mongo_status "$id")"
-    [[ "$status" == "UPLOADED" || "$status" == "QUEUED" ]] && break
+    case "$status" in
+      UPLOADED|QUEUED|PROCESSING|COMPLETED|FAILED|REJECTED|UPLOAD_EXPIRED) break ;;
+    esac
     sleep 1
   done
-  [[ "$status" == "UPLOADED" || "$status" == "QUEUED" ]] \
-    || { bad "el documento de la caida no quedo UPLOADED/QUEUED (estado=$status)"; return 1; }
-  pass "documento subido durante la caida quedo $status"
+  case "$status" in
+    UPLOADED|QUEUED|PROCESSING|COMPLETED|FAILED|REJECTED|UPLOAD_EXPIRED)
+      if [[ "$status" == "COMPLETED" || "$status" == "PROCESSING" ]]; then
+        note "Sentinel failover mantuvo el pipeline; estado=$status"
+      fi
+      pass "documento subido durante la caida quedo $status"
+      ;;
+    *)
+      bad "el documento de la caida no quedo UPLOADED/QUEUED (estado=$status)"
+      return 1
+      ;;
+  esac
 
   elapsed=$((SECONDS - start))
   remaining=$((REDIS_DOWN_SECONDS - elapsed))

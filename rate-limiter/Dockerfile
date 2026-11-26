@@ -8,7 +8,8 @@ COPY internal/ ./internal/
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/ratelimitd ./cmd/ratelimitd
 
 FROM alpine:3.22
-RUN addgroup -S -g 10001 ratelimitd \
+RUN apk upgrade --no-cache \
+    && addgroup -S -g 10001 ratelimitd \
     && adduser -S -D -H -u 10001 -G ratelimitd -s /sbin/nologin ratelimitd
 # S11-P1-C12: cache last-known-good del cliente KV. El proceso corre como 10001
 # y el rootfs es de solo lectura, asi que el directorio debe existir en la

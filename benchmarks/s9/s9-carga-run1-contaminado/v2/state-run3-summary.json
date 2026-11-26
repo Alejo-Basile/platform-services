@@ -1,0 +1,146 @@
+{
+    "metrics": {
+        "http_req_tls_handshaking": {
+            "min": 0,
+            "med": 0,
+            "max": 25.33421,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0.0016611775324977558
+        },
+        "http_req_waiting": {
+            "avg": 4.46289488510258,
+            "min": 0,
+            "med": 2.362524,
+            "max": 100.900607,
+            "p(90)": 8.481013,
+            "p(95)": 14.91134929999999
+        },
+        "vus_max": {
+            "value": 5,
+            "min": 5,
+            "max": 5
+        },
+        "http_reqs": {
+            "count": 30079,
+            "rate": 653.6122263492708
+        },
+        "http_req_sending": {
+            "min": 0,
+            "med": 0.091884,
+            "max": 27.56737,
+            "p(90)": 0.7358050000000004,
+            "p(95)": 1.2605532999999982,
+            "avg": 0.32079202686259456
+        },
+        "http_req_failed": {
+            "passes": 30079,
+            "fails": 0,
+            "thresholds": {
+                "rate==0": true
+            },
+            "value": 1
+        },
+        "iterations": {
+            "count": 15039,
+            "rate": 326.7952482485017
+        },
+        "http_req_duration": {
+            "max": 106.254462,
+            "p(90)": 9.982708600000002,
+            "p(95)": 17.3154897,
+            "avg": 5.245989046710381,
+            "min": 0.032964,
+            "med": 2.929405
+        },
+        "http_req_blocked": {
+            "avg": 0.002876299411549592,
+            "min": 0.00008,
+            "med": 0.000305,
+            "max": 26.827776,
+            "p(90)": 0.000657,
+            "p(95)": 0.000892
+        },
+        "data_sent": {
+            "rate": 73310.80659885335,
+            "count": 3373737
+        },
+        "vus": {
+            "value": 1,
+            "min": 1,
+            "max": 5
+        },
+        "http_req_connecting": {
+            "min": 0,
+            "med": 0,
+            "max": 2.560317,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0.0001660772964526746
+        },
+        "data_received": {
+            "count": 3658660,
+            "rate": 79502.14129642019
+        },
+        "iteration_duration": {
+            "max": 171.971437,
+            "p(90)": 23.6059212,
+            "p(95)": 36.85750469999999,
+            "avg": 11.134898480816545,
+            "min": 1.167908,
+            "med": 6.937402
+        },
+        "checks": {
+            "passes": 0,
+            "fails": 60157,
+            "thresholds": {
+                "rate==1": true
+            },
+            "value": 0
+        },
+        "http_req_receiving": {
+            "avg": 0.4623021347451703,
+            "min": 0.009051,
+            "med": 0.069457,
+            "max": 86.071339,
+            "p(90)": 0.9832626000000001,
+            "p(95)": 1.7676210999999993
+        }
+    },
+    "root_group": {
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "create for state 201": {
+                    "name": "create for state 201",
+                    "path": "::create for state 201",
+                    "id": "39320f997be3fbe78f4a2ba2e1bd5a80",
+                    "passes": 0,
+                    "fails": 15040
+                },
+                "state 200": {
+                    "fails": 15039,
+                    "name": "state 200",
+                    "path": "::state 200",
+                    "id": "a2fc965ddd6df76dbfc7771fbab2fbcd",
+                    "passes": 0
+                },
+                "state document_id": {
+                    "name": "state document_id",
+                    "path": "::state document_id",
+                    "id": "2f060d749f7a688a380633197eb0dbe9",
+                    "passes": 0,
+                    "fails": 15039
+                },
+                "state PENDING_UPLOAD": {
+                    "id": "0c648e9602f1141a935970d9d5cd8ee6",
+                    "passes": 0,
+                    "fails": 15039,
+                    "name": "state PENDING_UPLOAD",
+                    "path": "::state PENDING_UPLOAD"
+                }
+            }
+    }
+}

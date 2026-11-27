@@ -8,8 +8,8 @@
 #
 # `smoke` valida gateway, monolito legacy, Mongo y MinIO.
 # `happy` valida el camino v2 hasta UPLOADED y el mensaje en Redis Streams.
-# El worker de extracción no existe todavía: no se valida COMPLETED y el DoD
-# de S1-P4-04 queda BLOQUEADO (se registra en la evidencia).
+# Este escenario no levanta el worker de extracción, por eso no exige COMPLETED;
+# la cadena completa (worker real -> COMPLETED -> .md) la cubre tests/e2e/chain/run.sh.
 #
 # Seguridad de datos:
 #   - Usa el proyecto Compose `infra` (o `P4_COMPOSE_PROJECT`).
@@ -313,7 +313,7 @@ happy() {
       || fail "los jobs de inicialización no terminaron con exit 0"
   fi
 
-  log "S1-P4-04 parcial: worker no implementado; se valida hasta UPLOADED y Redis Streams"
+  log "happy: se valida hasta UPLOADED y Redis Streams (worker no incluido; COMPLETED lo cubre chain/run.sh)"
   local failures=0
   for ((n = 1; n <= RUNS; n++)); do
     if happy_once "$n"; then
@@ -327,7 +327,7 @@ happy() {
     log "happy: $failures/$RUNS ejecuciones fallaron"
     return 1
   fi
-  log "happy: $RUNS/$RUNS ejecuciones OK (COMPLETED no validado: S1-P3-02 pendiente)"
+  log "happy: $RUNS/$RUNS ejecuciones OK (COMPLETED no se exige en este escenario; ver chain/run.sh)"
   return 0
 }
 
